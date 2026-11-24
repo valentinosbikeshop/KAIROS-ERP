@@ -57,40 +57,40 @@ const TIER_SIM_INFO: Record<
     hasAi: false,
     hasPdf: false,
     hasAnalytics: false,
-    shellClass: 'bg-white border-slate-200 text-slate-900',
-    badgeClass: 'bg-slate-200 text-slate-800',
+    shellClass: 'bg-card border-border/80 text-foreground',
+    badgeClass: 'bg-secondary text-muted-foreground border border-border/80',
   },
   essential: {
     name: 'Operación Esencial',
     hasAi: false,
     hasPdf: true,
     hasAnalytics: false,
-    shellClass: 'bg-blue-50/70 border-blue-200 text-blue-950',
-    badgeClass: 'bg-blue-600 text-white',
+    shellClass: 'bg-[#F1F3F5]/90 border-[#3A5A80]/25 text-[#1E2A38]',
+    badgeClass: 'bg-[#3A5A80] text-white',
   },
   growth: {
     name: 'Crecimiento Inteligente IA',
     hasAi: true,
     hasPdf: true,
     hasAnalytics: true,
-    shellClass: 'glass-luxury text-white border-amber-400/30',
-    badgeClass: 'bg-amber-400 text-slate-950',
+    shellClass: 'glass-luxury hairline-shimmer text-[#F7F5F0] border-[#9A7B4F]/35',
+    badgeClass: 'bg-[#C9AD82] text-[#171715]',
   },
   scale: {
     name: 'Corporativo & Escala',
     hasAi: true,
     hasPdf: true,
     hasAnalytics: true,
-    shellClass: 'bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 text-white border-emerald-400/30',
-    badgeClass: 'bg-emerald-400 text-slate-950',
+    shellClass: 'bg-gradient-to-br from-[#141412] via-[#151816] to-[#13221C] text-[#F7F5F0] border-[#356854]/40',
+    badgeClass: 'bg-[#9FD3BC] text-[#141412]',
   },
   custom: {
     name: 'Paga lo que usas',
     hasAi: true,
     hasPdf: true,
     hasAnalytics: false,
-    shellClass: 'bg-slate-900 text-white border-slate-700',
-    badgeClass: 'bg-white text-slate-950',
+    shellClass: 'bg-[#171715] text-[#F7F5F0] border-white/10',
+    badgeClass: 'bg-[#F7F5F0] text-[#171715]',
   },
 };
 
@@ -214,15 +214,15 @@ export default function LocalDemoSandboxPage() {
       className="min-h-screen bg-background pb-24"
     >
       {/* Top Bar Sandbox */}
-      <header className="sticky top-0 z-40 border-b border-border/70 bg-slate-950 text-white px-4 sm:px-8 py-3">
+      <header className="sticky top-0 z-40 border-b border-white/[0.08] bg-[#121210]/95 backdrop-blur-2xl text-[#F7F5F0] px-4 sm:px-8 py-3">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <KairosLogo size="sm" subtitle="Evaluación en Caché" />
-            <Badge className="bg-amber-400 text-slate-950 border-0 font-bold gap-1">
+            <KairosLogo size="sm" subtitle="Evaluación en Caché" wordmarkClassName="text-[#F7F5F0]" />
+            <Badge className="bg-[#C9AD82]/15 text-[#D7BE96] border border-[#9A7B4F]/35 font-mono text-[10px] tracking-[0.14em] gap-1">
               <FlaskConical className="h-3 w-3" />
               MODO DEMO LOCAL
             </Badge>
-            <span className="hidden md:inline text-xs text-slate-400">
+            <span className="hidden md:inline text-xs text-stone-400">
               Cero guardado en servidor · Solo caché de tu navegador
             </span>
           </div>
@@ -233,7 +233,7 @@ export default function LocalDemoSandboxPage() {
               size="sm"
               variant="outline"
               onClick={handleResetCache}
-              className="h-8 text-xs bg-transparent border-slate-700 text-slate-200 hover:bg-slate-800 gap-1.5"
+              className="h-8 text-xs bg-transparent border-white/15 text-stone-300 hover:bg-white/10 hover:text-white gap-1.5"
             >
               <RotateCcw className="h-3.5 w-3.5" />
               Resetear Caché
@@ -241,7 +241,7 @@ export default function LocalDemoSandboxPage() {
             <Link href="/welcome#planes">
               <Button
                 size="sm"
-                className="h-8 text-xs bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold gap-1.5 tactile-press"
+                className="h-8 text-xs bg-[#C9AD82] hover:bg-[#D7BE96] text-[#171715] font-semibold gap-1.5 tactile-press"
               >
                 Elegir Plan Oficial
                 <ArrowRight className="h-3.5 w-3.5" />

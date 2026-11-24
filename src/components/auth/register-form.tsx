@@ -149,17 +149,17 @@ export function RegisterForm() {
   };
 
   return (
-    <Card className="w-full glass-card border-slate-200/80 shadow-xl">
+    <Card className="w-full glass-card border-border/80 shadow-xl animate-reveal-up">
       <CardHeader className="space-y-3 text-center pb-4">
         <div className="flex justify-center">
           <KairosLogo size="lg" />
         </div>
         <CardTitle className="sr-only">KAIROS ERP</CardTitle>
-        <CardDescription className="text-slate-600 text-sm">
+        <CardDescription className="text-muted-foreground text-sm">
           Configura tu ERP a medida en menos de 2 minutos
         </CardDescription>
 
-        <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-slate-100/90 border border-slate-200/80 mt-2">
+        <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-secondary/80 border border-border/80 mt-2">
           <button
             type="button"
             onClick={() => {
@@ -167,10 +167,10 @@ export function RegisterForm() {
               setError(null);
             }}
             className={cn(
-              'flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all tactile-press',
+              'flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-medium transition-all tactile-press',
               mode === 'owner'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-[#171715] text-[#F7F5F0] shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
             )}
           >
             <Building2 className="h-3.5 w-3.5" />
@@ -183,10 +183,10 @@ export function RegisterForm() {
               setError(null);
             }}
             className={cn(
-              'flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all tactile-press',
+              'flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-medium transition-all tactile-press',
               mode === 'invite'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-[#171715] text-[#F7F5F0] shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
             )}
           >
             <KeyRound className="h-3.5 w-3.5" />
@@ -198,9 +198,9 @@ export function RegisterForm() {
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-3.5">
           {mode === 'owner' && (
-            <div className="p-3 rounded-xl bg-slate-900 text-white text-xs flex items-center justify-between gap-2">
+            <div className="p-3.5 rounded-2xl glass-luxury text-[#F7F5F0] text-xs flex items-center justify-between gap-2">
               <div className="space-y-0.5">
-                <span className="text-[10px] uppercase tracking-wider text-amber-300 font-bold block">
+                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#D7BE96] block">
                   Plan Preseleccionado
                 </span>
                 <span className="font-semibold">
@@ -208,7 +208,7 @@ export function RegisterForm() {
                 </span>
               </div>
               <Link href="/welcome#planes">
-                <Badge className="bg-amber-400 hover:bg-amber-300 text-slate-950 border-0 cursor-pointer">
+                <Badge className="bg-[#C9AD82] hover:bg-[#D7BE96] text-[#171715] border-0 cursor-pointer">
                   {urlPlan ? 'Cambiar' : 'Ver Planes'}
                 </Badge>
               </Link>
@@ -312,8 +312,8 @@ export function RegisterForm() {
           </div>
 
           {mode === 'owner' && (
-            <div className="p-2.5 rounded-lg bg-amber-50/80 border border-amber-200/80 text-[11px] text-amber-900 flex items-center gap-2">
-              <Sparkles className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+            <div className="p-2.5 rounded-xl bg-[#9A7B4F]/10 border border-[#9A7B4F]/25 text-[11px] text-[#6B5434] flex items-center gap-2">
+              <Sparkles className="h-3.5 w-3.5 text-[#9A7B4F] shrink-0" />
               <span>
                 Luego confirmarás tu rubro, personalización visual y activación con Khipu (o plan gratuito).
               </span>

@@ -49,7 +49,7 @@ export function Header({ onToggleSidebar, onSignOut }: HeaderProps) {
   };
 
   return (
-    <header className="h-16 border-b border-border/60 bg-card/80 backdrop-blur-xl sticky top-0 z-40 flex items-center justify-between px-4 sm:px-6 shadow-2xs">
+    <header className="h-16 border-b border-border/65 bg-[#FCFBF9]/75 backdrop-blur-2xl sticky top-0 z-40 flex items-center justify-between px-4 sm:px-6 shadow-[0_1px_0_rgba(255,255,255,0.6)]">
       <div className="flex items-center lg:hidden">
         <Button variant="ghost" size="icon" onClick={onToggleSidebar}>
           <Menu className="h-5 w-5" />
@@ -109,7 +109,7 @@ export function Header({ onToggleSidebar, onSignOut }: HeaderProps) {
           size="sm"
           disabled={signingOut}
           onClick={handleSignOut}
-          className="h-8 gap-1.5 text-xs font-medium text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+          className="h-8 gap-1.5 text-xs font-medium text-muted-foreground border-border/80 hover:bg-[#9E3B33]/8 hover:text-[#9E3B33] hover:border-[#9E3B33]/25"
           title="Cerrar sesión actual"
         >
           {signingOut ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}

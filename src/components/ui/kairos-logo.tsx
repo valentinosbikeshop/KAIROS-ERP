@@ -12,9 +12,9 @@ interface KairosLogoProps {
 }
 
 const SIZE_MAP = {
-  sm: { icon: 24, title: 'text-sm', badge: 'text-[9px] px-1.5 py-0.5' },
-  md: { icon: 34, title: 'text-lg', badge: 'text-[10px] px-1.5 py-0.5' },
-  lg: { icon: 44, title: 'text-2xl', badge: 'text-[11px] px-2 py-0.5' },
+  sm: { icon: 28, title: 'text-sm', badge: 'text-[9px]' },
+  md: { icon: 36, title: 'text-base', badge: 'text-[10px]' },
+  lg: { icon: 46, title: 'text-xl', badge: 'text-[11px]' },
 };
 
 export function KairosLogo({
@@ -28,67 +28,108 @@ export function KairosLogo({
   const dims = SIZE_MAP[size];
 
   return (
-    <div className={cn('inline-flex items-center gap-2.5 select-none', className)}>
+    <div className={cn('group inline-flex items-center gap-3 select-none', className)}>
       <svg
         width={dims.icon}
         height={dims.icon}
-        viewBox="0 0 40 40"
+        viewBox="0 0 44 44"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="shrink-0 drop-shadow-xs"
+        className="shrink-0"
         aria-hidden="true"
       >
         <defs>
-          <linearGradient id={`kairosBg-${uid}`} x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#0F172A" />
-            <stop offset="100%" stopColor="#1E1B4B" />
+          <linearGradient id={`kairosObsidian-${uid}`} x1="4" y1="4" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#1B1B19" />
+            <stop offset="100%" stopColor="#0E0E0D" />
           </linearGradient>
-          <linearGradient id={`kairosPrism-${uid}`} x1="16" y1="10" x2="31" y2="30" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#F59E0B" />
-            <stop offset="100%" stopColor="#FBBF24" />
+          <linearGradient id={`kairosChampagne-${uid}`} x1="16" y1="11" x2="31" y2="33" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#D7BE96" />
+            <stop offset="55%" stopColor="#9A7B4F" />
+            <stop offset="100%" stopColor="#7C613B" />
           </linearGradient>
-          <linearGradient id={`kairosWing-${uid}`} x1="17" y1="20" x2="30" y2="30" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#818CF8" />
-            <stop offset="100%" stopColor="#4F46E5" />
+          <linearGradient id={`kairosRing-${uid}`} x1="2" y1="2" x2="42" y2="42" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#C9AD82" stopOpacity="0.65" />
+            <stop offset="50%" stopColor="#9A7B4F" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="#C9AD82" stopOpacity="0.65" />
           </linearGradient>
         </defs>
+
+        {/* Base architectural medallion */}
         <rect
-          x="1"
-          y="1"
-          width="38"
-          height="38"
-          rx="10"
-          fill={`url(#kairosBg-${uid})`}
-          stroke="#334155"
-          strokeWidth="1.2"
+          x="2"
+          y="2"
+          width="40"
+          height="40"
+          rx="12"
+          fill={`url(#kairosObsidian-${uid})`}
+          stroke={`url(#kairosRing-${uid})`}
+          strokeWidth="1"
         />
-        <rect x="11" y="9.5" width="3.8" height="21" rx="1.9" fill="#F8FAFC" />
+
+        {/* Rotating precision astrolabe calibration ring */}
+        <g
+          style={{ transformOrigin: '22px 22px' }}
+          className="transition-transform duration-700 ease-out group-hover:rotate-[15deg]"
+        >
+          <circle
+            cx="22"
+            cy="22"
+            r="15.5"
+            stroke="#9A7B4F"
+            strokeOpacity="0.28"
+            strokeWidth="0.75"
+            strokeDasharray="2.5 3.5"
+          />
+          <circle cx="22" cy="6.5" r="0.9" fill="#C9AD82" fillOpacity="0.75" />
+          <circle cx="22" cy="37.5" r="0.9" fill="#C9AD82" fillOpacity="0.45" />
+        </g>
+
+        {/* Monogram K: Vertical architectural pillar */}
         <path
-          d="M16.5 19.6L25.8 10.2C26.4 9.6 27.3 9.5 28.0 9.9C28.8 10.4 28.9 11.5 28.2 12.2L19.8 20.6L16.5 19.6Z"
-          fill={`url(#kairosPrism-${uid})`}
+          d="M15.25 13V31"
+          stroke="#F7F5F0"
+          strokeWidth="2.1"
+          strokeLinecap="round"
         />
+
+        {/* Monogram K: Upper gnomon vector in brushed champagne */}
         <path
-          d="M19.8 20.1L28.4 28.0C29.1 28.7 29.0 29.8 28.2 30.3C27.5 30.7 26.5 30.6 25.9 30.0L16.6 21.1L19.8 20.1Z"
-          fill={`url(#kairosWing-${uid})`}
+          d="M28.5 13.5L17.6 22.1"
+          stroke={`url(#kairosChampagne-${uid})`}
+          strokeWidth="2.1"
+          strokeLinecap="round"
         />
-        <circle cx="17.8" cy="20.4" r="1.9" fill="#FBBF24" />
+
+        {/* Monogram K: Lower precision counter-diagonal */}
+        <path
+          d="M20.2 20.4L28.8 30.5"
+          stroke="#E7E2D8"
+          strokeOpacity="0.9"
+          strokeWidth="1.9"
+          strokeLinecap="round"
+        />
+
+        {/* Nexus focal point */}
+        <circle cx="17.6" cy="22.1" r="1.75" fill="#C9AD82" />
       </svg>
 
       {showWordmark && (
         <div className="flex flex-col leading-none">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <span
               className={cn(
-                'font-extrabold tracking-tight text-slate-900 dark:text-slate-100',
+                'font-semibold tracking-[0.22em] text-foreground transition-colors',
                 dims.title,
                 wordmarkClassName
               )}
             >
               KAIROS
             </span>
+            <span className="h-3.5 w-px bg-border/80" aria-hidden="true" />
             <span
               className={cn(
-                'rounded-md bg-slate-900 text-amber-400 font-bold tracking-wider uppercase border border-slate-700/60',
+                'font-mono font-medium tracking-[0.24em] uppercase text-[#9A7B4F]',
                 dims.badge
               )}
             >
@@ -96,7 +137,7 @@ export function KairosLogo({
             </span>
           </div>
           {subtitle && (
-            <span className="text-[10px] font-medium text-muted-foreground tracking-wide mt-0.5">
+            <span className="text-[10px] font-medium text-muted-foreground tracking-[0.06em] mt-1">
               {subtitle}
             </span>
           )}
@@ -127,13 +168,13 @@ export function CompanyLogoMark({
     setImgError(false);
   }, [logoUrl]);
 
-  const boxClass = size === 'md' ? 'h-10 w-10 rounded-xl text-sm' : 'h-8 w-8 rounded-lg text-xs';
+  const boxClass = size === 'md' ? 'h-10 w-10 rounded-xl text-xs' : 'h-8 w-8 rounded-lg text-[11px]';
 
   if (logoUrl && !imgError) {
     return (
       <div
         className={cn(
-          'shrink-0 overflow-hidden border border-border/60 bg-white flex items-center justify-center p-0.5 shadow-2xs',
+          'shrink-0 overflow-hidden border border-border/70 bg-card flex items-center justify-center p-0.5 shadow-2xs',
           boxClass,
           className
         )}
@@ -158,10 +199,10 @@ export function CompanyLogoMark({
   return (
     <div
       className={cn(
-        'shrink-0 flex items-center justify-center font-bold tracking-tight border shadow-2xs',
+        'shrink-0 flex items-center justify-center font-mono font-semibold tracking-wider border shadow-2xs',
         isDemo
-          ? 'bg-amber-500/15 text-amber-700 border-amber-400/50'
-          : 'bg-slate-900 text-amber-400 border-slate-700',
+          ? 'bg-[#9A7B4F]/12 text-[#85673E] border-[#9A7B4F]/30'
+          : 'bg-[#171715] text-[#C9AD82] border-[#9A7B4F]/30',
         boxClass,
         className
       )}

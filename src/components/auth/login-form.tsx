@@ -134,15 +134,15 @@ export function LoginForm() {
   const busy = loading || demoLoading;
 
   return (
-    <div className="space-y-4 w-full">
-      <Card className="w-full shadow-lg border-slate-200">
+    <div className="space-y-4 w-full animate-reveal-up">
+      <Card className="w-full glass-card border-border/80 shadow-xl">
         <CardHeader className="space-y-3 text-center">
           <div className="flex justify-center">
             <KairosLogo size="lg" />
           </div>
           <CardTitle className="sr-only">KAIROS ERP</CardTitle>
-          <CardDescription className="text-slate-500">
-            Acceso privado multiempresa para gestión financiera, cotizaciones y producción de eventos
+          <CardDescription className="text-muted-foreground">
+            Acceso privado multiempresa para gestión financiera, cotizaciones y producción de proyectos
           </CardDescription>
         </CardHeader>
         {mfaFactorId ? (
@@ -254,22 +254,22 @@ export function LoginForm() {
       </Card>
 
       {/* Interactive Demo Sandbox Entry Card */}
-      <Card className="w-full border-indigo-200 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg">
+      <Card className="w-full glass-luxury hairline-shimmer border-[#9A7B4F]/35 text-[#F7F5F0]">
         <CardContent className="p-5 space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1">
-              <div className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-amber-300">
+              <div className="inline-flex items-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-[#D7BE96]">
                 <Sparkles className="h-3.5 w-3.5" />
                 Evaluación para Clientes Externos
               </div>
-              <h3 className="text-base font-bold text-white">
+              <h3 className="text-base font-semibold tracking-tight text-[#F7F5F0]">
                 Explorar Sesión de Prueba Interactiva
               </h3>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <p className="text-xs text-stone-300 leading-relaxed">
                 Prueba el ERP adaptado a cualquiera de los 9 rubros y simula todos los planes directamente en el caché local de tu navegador, sin registro y sin guardar datos en la nube.
               </p>
             </div>
-            <div className="p-2.5 rounded-xl bg-indigo-500/20 border border-indigo-400/30 text-indigo-200 shrink-0">
+            <div className="p-2.5 rounded-xl bg-[#9A7B4F]/15 border border-[#9A7B4F]/30 text-[#D7BE96] shrink-0">
               <FlaskConical className="h-5 w-5" />
             </div>
           </div>
@@ -278,7 +278,7 @@ export function LoginForm() {
             type="button"
             onClick={handleEnterDemo}
             disabled={busy}
-            className="w-full bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold gap-2 transition-all"
+            className="w-full bg-[#C9AD82] hover:bg-[#D7BE96] text-[#171715] font-semibold gap-2 transition-all"
           >
             {demoLoading ? (
               <>
@@ -293,8 +293,8 @@ export function LoginForm() {
             )}
           </Button>
 
-          <p className="text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+          <p className="text-[11px] text-stone-400 flex items-center justify-center gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5 text-[#9FD3BC] shrink-0" />
             Entorno sandbox 100% aislado de empresas privadas.
           </p>
         </CardContent>

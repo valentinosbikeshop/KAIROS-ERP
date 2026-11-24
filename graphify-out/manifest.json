@@ -150,9 +150,9 @@
     "semantic_hash": ""
   },
   "src/app/layout.tsx": {
-    "mtime": 1795531130.364132,
-    "seen": 1795532558.5631337,
-    "ast_hash": "519d5df471778f8de0eba1d2c91eabe6",
+    "mtime": 1795536747.0986247,
+    "seen": 1795536993.1164532,
+    "ast_hash": "26a79db4626f13c03432a087be2e896d",
     "semantic_hash": ""
   },
   "src/components/analytics/cost-distribution.tsx": {
@@ -174,15 +174,15 @@
     "semantic_hash": ""
   },
   "src/components/auth/login-form.tsx": {
-    "mtime": 1795535022.2593167,
-    "seen": 1795535103.8176577,
-    "ast_hash": "30e2da786a2b6c0064fc5251e6f42d52",
+    "mtime": 1795536933.653832,
+    "seen": 1795536993.1164532,
+    "ast_hash": "edf9c6ea034e966290b934f3e913833a",
     "semantic_hash": ""
   },
   "src/components/auth/register-form.tsx": {
-    "mtime": 1795534616.3867822,
-    "seen": 1795534709.2348158,
-    "ast_hash": "c4c6076474253263a7870773cc7677c0",
+    "mtime": 1795536943.5874782,
+    "seen": 1795536993.1164532,
+    "ast_hash": "5cdccef02652aef0a9b927f38da2e833",
     "semantic_hash": ""
   },
   "src/components/costs/columns.tsx": {
@@ -282,9 +282,9 @@
     "semantic_hash": ""
   },
   "src/components/layout/header.tsx": {
-    "mtime": 1795534464.3096242,
-    "seen": 1795534709.2348158,
-    "ast_hash": "ff81dd743b0ca1dc2651aeec01e7db4b",
+    "mtime": 1795536809.4925518,
+    "seen": 1795536993.1189632,
+    "ast_hash": "1123dd0adde72c98952e79469ac99500",
     "semantic_hash": ""
   },
   "src/components/layout/nav-links.tsx": {
@@ -294,9 +294,9 @@
     "semantic_hash": ""
   },
   "src/components/layout/sidebar.tsx": {
-    "mtime": 1795534955.967521,
-    "seen": 1795535103.8334668,
-    "ast_hash": "e45597038badf9f7d7376ae14e533a25",
+    "mtime": 1795536805.7713256,
+    "seen": 1795536993.1189632,
+    "ast_hash": "92a458f434ec12e3b86f9b33e9610a8b",
     "semantic_hash": ""
   },
   "src/components/reports/client-quote-pdf-dialog.tsx": {
@@ -318,15 +318,15 @@
     "semantic_hash": ""
   },
   "src/components/ui/button.tsx": {
-    "mtime": 1787950337.1547017,
-    "seen": 1794566780.6751387,
-    "ast_hash": "bea14429836345a321269cfcd1d1873d",
+    "mtime": 1795536776.163823,
+    "seen": 1795536993.1189632,
+    "ast_hash": "2881f7f78bec5ab56209478fd5b45723",
     "semantic_hash": ""
   },
   "src/components/ui/card.tsx": {
-    "mtime": 1788133672.6171365,
-    "seen": 1794566780.6751387,
-    "ast_hash": "0c7d12e2bdfab6d2c0343977f61dd295",
+    "mtime": 1795536773.994326,
+    "seen": 1795536993.1189632,
+    "ast_hash": "e5fde77432cc6208c8833095239bd60e",
     "semantic_hash": ""
   },
   "src/components/ui/dialog.tsx": {
@@ -444,9 +444,9 @@
     "semantic_hash": ""
   },
   "tailwind.config.ts": {
-    "mtime": 1795531133.395692,
-    "seen": 1795532558.5777519,
-    "ast_hash": "8d06fd6a483e2700e2c263dff97c0bf4",
+    "mtime": 1795536751.2329595,
+    "seen": 1795536993.1283553,
+    "ast_hash": "1fc65ea110f129d4f3282c90bbd9178d",
     "semantic_hash": ""
   },
   "test-ai.mjs": {
@@ -534,9 +534,9 @@
     "semantic_hash": ""
   },
   "src/components/ui/kairos-logo.tsx": {
-    "mtime": 1794623849.7370815,
-    "seen": 1794624360.064214,
-    "ast_hash": "43630d50aad16e3a43a044386972870a",
+    "mtime": 1795536772.2662342,
+    "seen": 1795536993.1189632,
+    "ast_hash": "8291801cd053f7426a395ac31830c4bf",
     "semantic_hash": ""
   },
   "src/lib/image-to-png.ts": {
@@ -708,9 +708,9 @@
     "semantic_hash": ""
   },
   "src/components/billing/plans-matrix.tsx": {
-    "mtime": 1795535005.3925028,
-    "seen": 1795535103.8256905,
-    "ast_hash": "2206094b842a1264bf1ac9af59f44ba4",
+    "mtime": 1795536893.5615702,
+    "seen": 1795536993.1164532,
+    "ast_hash": "ca5766a8b8f4682d6affe736939ab35c",
     "semantic_hash": ""
   },
   "src/components/governance/plans-admin-tab.tsx": {
@@ -762,15 +762,15 @@
     "semantic_hash": ""
   },
   "src/app/demo/page.tsx": {
-    "mtime": 1795535001.4896145,
-    "seen": 1795535103.815648,
-    "ast_hash": "c79d3d3f86c7b1b9e9c2703c84481b9f",
+    "mtime": 1795536929.5432324,
+    "seen": 1795536993.1164532,
+    "ast_hash": "66e1ee023172cdce2158ecba87a96472",
     "semantic_hash": ""
   },
   "src/app/welcome/page.tsx": {
-    "mtime": 1795534614.012398,
-    "seen": 1795534709.2348158,
-    "ast_hash": "34cb20b3c840a334a9272cd7cc9d9363",
+    "mtime": 1795536861.4774847,
+    "seen": 1795536993.1164532,
+    "ast_hash": "9e57c16d24f922a5d98b4f0c7ba43440",
     "semantic_hash": ""
   }
 }

@@ -1,21 +1,23 @@
 import type { Metadata } from 'next';
-import { Inter, Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google';
+import { Manrope, Instrument_Serif, IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
 
-const inter = Inter({
+const manrope = Manrope({
   subsets: ['latin'],
   variable: '--font-sans',
+  weight: ['400', '500', '600', '700', '800'],
   display: 'swap',
 });
 
-const jakarta = Plus_Jakarta_Sans({
+const instrumentSerif = Instrument_Serif({
   subsets: ['latin'],
-  variable: '--font-display',
-  weight: ['500', '600', '700', '800'],
+  variable: '--font-serif',
+  weight: '400',
+  style: ['normal', 'italic'],
   display: 'swap',
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const ibmPlexMono = IBM_Plex_Mono({
   subsets: ['latin'],
   variable: '--font-mono',
   weight: ['400', '500', '600'],
@@ -23,9 +25,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'KAIROS ERP | Gestión Financiera & Proyectos por Rubro con IA',
+  title: 'KAIROS ERP | Arquitectura Financiera & Proyectos por Rubro con IA',
   description:
-    'KAIROS ERP — Plataforma SaaS Multi-Empresa de gestión operativa, cotizaciones y planificación financiera con IA',
+    'KAIROS ERP — Plataforma SaaS Multi-Empresa de gestión operativa, cotizaciones y planificación financiera con precisión arquitectónica',
 };
 
 export default function RootLayout({
@@ -36,9 +38,9 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`${inter.variable} ${jakarta.variable} ${jetbrainsMono.variable}`}
+      className={`${manrope.variable} ${instrumentSerif.variable} ${ibmPlexMono.variable}`}
     >
-      <body className="font-sans antialiased selection:bg-primary/15 selection:text-primary">
+      <body className="font-sans antialiased selection:bg-[#9A7B4F]/20 selection:text-foreground">
         {children}
       </body>
     </html>

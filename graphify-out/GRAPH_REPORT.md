@@ -1,7 +1,7 @@
 # Graph Report - resilient-volta  (2026-11-24)
 
 ## Corpus Check
-- 127 files · ~102,456 words
+- 127 files · ~102,829 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 4 file(s) not represented in the graph (top: (none) 2, .css 1, .tsbuildinfo 1)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `5b46beda`
+- Built from commit: `01417354`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -113,7 +113,7 @@ Nodes (18): dynamic, POST(), runtime, dynamic, GET(), runtime, dynamic, POST() (
 
 ### Community 10 - "app/layout.tsx"
 Cohesion: 0.29
-Nodes (4): inter, jakarta, jetbrainsMono, metadata
+Nodes (4): ibmPlexMono, instrumentSerif, manrope, metadata
 
 ### Community 18 - "companies/route.ts"
 Cohesion: 0.21
