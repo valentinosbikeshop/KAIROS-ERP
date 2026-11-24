@@ -125,7 +125,7 @@ export function SpotlightOverlay({
       {/* Subtle highlight ring around the spotlighted element */}
       {rect && (
         <div
-          className="fixed border-2 border-amber-400/80 shadow-[0_0_0_4px_rgba(251,191,36,0.18)] transition-all duration-200 ease-out pointer-events-none"
+          className="fixed border-2 border-[#1261E0] shadow-[0_0_0_4px_rgba(18,97,224,0.2)] transition-all duration-200 ease-out pointer-events-none"
           style={{
             top: rect.top,
             left: rect.left,

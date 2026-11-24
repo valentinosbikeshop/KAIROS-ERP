@@ -24,7 +24,7 @@ function KairosMascot({ mood }: { mood: MascotMood }) {
 
   return (
     <motion.div
-      className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 border border-amber-400/50 shadow-lg"
+      className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1261E0] via-[#0F4FB8] to-[#0D8A72] border border-white/60 shadow-md"
       animate={
         shouldReduceMotion
           ? undefined
@@ -272,12 +272,12 @@ export function KairosGuideBot() {
               ? { duration: 0.12 }
               : { type: 'spring', stiffness: 260, damping: 24 }
           }
-          className="fixed z-[100] w-[calc(100vw-2rem)] max-w-[360px] rounded-2xl border border-slate-700/80 bg-slate-900/95 text-slate-100 shadow-2xl backdrop-blur-xl p-4"
+          className="fixed z-[100] w-[calc(100vw-2rem)] max-w-[360px] rounded-2xl border border-slate-200/90 bg-white/95 text-slate-900 shadow-[0_20px_50px_rgba(15,23,42,0.18)] backdrop-blur-xl p-4"
         >
           {/* Top Progress & Skip Bar */}
           <div className="flex items-center justify-between gap-2 mb-3">
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/15 px-2.5 py-0.5 text-[11px] font-semibold text-amber-300 border border-amber-400/30">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#1261E0]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#1261E0] border border-[#1261E0]/20">
                 <Sparkles className="h-3 w-3" />
                 {isCelebrating
                   ? '¡Completado!'
@@ -287,7 +287,7 @@ export function KairosGuideBot() {
             <button
               type="button"
               onClick={skipTour}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-400 hover:text-white hover:bg-slate-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1261E0]"
             >
               Omitir tour
               <X className="h-3.5 w-3.5" />
@@ -295,9 +295,9 @@ export function KairosGuideBot() {
           </div>
 
           {/* Gamified Progress Track */}
-          <div className="h-1.5 w-full rounded-full bg-slate-800 overflow-hidden mb-4">
+          <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden mb-4">
             <motion.div
-              className="h-full bg-gradient-to-r from-amber-400 via-sky-400 to-emerald-400"
+              className="h-full bg-gradient-to-r from-[#1261E0] via-[#0284C7] to-[#0D8A72]"
               initial={false}
               animate={{ width: `${progressPercent}%` }}
               transition={
@@ -314,11 +314,11 @@ export function KairosGuideBot() {
               <div className="flex items-start gap-3">
                 <KairosMascot mood="celebrating" />
                 <div>
-                  <h3 className="text-base font-semibold text-white flex items-center gap-1.5">
-                    <Trophy className="h-4 w-4 text-amber-400" />
+                  <h3 className="text-base font-semibold text-slate-900 flex items-center gap-1.5">
+                    <Trophy className="h-4 w-4 text-[#0D8A72]" />
                     ¡Listo! Ya domina KAIROS ERP
                   </h3>
-                  <p className="mt-1 text-xs leading-relaxed text-slate-300">
+                  <p className="mt-1 text-xs leading-relaxed text-slate-600">
                     Ha completado el flujo central: control financiero, operaciones y
                     cálculo tributario SII en tiempo real.
                   </p>
@@ -331,7 +331,7 @@ export function KairosGuideBot() {
                   variant="ghost"
                   size="sm"
                   onClick={finishCelebration}
-                  className="text-xs text-slate-300 hover:text-white hover:bg-slate-800"
+                  className="text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                 >
                   Seguir explorando
                 </Button>
@@ -339,7 +339,7 @@ export function KairosGuideBot() {
                   <Button
                     type="button"
                     size="sm"
-                    className="gap-1.5 bg-amber-400 text-slate-950 hover:bg-amber-300 font-semibold text-xs"
+                    className="gap-1.5 bg-[#1261E0] text-white hover:bg-[#0F4FB8] font-semibold text-xs shadow-sm"
                   >
                     Crear cuenta empresarial
                     <ArrowRight className="h-3.5 w-3.5" />
@@ -353,31 +353,31 @@ export function KairosGuideBot() {
                 <div className="flex items-start gap-3">
                   <KairosMascot mood={mood} />
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-semibold text-white leading-snug">
+                    <h3 className="text-sm font-semibold text-slate-900 leading-snug">
                       {currentStep.title}
                     </h3>
-                    <p className="mt-1.5 text-xs leading-relaxed text-slate-300">
+                    <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
                       {currentStep.message}
                     </p>
                   </div>
                 </div>
 
                 {/* Action / Navigation Footer */}
-                <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800">
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     onClick={prevStep}
                     disabled={currentStepIndex === 0}
-                    className="h-8 px-2.5 text-xs text-slate-300 hover:text-white hover:bg-slate-800 disabled:opacity-40"
+                    className="h-8 px-2.5 text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-40"
                   >
                     <ChevronLeft className="h-3.5 w-3.5 mr-1" />
                     Anterior
                   </Button>
 
                   {currentStep.requireAction ? (
-                    <div className="inline-flex items-center gap-1.5 rounded-lg bg-amber-400/15 border border-amber-400/40 px-3 py-1.5 text-xs font-medium text-amber-300">
+                    <div className="inline-flex items-center gap-1.5 rounded-lg bg-[#1261E0]/10 border border-[#1261E0]/25 px-3 py-1.5 text-xs font-medium text-[#1261E0]">
                       <MousePointerClick className="h-3.5 w-3.5 animate-pulse" />
                       <span>{currentStep.actionLabel || 'Interactúe para continuar'}</span>
                     </div>
@@ -386,7 +386,7 @@ export function KairosGuideBot() {
                       type="button"
                       size="sm"
                       onClick={nextStep}
-                      className="h-8 px-3.5 text-xs bg-amber-400 text-slate-950 hover:bg-amber-300 font-semibold"
+                      className="h-8 px-3.5 text-xs bg-[#1261E0] text-white hover:bg-[#0F4FB8] font-semibold shadow-sm"
                     >
                       {currentStepIndex + 1 === steps.length ? 'Finalizar' : 'Siguiente'}
                       <ChevronRight className="h-3.5 w-3.5 ml-1" />

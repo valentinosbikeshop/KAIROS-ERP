@@ -9,6 +9,7 @@ export async function middleware(request: NextRequest) {
     const isLocalDemoCookie = request.cookies.get('kairos_local_demo_mode')?.value === '1';
 
     const isPublicRoute =
+      pathname === '/' ||
       pathname === '/login' ||
       pathname === '/register' ||
       pathname === '/welcome' ||
@@ -76,8 +77,8 @@ export async function middleware(request: NextRequest) {
     }
 
     if (!user) {
-      if (pathname === '/') {
-        return NextResponse.redirect(new URL('/welcome', request.url));
+      if (isPublicRoute) {
+        return supabaseResponse;
       }
       return NextResponse.redirect(new URL('/login', request.url));
     }
