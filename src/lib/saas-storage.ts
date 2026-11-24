@@ -28,9 +28,58 @@ export async function fetchPlansAndAddonsServer(): Promise<{
     ]);
 
     if (!plansRes.error && !addonsRes.error && plansRes.data?.length && addonsRes.data?.length) {
+      let plans = plansRes.data as SubscriptionPlan[];
+      let addons = addonsRes.data as SubscriptionAddon[];
+
+      // Auto-sync one-time si Supabase aún conserva el seed antiguo ($49.990 / $11.990)
+      const growthDb = plans.find((p) => p.id === 'growth');
+      const baseDb = addons.find((a) => a.id === 'base_custom');
+      if (
+        (growthDb?.price_clp === 49990 || growthDb?.price_clp === 99990) &&
+        (baseDb?.price_clp === 11990 || baseDb?.price_clp === 29990)
+      ) {
+        await Promise.all([
+          admin.from('subscription_plans').upsert(
+            DEFAULT_PLANS.map((p) => ({
+              id: p.id,
+              name: p.name,
+              tagline: p.tagline,
+              description: p.description,
+              price_clp: p.price_clp,
+              is_recommended: p.is_recommended,
+              badge_text: p.badge_text,
+              max_projects: p.max_projects,
+              max_costs: p.max_costs,
+              max_users: p.max_users,
+              ai_calls_limit: p.ai_calls_limit,
+              included_modules: p.included_modules,
+              features: p.features,
+              sort_order: p.sort_order,
+              is_active: p.is_active,
+            })),
+            { onConflict: 'id' }
+          ),
+          admin.from('subscription_addons').upsert(
+            DEFAULT_ADDONS.map((a) => ({
+              id: a.id,
+              name: a.name,
+              description: a.description,
+              price_clp: a.price_clp,
+              category: a.category,
+              ai_calls_bonus: a.ai_calls_bonus,
+              sort_order: a.sort_order,
+              is_active: a.is_active,
+            })),
+            { onConflict: 'id' }
+          ),
+        ]);
+        plans = DEFAULT_PLANS;
+        addons = DEFAULT_ADDONS;
+      }
+
       return {
-        plans: plansRes.data as SubscriptionPlan[],
-        addons: addonsRes.data as SubscriptionAddon[],
+        plans,
+        addons,
         usingDatabaseTables: true,
       };
     }
