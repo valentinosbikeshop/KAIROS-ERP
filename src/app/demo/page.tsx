@@ -11,7 +11,7 @@ export default function DemoEntryRedirectPage() {
 
   useEffect(() => {
     enableLocalDemoMode();
-    router.replace('/');
+    router.replace('/dashboard');
   }, [router]);
 
   return (
