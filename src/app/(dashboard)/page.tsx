@@ -175,7 +175,7 @@ export default function DashboardPage() {
       )}
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="glass-card spotlight-card animate-reveal-up opacity-0" style={{ animationDelay: '0ms' }}>
+        <Card data-tour-id="inventory-grid" className="glass-card spotlight-card animate-reveal-up opacity-0" style={{ animationDelay: '0ms' }}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{terms.projectPlural} en Planificación</CardTitle>
             <Clock className="h-4 w-4 text-[#1261E0]" />
@@ -184,7 +184,7 @@ export default function DashboardPage() {
             <div className="text-2xl font-semibold font-mono tabular-nums">
               <AnimatedNumber value={data.eventsPlanning} duration={550} />
             </div>
-            <Link href="/events" className="text-xs text-[#1261E0] hover:underline mt-1 inline-block">
+            <Link href="/events" data-tour-id="simulate-action-btn" className="text-xs text-[#1261E0] hover:underline mt-1 inline-block">
               Ver {terms.projectPlural.toLowerCase()} →
             </Link>
           </CardContent>
@@ -202,7 +202,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="glass-card spotlight-card animate-reveal-up opacity-0" style={{ animationDelay: '160ms' }}>
+        <Card data-tour-id="quick-invoice-btn" className="glass-card spotlight-card animate-reveal-up opacity-0" style={{ animationDelay: '160ms' }}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{terms.projectPlural} Completados</CardTitle>
             <Calendar className="h-4 w-4 text-[#0284C7]" />
@@ -214,7 +214,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="glass-card spotlight-card animate-reveal-up opacity-0" style={{ animationDelay: '240ms' }}>
+        <Card data-tour-id="kpi-ebitda" className="glass-card spotlight-card animate-reveal-up opacity-0" style={{ animationDelay: '240ms' }}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Ingresos Totales (Completados)</CardTitle>
             <DollarSign className="h-4 w-4 text-[#0D8A72]" />

@@ -1,12 +1,18 @@
 'use client';
 
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { DemoBanner } from '@/components/layout/demo-banner';
 import { TierWorkspaceBanner } from '@/components/billing/feature-gate';
-import { InteractiveGuideBot } from '@/components/guide/interactive-guide-bot';
+import { KairosTourProvider } from '@/components/guide/KairosTourProvider';
+
+const KairosGuideBot = dynamic(
+  () => import('@/components/guide/KairosGuideBot').then((m) => m.KairosGuideBot),
+  { ssr: false }
+);
 import { Sheet, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -72,10 +78,11 @@ export default function DashboardLayout({
   const activeEmail = profile?.email || authUser?.email || null;
 
   return (
-    <div
-      data-theme-preset={isDuoExempt ? 'obsidian_gold' : entitlements.themePreset}
-      className="min-h-screen bg-background flex"
-    >
+    <KairosTourProvider>
+      <div
+        data-theme-preset={isDuoExempt ? 'obsidian_gold' : entitlements.themePreset}
+        className="min-h-screen bg-background flex"
+      >
       {/* Desktop Sidebar */}
       <div className="hidden lg:block">
         <Sidebar
@@ -152,7 +159,8 @@ export default function DashboardLayout({
           {children}
         </main>
       </div>
-      <InteractiveGuideBot isDemo={isDemo} />
+      <KairosGuideBot />
     </div>
+    </KairosTourProvider>
   );
 }

@@ -5,8 +5,9 @@ import { useUser } from '@/hooks/use-user';
 import { createClient } from '@/lib/supabase/client';
 import { DUO_ORG_SLUG } from '@/lib/constants';
 import Link from 'next/link';
-import { Menu, LogOut, User, ShieldCheck, Loader2 } from 'lucide-react';
+import { Menu, LogOut, User, ShieldCheck, Loader2, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useKairosTour } from '@/components/guide/KairosTourProvider';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -23,6 +24,7 @@ interface HeaderProps {
 
 export function Header({ onToggleSidebar, onSignOut }: HeaderProps) {
   const { profile, authUser, organization, loading, isDemo, isSuperAdmin } = useUser();
+  const { restartTour } = useKairosTour();
   const [signingOut, setSigningOut] = useState(false);
   const supabase = createClient();
 
@@ -61,6 +63,17 @@ export function Header({ onToggleSidebar, onSignOut }: HeaderProps) {
       <div className="hidden lg:block"></div>
 
       <div className="flex items-center gap-2 sm:gap-3">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={restartTour}
+          className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+          title="Iniciar guía interactiva"
+        >
+          <HelpCircle className="h-3.5 w-3.5 text-amber-500" />
+          <span className="hidden sm:inline">Guía Interactiva</span>
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger>
             <Button variant="ghost" className="flex items-center gap-2">
