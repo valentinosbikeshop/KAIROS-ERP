@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Building2, ImagePlus, Landmark, Loader2, Trash2 } from 'lucide-react';
+import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
 import type { Organization, OrganizationBankInfo } from '@/types';
 import { fileToNormalizedPngDataUrl } from '@/lib/image-to-png';
 import { CompanyLogoMark } from '@/components/ui/kairos-logo';
@@ -105,6 +106,9 @@ export function CompanyBrandingDialog({
   onOpenChange,
   onSaved,
 }: CompanyBrandingDialogProps) {
+  const { entitlements, isDuoExempt, isSuperAdmin } = useWorkspaceConfig();
+  const canEditBrandingAssets =
+    isSuperAdmin || isDuoExempt || entitlements.modules.mod_team_branding;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -159,8 +163,12 @@ export function CompanyBrandingDialog({
           location: location.trim() || null,
           contact_email: contactEmail.trim() || null,
           contact_phone: contactPhone.trim() || null,
-          logo_url: logoUrl.trim() || null,
-          bank_info: bankInfo,
+          ...(canEditBrandingAssets
+            ? {
+                logo_url: logoUrl.trim() || null,
+                bank_info: bankInfo,
+              }
+            : {}),
         }),
       });
       const data = await res.json();

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,9 @@ import { Store, Sparkles } from 'lucide-react';
 export function EventForm() {
   const router = useRouter();
   const supabase = createClient();
+  const { terms, entitlements, isDuoExempt, isDemo } = useWorkspaceConfig();
+  const canUseConsolidation =
+    isDuoExempt || isDemo || entitlements.modules.mod_consolidation_retail;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasRetailSales, setHasRetailSales] = useState(false);
@@ -33,6 +37,20 @@ export function EventForm() {
       
       if (userError || !user) {
         throw new Error('No se pudo autenticar al usuario. Por favor inicie sesión.');
+      }
+
+      // Soft-Lock en creación por cuota de plan (exento DUO Producciones y Demo)
+      if (!isDuoExempt && !isDemo && entitlements.maxProjects !== null) {
+        const { count } = await supabase
+          .from('events')
+          .select('id', { count: 'exact', head: true })
+          .is('deleted_at', null);
+
+        if ((count || 0) >= entitlements.maxProjects) {
+          throw new Error(
+            `Alcanzaste el máximo de ${entitlements.maxProjects} ${terms.projectPlural.toLowerCase()} de tu plan actual. Mejora tu plan en Suscripción & Estilo (tus datos existentes no se pierden).`
+          );
+        }
       }
 
       let month = null;
@@ -97,37 +115,37 @@ export function EventForm() {
       )}
       
       <div className="space-y-2">
-        <Label htmlFor="name">Nombre del Evento *</Label>
-        <Input id="name" name="name" required placeholder="Ej. Gala Anual 2026" />
+        <Label htmlFor="name">Nombre de {terms.projectSingular} *</Label>
+        <Input id="name" name="name" required placeholder={`Ej. ${terms.projectSingular} Anual 2026`} />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="client_company">Empresa Cliente</Label>
-        <Input id="client_company" name="client_company" placeholder="Ej. DUO Producciones" />
+        <Label htmlFor="client_company">{terms.clientLabel}</Label>
+        <Input id="client_company" name="client_company" placeholder="Nombre de la empresa o cliente" />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="event_date">Fecha del Evento</Label>
+          <Label htmlFor="event_date">Fecha</Label>
           <Input id="event_date" name="event_date" type="date" />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="location">Ubicación</Label>
-          <Input id="location" name="location" placeholder="Ej. Centro de Eventos" />
+          <Label htmlFor="location">{terms.locationLabel}</Label>
+          <Input id="location" name="location" placeholder="Dirección o recinto" />
         </div>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="description">Descripción</Label>
+        <Label htmlFor="description">Descripción y Alcance</Label>
         <textarea 
           id="description" 
           name="description" 
           className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          placeholder="Describe el evento, requisitos, número de invitados, etc."
+          placeholder="Describe el alcance, requerimientos técnicos, cantidades o especificaciones..."
           rows={4}
         />
         <p className="text-xs text-muted-foreground mt-1">
-          💡 En el siguiente paso podrás adjuntar documentos PDF o Excel (Riders técnicos, presupuestos del cliente) para que la Inteligencia Artificial los analice y extraiga costos o requerimientos especiales.
+          En el siguiente paso podrás adjuntar documentos PDF o Excel para extraer costos automáticamente si tu plan incluye Suite IA.
         </p>
       </div>
 
@@ -137,20 +155,29 @@ export function EventForm() {
           <div className="space-y-1">
             <Label htmlFor="has_retail_sales" className="text-sm font-semibold flex items-center gap-2 cursor-pointer">
               <Store className="h-4 w-4 text-primary" />
-              ¿Habilitar Ventas al por Menor (Bar / Fondas / Venta Unitaria)?
+              {terms.retailModeLabel}
             </Label>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Activa la consolidación de productos (ej. tragos, comida), división de costo total entre cantidad de unidades y separación de materias primas/insumos vs. venta directa al público.
+              {terms.retailModeDesc}
             </p>
           </div>
           <input 
             type="checkbox" 
             id="has_retail_sales" 
-            checked={hasRetailSales}
-            onChange={(e) => setHasRetailSales(e.target.checked)}
-            className="h-5 w-5 mt-0.5 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer shrink-0"
+            checked={canUseConsolidation ? hasRetailSales : false}
+            disabled={!canUseConsolidation}
+            onChange={(e) => {
+              if (!canUseConsolidation) return;
+              setHasRetailSales(e.target.checked);
+            }}
+            className="h-5 w-5 mt-0.5 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
           />
         </div>
+        {!canUseConsolidation && (
+          <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900">
+            Disponible en <strong>Crecimiento Inteligente IA</strong> o módulo <strong>Consolidación & Retail</strong>.
+          </div>
+        )}
         {hasRetailSales && (
           <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20 text-xs text-primary font-medium flex items-center gap-2">
             <Sparkles className="h-3.5 w-3.5 shrink-0" />
@@ -159,8 +186,8 @@ export function EventForm() {
         )}
       </div>
 
-      <Button type="submit" disabled={loading} className="w-full">
-        {loading ? 'Creando...' : 'Crear Evento y Continuar'}
+      <Button type="submit" disabled={loading} className="w-full tactile-press">
+        {loading ? 'Creando...' : `Crear ${terms.projectSingular} y Continuar`}
       </Button>
     </form>
   );

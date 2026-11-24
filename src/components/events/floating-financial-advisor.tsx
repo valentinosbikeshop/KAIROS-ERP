@@ -20,7 +20,7 @@ interface FloatingFinancialAdvisorProps {
 
 export function FloatingFinancialAdvisor({ event, items }: FloatingFinancialAdvisorProps) {
   const { organization } = useUser();
-  const orgName = organization?.name || 'DUO Producciones';
+  const orgName = organization?.name || 'KAIROS ERP';
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -124,7 +124,7 @@ export function FloatingFinancialAdvisor({ event, items }: FloatingFinancialAdvi
   const clearChat = () => {
     setMessages([{
       role: 'assistant',
-      content: `¡Hola! Soy tu Asesor Financiero IA de DUO Producciones. Estoy aquí para analizar el presupuesto de **${event.name}**. Actualmente tenemos **${items.length}** ítems aprobados. ¿En qué te puedo ayudar para mejorar la rentabilidad o reducir costos?`
+      content: `¡Hola! Soy tu Asesor Financiero IA de ${orgName}. Estoy aquí para analizar el presupuesto de **${event.name}**. Actualmente tenemos **${items.length}** ítems aprobados. ¿En qué te puedo ayudar para mejorar la rentabilidad o reducir costos?`
     }]);
     setParsedText('');
   };
@@ -166,7 +166,7 @@ export function FloatingFinancialAdvisor({ event, items }: FloatingFinancialAdvi
                   <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
                 </h3>
                 <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-                  Analista IA DUO
+                  Analista IA Financiero
                 </p>
               </div>
             </div>

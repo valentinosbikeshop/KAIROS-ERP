@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/hooks/use-user'
+import { useWorkspaceConfig } from '@/hooks/use-workspace-config'
+import { FeatureLockCard } from '@/components/billing/feature-gate'
 import { MasterCost } from '@/types'
 import { CostsTable } from '@/components/costs/costs-table'
 import { CostFormDialog } from '@/components/costs/cost-form-dialog'
@@ -41,6 +43,7 @@ import {
 
 export default function CostsPage() {
   const { organization, isDemo } = useUser()
+  const { terms, industry, entitlements, isDuoExempt } = useWorkspaceConfig()
   const [costs, setCosts] = useState<MasterCost[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -52,6 +55,10 @@ export default function CostsPage() {
   const [editingCost, setEditingCost] = useState<MasterCost | null>(null)
 
   const isDuoOrg = organization?.slug === DUO_ORG_SLUG
+  const activeTemplates: CostTemplatePreset[] =
+    isDuoOrg || isDemo
+      ? COMPANY_COST_TEMPLATES
+      : (industry.starterCatalog as unknown as CostTemplatePreset[])
 
   const fetchCosts = async () => {
     setLoading(true)
@@ -102,7 +109,17 @@ export default function CostsPage() {
     [costs]
   )
 
+  const reachedCostLimit =
+    !isDuoExempt &&
+    !isDemo &&
+    entitlements.maxCosts !== null &&
+    costs.length >= entitlements.maxCosts
+
   const handleAdd = () => {
+    if (reachedCostLimit) {
+      alert(`Alcanzaste el límite de ${entitlements.maxCosts} ítems en tu plan actual. Puedes editar los existentes o mejorar tu suscripción en Suscripción & Estilo.`)
+      return
+    }
     setEditingCost(null)
     setDialogOpen(true)
   }
@@ -160,6 +177,10 @@ export default function CostsPage() {
   }
 
   const handleInsertTemplate = async (tpl: CostTemplatePreset) => {
+    if (reachedCostLimit) {
+      alert(`Alcanzaste el límite de ${entitlements.maxCosts} ítems en tu plan actual. Mejora tu suscripción para agregar más tarifas.`)
+      return
+    }
     setAddingTemplateId(tpl.id)
     const supabase = createClient()
     try {
@@ -179,15 +200,25 @@ export default function CostsPage() {
   }
 
   const handleImportMissingTemplates = async () => {
-    const missing = COMPANY_COST_TEMPLATES.filter(
+    const missing = activeTemplates.filter(
       (tpl) => !existingServiceNames.has(tpl.servicio.trim().toLowerCase())
     )
     if (missing.length === 0) return
 
+    let toInsert = missing
+    if (!isDuoExempt && !isDemo && entitlements.maxCosts !== null) {
+      const remaining = Math.max(0, entitlements.maxCosts - costs.length)
+      if (remaining === 0) {
+        alert(`Alcanzaste el límite de ${entitlements.maxCosts} tarifas de tu plan actual.`)
+        return
+      }
+      toInsert = missing.slice(0, remaining)
+    }
+
     setAddingAllTemplates(true)
     const supabase = createClient()
     try {
-      const rows = missing.map(buildPayloadFromTemplate)
+      const rows = toInsert.map(buildPayloadFromTemplate)
       const { error } = await (supabase.from('master_costs') as any).insert(rows as never)
       if (error) throw error
       await fetchCosts()
@@ -208,7 +239,7 @@ export default function CostsPage() {
       <div className="flex flex-col lg:flex-row justify-between lg:items-end gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-3xl font-bold tracking-tight">Tarifas, Personal e IVA</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{terms.catalogLabel}, Personal e IVA</h1>
             {isDemo && (
               <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300">
                 24 Tarifas Base + Tus Pruebas
@@ -217,7 +248,7 @@ export default function CostsPage() {
           </div>
           <p className="text-muted-foreground mt-1.5 text-sm">
             Catálogo maestro de servicios, dotación de personal (RR.HH.) y tratamiento de IVA Crédito / Débito de{' '}
-            <span className="font-medium text-foreground">{organization?.name || 'DUO Producciones'}</span>
+            <span className="font-medium text-foreground">{organization?.name || 'Tu Empresa'}</span>
           </p>
         </div>
 
@@ -236,12 +267,22 @@ export default function CostsPage() {
               Propuesta Estratégica 2026
             </Button>
           )}
-          <Button onClick={handleAdd} className="gap-2">
+          <Button onClick={handleAdd} disabled={reachedCostLimit} className="gap-2 tactile-press">
             <Plus className="h-4 w-4" />
             Agregar Servicio / Personal
           </Button>
         </div>
       </div>
+
+      {reachedCostLimit && (
+        <FeatureLockCard
+          compact
+          isExpiredLock={entitlements.isExpiredLock}
+          title={`Catálogo al límite (${costs.length}/${entitlements.maxCosts} tarifas)`}
+          description="Tus tarifas actuales permanecen 100% operativas. Amplía tu plan para agregar más ítems sin tope."
+          requiredPlanLabel="Operación Esencial / Ilimitado"
+        />
+      )}
 
       {/* Tarjetas Resumen KPI */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -332,7 +373,7 @@ export default function CostsPage() {
         </DialogHeader>
         <DialogBody className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {COMPANY_COST_TEMPLATES.map((tpl) => {
+            {activeTemplates.map((tpl) => {
               const alreadyAdded = existingServiceNames.has(tpl.servicio.trim().toLowerCase())
               const isBusy = addingTemplateId === tpl.id
               const fin = calculateFinancials(
@@ -388,7 +429,7 @@ export default function CostsPage() {
                       type="button"
                       size="sm"
                       variant={alreadyAdded ? 'outline' : 'default'}
-                      disabled={alreadyAdded || isBusy || addingAllTemplates}
+                      disabled={alreadyAdded || isBusy || addingAllTemplates || reachedCostLimit}
                       onClick={() => handleInsertTemplate(tpl)}
                       className="h-7 text-xs gap-1"
                     >
@@ -415,7 +456,7 @@ export default function CostsPage() {
             <Button
               type="button"
               onClick={handleImportMissingTemplates}
-              disabled={addingAllTemplates}
+              disabled={addingAllTemplates || reachedCostLimit}
               className="gap-1.5"
             >
               {addingAllTemplates ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}

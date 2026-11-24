@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Trash2, Loader2, FileUp, ExternalLink, ChevronDown, ChevronRight, Combine, Split, GitFork, X, Sparkles, GripVertical, Undo2, Banknote, Receipt, TrendingUp, Wallet, ShieldCheck } from 'lucide-react';
 import { useDragAutoScroll } from '@/hooks/use-drag-auto-scroll';
+import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
 import { ConsolidateDialog } from './consolidate-dialog';
 import { DistributeInsumoDialog } from './distribute-insumo-dialog';
 import {
@@ -30,6 +31,8 @@ interface EventItemsTableProps {
 }
 
 export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, hasRetailSales = false, isDemo = false }: EventItemsTableProps) {
+  const { entitlements, isDuoExempt } = useWorkspaceConfig();
+  const canConsolidate = isDuoExempt || isDemo || entitlements.modules.mod_consolidation_retail;
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [returningId, setReturningId] = useState<string | null>(null);
   const [returningMultiple, setReturningMultiple] = useState(false);
@@ -233,12 +236,20 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
   };
 
   const handleConsolidateClick = () => {
+    if (!canConsolidate) {
+      alert('La consolidación de ítems requiere el Plan Crecimiento IA o el módulo Consolidación & Retail en Suscripción.');
+      return;
+    }
     if (selectedIds.length < 2) return;
     setConsolidateOpen(true);
   };
 
   const handleDropItem = async (draggedId: string, targetId: string) => {
     if (draggedId === targetId) return;
+    if (!canConsolidate) {
+      alert('La consolidación por arrastre requiere el Plan Crecimiento IA o el módulo Consolidación & Retail en Suscripción.');
+      return;
+    }
 
     const draggedItem = localItems.find(s => s.id === draggedId);
     const targetItem = localItems.find(s => s.id === targetId);
@@ -319,6 +330,10 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
   };
 
   const handleOpenDistribute = (item: EventItem) => {
+    if (!canConsolidate) {
+      alert('El prorrateo de insumos requiere el Plan Crecimiento IA o el módulo Consolidación & Retail en Suscripción.');
+      return;
+    }
     setDistributeItem(item);
     setDistributeOpen(true);
   };

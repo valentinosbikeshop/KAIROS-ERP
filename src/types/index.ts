@@ -1,3 +1,5 @@
+import type { IndustryType, ModuleKey, OperationMode, SubscriptionStatus, SubscriptionTier, ThemePreset } from './database';
+
 export * from './database';
 
 export type AiSuggestion = {
@@ -39,4 +41,24 @@ export type CostCategory = {
   name: string;
   value: number;
   percentage: number;
+};
+
+export type ResolvedEntitlements = {
+  tier: SubscriptionTier;
+  effectiveTier: SubscriptionTier;
+  status: SubscriptionStatus;
+  isExempt: boolean;
+  isDemo: boolean;
+  isExpiredLock: boolean;
+  maxProjects: number | null;
+  maxCosts: number | null;
+  maxUsers: number | null;
+  aiCallsLimit: number;
+  aiCallsUsed: number;
+  aiCallsRemaining: number;
+  modules: Record<ModuleKey, boolean>;
+  currentPeriodEnd: string | null;
+  industryType: IndustryType;
+  themePreset: ThemePreset;
+  operationMode: OperationMode;
 };

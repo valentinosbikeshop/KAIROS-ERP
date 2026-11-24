@@ -20,7 +20,9 @@ import {
   Paintbrush,
   LogIn,
   ShieldCheck,
+  CreditCard,
 } from 'lucide-react';
+import { PlansAdminTab } from '@/components/governance/plans-admin-tab';
 import { useUser } from '@/hooks/use-user';
 import { Organization, Profile } from '@/types';
 import { CompanyLogoMark } from '@/components/ui/kairos-logo';
@@ -481,6 +483,10 @@ export default function GovernancePage() {
               <ShieldCheck className="h-4 w-4" />
               Seguridad y 2FA
             </TabsTrigger>
+            <TabsTrigger value="plans" className="gap-2">
+              <CreditCard className="h-4 w-4" />
+              Planes, Precios y Khipu
+            </TabsTrigger>
           </TabsList>
 
           {/* TAB 1: COMPANIES */}
@@ -672,6 +678,14 @@ export default function GovernancePage() {
           {/* TAB 3: SECURITY & 2FA */}
           <TabsContent value="security" className="space-y-4">
             <MfaSettingsCard />
+          </TabsContent>
+
+          {/* TAB 4: PLANS, PRICING & KHIPU */}
+          <TabsContent value="plans" className="space-y-4">
+            <PlansAdminTab
+              companies={companies}
+              onRefreshCompanies={fetchGovernanceData}
+            />
           </TabsContent>
         </Tabs>
       ) : (

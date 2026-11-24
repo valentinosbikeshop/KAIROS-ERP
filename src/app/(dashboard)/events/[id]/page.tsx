@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
+import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
+import { FeatureLockCard } from '@/components/billing/feature-gate';
 import { useRouter, useParams } from 'next/navigation';
 import { Event, EventItem, AiSuggestion } from '@/types';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -45,6 +47,10 @@ export default function EventDetailPage() {
   const router = useRouter();
   const supabase = createClient();
   const { isDemo } = useUser();
+  const { entitlements, isDuoExempt } = useWorkspaceConfig();
+  const canUseAi = isDuoExempt || isDemo || entitlements.modules.mod_ai_suite;
+  const canUsePdf = isDuoExempt || isDemo || entitlements.modules.mod_pdf_quotes;
+  const canUseTransactions = isDuoExempt || isDemo || entitlements.modules.mod_transactions_sii;
 
   const [event, setEvent] = useState<Event | null>(null);
   const [items, setItems] = useState<EventItem[]>([]);
@@ -348,7 +354,7 @@ export default function EventDetailPage() {
         </div>
         
         <div className="flex items-center gap-2">
-          {event && <ClientQuotePdfDialog event={event} items={items} />}
+          {event && canUsePdf && <ClientQuotePdfDialog event={event} items={items} />}
           {isCompleted ? (
             <div className="flex gap-2">
               <Button onClick={handleReopenEvent} disabled={finalizing} variant="outline" className="border-orange-200 text-orange-700 hover:bg-orange-50">
@@ -473,6 +479,15 @@ export default function EventDetailPage() {
         {/* Tab 2: Borrador de Costos (antes Sugerencias IA) */}
         <TabsContent value="draft" className="space-y-6">
           {/* Card de Generación con IA */}
+          {!canUseAi ? (
+            <FeatureLockCard
+              compact
+              isExpiredLock={entitlements.isExpiredLock}
+              title="Suite IA + OCR Documental"
+              description="Genera presupuestos automáticamente, desglosa insumos desde PDF/Excel/Fotos y optimiza márgenes con IA. Tu grilla manual de borrador sigue 100% operativa."
+              requiredPlanLabel="Crecimiento Inteligente IA"
+            />
+          ) : (
           <Card className="border border-primary/20 bg-gradient-to-br from-primary/5 via-card to-card shadow-sm overflow-hidden mb-2">
             <CardContent className="p-4 sm:p-5">
               <div className="flex items-center gap-2 mb-3">
@@ -636,6 +651,7 @@ export default function EventDetailPage() {
               </div>
             </CardContent>
           </Card>
+          )}
 
           {/* Grilla / Tabla de Borrador */}
           <Card className="shadow-xs glass-card border-border/70">
@@ -661,7 +677,16 @@ export default function EventDetailPage() {
                   Listado de todos los servicios y costos confirmados para este evento.
                 </CardDescription>
               </div>
-              {event && <ClientQuotePdfDialog event={event} items={items} />}
+              {event && canUsePdf ? (
+                <ClientQuotePdfDialog event={event} items={items} />
+              ) : (
+                <Link href="/billing">
+                  <Button size="sm" variant="outline" className="gap-1.5 text-xs">
+                    <Lock className="h-3.5 w-3.5 text-amber-600" />
+                    Activar Cotizador PDF
+                  </Button>
+                </Link>
+              )}
             </CardHeader>
             <CardContent>
               <EventItemsTable 
@@ -674,7 +699,7 @@ export default function EventDetailPage() {
               />
             </CardContent>
           </Card>
-          <FloatingFinancialAdvisor event={event} items={items} />
+          {canUseAi && <FloatingFinancialAdvisor event={event} items={items} />}
         </TabsContent>
 
         {/* Tab 4: Finanzas */}
@@ -692,14 +717,25 @@ export default function EventDetailPage() {
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="h-8 gap-2 shadow-xs text-xs" onClick={() => handleOpenTransaction('ABONO')}>
-                    <CreditCard className="h-3.5 w-3.5" />
-                    Abono
-                  </Button>
-                  <Button size="sm" variant="default" className="h-8 gap-2 shadow-xs text-xs" onClick={() => handleOpenTransaction('GASTO')}>
-                    <Upload className="h-3.5 w-3.5" />
-                    Documento (Gasto)
-                  </Button>
+                  {canUseTransactions ? (
+                    <>
+                      <Button size="sm" variant="outline" className="h-8 gap-2 shadow-xs text-xs" onClick={() => handleOpenTransaction('ABONO')}>
+                        <CreditCard className="h-3.5 w-3.5" />
+                        Abono
+                      </Button>
+                      <Button size="sm" variant="default" className="h-8 gap-2 shadow-xs text-xs" onClick={() => handleOpenTransaction('GASTO')}>
+                        <Upload className="h-3.5 w-3.5" />
+                        Documento (Gasto)
+                      </Button>
+                    </>
+                  ) : (
+                    <Link href="/billing">
+                      <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
+                        <Lock className="h-3.5 w-3.5 text-amber-600" />
+                        Activar Flujo Abonos/Gastos
+                      </Button>
+                    </Link>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="pt-6">

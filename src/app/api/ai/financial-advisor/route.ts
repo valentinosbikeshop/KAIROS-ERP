@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { getAuthenticatedContext } from '@/lib/supabase/admin';
+import {
+  OPTIMIZED_GEMINI_MODELS,
+  compactChatHistory,
+  guardAiEndpoint,
+  serializeApprovedCompact,
+} from '@/lib/ai-optimizer';
 
 export const runtime = 'nodejs';
 
@@ -10,8 +16,13 @@ export async function POST(req: NextRequest) {
     if (!ctx || !ctx.profile?.organization_id) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
-    const orgName = ctx.organization?.name || 'DUO Producciones';
 
+    const guard = await guardAiEndpoint(ctx);
+    if (!guard.allowed && guard.response) {
+      return guard.response;
+    }
+
+    const orgName = guard.org.name || 'KAIROS ERP';
     const { messages, eventData, approvedItems, filesText } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
@@ -20,109 +31,71 @@ export async function POST(req: NextRequest) {
 
     if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json(
-        { error: 'Falta configurar GEMINI_API_KEY en las Variables de Entorno de Vercel. Por favor agrégala en Vercel > Settings > Environment Variables.' },
+        { error: 'Falta configurar GEMINI_API_KEY en el servidor.' },
         { status: 500 }
       );
     }
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const budgetContext = serializeApprovedCompact(approvedItems || []);
 
-    // Preparar el contexto del presupuesto actual
-    let budgetContext = 'No hay ítems aprobados aún.';
-    if (approvedItems && approvedItems.length > 0) {
-      const totals = approvedItems.reduce(
-        (acc: any, item: any) => ({
-          costo: acc.costo + (item.costo * item.cantidad),
-          ganancia: acc.ganancia + (item.ganancia * item.cantidad),
-          valor_total: acc.valor_total + (item.valor_total * item.cantidad),
-        }),
-        { costo: 0, ganancia: 0, valor_total: 0 }
-      );
-
-      budgetContext = `RESUMEN ACTUAL DEL PRESUPUESTO:
-- Costo Total: $${totals.costo.toLocaleString('es-CL')}
-- Ganancia Total Esperada: $${totals.ganancia.toLocaleString('es-CL')}
-- Valor Total Venta: $${totals.valor_total.toLocaleString('es-CL')}
-- Margen Global: ${totals.costo > 0 ? ((totals.ganancia / totals.costo) * 100).toFixed(1) : 0}%
-
-DETALLE DE ÍTEMS APROBADOS:
-${approvedItems.map((item: any) => `- ${item.cantidad}x ${item.servicio} (${item.tipo_evento}): Costo Unit. $${item.costo.toLocaleString('es-CL')} | Ganancia Unit. $${item.ganancia.toLocaleString('es-CL')} | Total Fila: $${(item.valor_total * item.cantidad).toLocaleString('es-CL')}`).join('\n')}
-`;
-    }
-
-    const systemPrompt = `Eres un Asesor Financiero y Experto en Presupuestos de Eventos altamente capacitado que trabaja para ${orgName}, una prestigiosa empresa de producción y banquetería en Chile.
-
-Tu objetivo principal es EXAMINAR EXHAUSTIVAMENTE el presupuesto del evento, buscando maximizar la rentabilidad, reducir costos innecesarios, proponer alternativas realistas y alertar sobre posibles pérdidas u omisiones críticas (por ejemplo, si faltan ítems logísticos obligatorios como fletes, hielo, personal de aseo o seguridad).
-
-CONTEXTO DEL EVENTO:
-- Nombre: ${eventData?.name || 'Desconocido'}
-- Cliente: ${eventData?.client || 'Desconocido'}
-- Tipo/Estado: ${eventData?.status || 'Desconocido'}
-- Descripción: ${eventData?.description || 'Sin descripción'}
-
+    const systemPrompt = `Asesor Financiero Senior de ${orgName} (Chile). ${guard.industryPrompt}
+PROYECTO: ${eventData?.name || '-'} | Cliente: ${eventData?.client || '-'} | Estado: ${eventData?.status || '-'}
+DESCRIPCIÓN: ${String(eventData?.description || 'Sin descripción').slice(0, 600)}
+PRESUPUESTO ACTUAL:
 ${budgetContext}
 
-REGLAS DE TU COMPORTAMIENTO:
-1. Actúa de manera extremadamente profesional, analítica y proactiva. Eres un consultor experto.
-2. Basate SIEMPRE en los números proporcionados en el "DETALLE DE ÍTEMS APROBADOS". Si el usuario pregunta cómo mejorar el margen, analiza esos ítems específicos y di qué ítems tienen poco margen o cómo cambiarlos.
-3. Si el usuario adjuntó un archivo (aparecerá en su mensaje como [Archivo adjunto]: ...), úsalo para cotejar si los precios de los proveedores son buenos o si hay discrepancias con el presupuesto aprobado.
-4. Escribe en formato Markdown para facilitar la lectura. Usa viñetas, negritas para resaltar montos o ideas clave, y tablas si es útil.
-5. Utiliza modismos financieros chilenos o términos técnicos de producción cuando sea pertinente (costo hundido, margen bruto, merma, imprevistos, flete, etc).
-6. Si detectas que el margen global es inferior al 30%, enciende alertas y sé incisivo en tus recomendaciones de ajuste.
+REGLAS:
+- Responde directo en Markdown es-CL (tablas o viñetas ejecutivas, sin rellenos).
+- Identifica ítems con margen bajo, costos hundidos u omisiones operativas críticas del rubro.
+- Si el margen global < 30%, alerta y sugiere ajustes concretos en CLP.`;
 
-Da respuestas concisas pero de altísimo valor estratégico. NO repitas el contexto, ve directo al análisis o respuesta solicitada por el usuario.`;
+    const formattedMessages = compactChatHistory(messages, 6);
+    if (formattedMessages.length === 0) {
+      formattedMessages.push({
+        role: 'user',
+        parts: [{ text: 'Analiza la rentabilidad actual de este presupuesto.' }],
+      });
+    }
 
-    // Formatear los mensajes para @google/genai
-    const formattedMessages = messages.map((msg: any) => ({
-      role: msg.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: msg.content }],
-    }));
-
-    // Reintentos y degradación de modelo
-    let response;
-    let retries = 3;
-    let delay = 1000;
-    // Preferimos los modelos más capaces y rápidos
-    const modelsToTry = ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.8-flash'];
-    let currentModelIndex = 0;
-    
-    while (retries > 0) {
-      try {
-        const targetModel = modelsToTry[currentModelIndex];
-        
-        response = await ai.models.generateContent({
-          model: targetModel,
-          contents: formattedMessages,
-          config: {
-            systemInstruction: systemPrompt,
-            temperature: 0.3, // Temperatura baja para respuestas más analíticas y precisas
-          }
+    if (filesText && String(filesText).trim()) {
+      const lastUserMsg = [...formattedMessages].reverse().find((m) => m.role === 'user');
+      if (lastUserMsg) {
+        lastUserMsg.parts.push({
+          text: `\n[ARCHIVO ADJUNTO COMPLETO]:\n${String(filesText).trim().slice(0, 12000)}`,
         });
-        
-        break;
-      } catch (e: any) {
-        if (e.message?.includes('503') || e.message?.includes('UNAVAILABLE') || e.status === 503 || e.message?.includes('not found')) {
-          retries--;
-          currentModelIndex = Math.min(currentModelIndex + 1, modelsToTry.length - 1);
-          if (retries === 0) throw new Error('Todos los modelos están saturados o no disponibles. Por favor, intenta de nuevo más tarde.');
-          await new Promise(resolve => setTimeout(resolve, delay));
-          delay *= 1.5;
-        } else {
-          throw e;
-        }
       }
     }
 
-    if (!response || !response.text) {
-      throw new Error('Sin respuesta del modelo IA');
+    let response;
+    let lastError: any = null;
+
+    for (const model of OPTIMIZED_GEMINI_MODELS) {
+      try {
+        response = await ai.models.generateContent({
+          model,
+          contents: formattedMessages,
+          config: {
+            systemInstruction: systemPrompt,
+            maxOutputTokens: 4096,
+          },
+        });
+        if (response?.text) break;
+      } catch (e: any) {
+        lastError = e;
+      }
     }
 
-    return NextResponse.json({ reply: response.text });
+    if (!response?.text) {
+      throw new Error(lastError?.message || 'Sin respuesta del asesor IA');
+    }
 
+    await guard.consumeCredit();
+    return NextResponse.json({ reply: response.text });
   } catch (error: any) {
     console.error('Error en financial advisor:', error);
     return NextResponse.json(
-      { error: error.message || 'Error interno del servidor' }, 
+      { error: error.message || 'Error interno del servidor' },
       { status: 500 }
     );
   }

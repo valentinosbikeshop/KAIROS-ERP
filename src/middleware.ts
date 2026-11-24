@@ -1,22 +1,29 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
+import { DUO_ORG_SLUG } from '@/lib/constants';
 
 export async function middleware(request: NextRequest) {
   try {
     const { supabaseResponse, user, supabase } = await updateSession(request);
     const { pathname } = request.nextUrl;
 
-    const isPublicRoute = pathname === '/login' || pathname === '/register';
+    const isPublicRoute =
+      pathname === '/login' ||
+      pathname === '/register' ||
+      pathname === '/welcome' ||
+      pathname === '/demo';
     const isMfaRoute = pathname === '/mfa-challenge';
     const isPendingRoute = pathname === '/pending';
+    const isOnboardingRoute = pathname === '/onboarding';
     const isApiRoute = pathname.startsWith('/api/');
     const isAuthCallback = pathname === '/api/auth/callback';
     const isPublicApi =
       isAuthCallback ||
-      pathname === '/api/demo/enter' ||
-      pathname === '/api/cron/keep-alive';
+      pathname === '/api/cron/keep-alive' ||
+      pathname === '/api/auth/register-owner' ||
+      pathname === '/api/plans' ||
+      pathname === '/api/webhooks/khipu';
 
-    // Always allow auth callback, demo entry, and cron keep-alive (each handles its own auth/validation)
     if (isPublicApi) {
       return supabaseResponse;
     }
@@ -33,28 +40,31 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // API routes: require authentication + AAL2 if MFA enrolled
     if (isApiRoute) {
       if (!user || requiresMfaVerification) {
         return NextResponse.json(
-          { error: requiresMfaVerification ? 'Se requiere verificación en dos pasos (2FA)' : 'No autorizado' },
+          {
+            error: requiresMfaVerification
+              ? 'Se requiere verificación en dos pasos (2FA)'
+              : 'No autorizado',
+          },
           { status: 401 }
         );
       }
       return supabaseResponse;
     }
 
-    // Allow public access to login/register when not authenticated
     if (isPublicRoute && !user) {
       return supabaseResponse;
     }
 
-    // Redirect unauthenticated users to login
     if (!user) {
+      if (pathname === '/') {
+        return NextResponse.redirect(new URL('/welcome', request.url));
+      }
       return NextResponse.redirect(new URL('/login', request.url));
     }
 
-    // Enforce 2FA challenge before accessing any dashboard or protected route
     if (requiresMfaVerification) {
       if (!isMfaRoute) {
         return NextResponse.redirect(new URL('/mfa-challenge', request.url));
@@ -62,28 +72,25 @@ export async function middleware(request: NextRequest) {
       return supabaseResponse;
     }
 
-    // User already passed MFA (or does not have MFA) — redirect away from /mfa-challenge
     if (isMfaRoute) {
       return NextResponse.redirect(new URL('/', request.url));
     }
 
-    // Authenticated user trying to access login/register — redirect to home
-    if (isPublicRoute) {
+    if (pathname === '/login' || pathname === '/register') {
       return NextResponse.redirect(new URL('/', request.url));
     }
 
-    // Check user profile status, role, and organization
+    // Check user profile status, role, organization, and onboarding state
     const { data: profile, error } = await supabase
       .from('profiles')
-      .select('status, role, is_super_admin, organization_id, organizations(is_demo, is_active)')
+      .select('status, role, is_super_admin, organization_id, organizations(*)')
       .eq('id', user.id)
       .single();
 
     if (!error && profile) {
-      const org = (profile as any).organizations as { is_demo?: boolean; is_active?: boolean } | null;
+      const org = (profile as any).organizations as any;
       const isSuperAdmin = Boolean((profile as any).is_super_admin);
 
-      // Pending users or users without an assigned active organization can only access /pending
       const isPendingOrUnassigned =
         profile.status === 'pending' ||
         !profile.organization_id ||
@@ -93,14 +100,26 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL('/pending', request.url));
       }
 
-      // Active users with an active org should not be on /pending
       if (!isPendingOrUnassigned && isPendingRoute) {
         return NextResponse.redirect(new URL('/', request.url));
       }
 
-      // Governance is restricted to super_admin or non-demo company admins
+      // Onboarding check (EXEMPT: DUO Producciones, Demo Sandbox, and SuperAdmin)
+      const isDuo = org?.slug === DUO_ORG_SLUG || Boolean(org?.is_exempt) || Boolean(org?.bank_info?.__saas_config?.is_exempt);
+      const isDemo = Boolean(org?.is_demo);
+      const onboardingCompleted =
+        org?.onboarding_completed !== undefined
+          ? Boolean(org.onboarding_completed)
+          : Boolean(org?.bank_info?.__saas_config?.onboarding_completed);
+
+      if (!isPendingOrUnassigned && !isDuo && !isDemo && !isSuperAdmin && !onboardingCompleted) {
+        if (!isOnboardingRoute && profile.role === 'admin') {
+          return NextResponse.redirect(new URL('/onboarding', request.url));
+        }
+      }
+
       if (pathname.startsWith('/governance')) {
-        const isNonDemoCompanyAdmin = profile.role === 'admin' && !org?.is_demo;
+        const isNonDemoCompanyAdmin = profile.role === 'admin' && !isDemo;
         if (!isSuperAdmin && !isNonDemoCompanyAdmin) {
           return NextResponse.redirect(new URL('/', request.url));
         }

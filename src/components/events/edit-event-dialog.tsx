@@ -24,6 +24,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
 import { parseDateSafe } from '@/lib/utils';
 import { Event } from '@/types';
 
@@ -33,6 +34,9 @@ interface EditEventDialogProps {
 }
 
 export function EditEventDialog({ event, onUpdate }: EditEventDialogProps) {
+  const { entitlements, isDuoExempt, isDemo } = useWorkspaceConfig();
+  const canUseConsolidation =
+    isDuoExempt || isDemo || entitlements.modules.mod_consolidation_retail;
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -274,12 +278,21 @@ export function EditEventDialog({ event, onUpdate }: EditEventDialogProps) {
                 <input 
                   type="checkbox" 
                   id="edit_has_retail_sales" 
-                  checked={formData.has_retail_sales}
-                  onChange={(e) => setFormData(prev => ({ ...prev, has_retail_sales: e.target.checked }))}
-                  className="h-4 w-4 mt-0.5 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer shrink-0"
+                  checked={canUseConsolidation ? formData.has_retail_sales : false}
+                  disabled={!canUseConsolidation}
+                  onChange={(e) => {
+                    if (!canUseConsolidation) return;
+                    setFormData(prev => ({ ...prev, has_retail_sales: e.target.checked }));
+                  }}
+                  className="h-4 w-4 mt-0.5 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                 />
               </div>
-              {formData.has_retail_sales && (
+              {!canUseConsolidation && (
+                <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-900">
+                  Requiere <strong>Crecimiento Inteligente IA</strong> o módulo <strong>Consolidación & Retail</strong>.
+                </div>
+              )}
+              {canUseConsolidation && formData.has_retail_sales && (
                 <div className="p-2 rounded-lg bg-primary/10 border border-primary/20 text-[11px] text-primary font-medium flex items-center gap-2">
                   <Sparkles className="h-3 w-3 shrink-0" />
                   <span>Modo de venta al por menor y productos consolidados habilitado.</span>

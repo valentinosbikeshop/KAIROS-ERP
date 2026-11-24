@@ -66,7 +66,11 @@ export function Header({ onToggleSidebar, onSignOut }: HeaderProps) {
             <Button variant="ghost" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               <span className="hidden sm:inline-block text-sm max-w-[200px] truncate">
-                {loading ? 'Cargando...' : (profile?.email || authUser?.email || 'Usuario')}
+                {loading
+                  ? 'Cargando...'
+                  : isDemo
+                  ? 'visitante@kairos-sandbox.cl'
+                  : (profile?.email || authUser?.email || 'Usuario')}
               </span>
             </Button>
           </DropdownMenuTrigger>
@@ -75,7 +79,11 @@ export function Header({ onToggleSidebar, onSignOut }: HeaderProps) {
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">Mi Cuenta</p>
                 <p className="text-xs leading-none text-muted-foreground truncate">
-                  {loading ? 'Cargando...' : (profile?.email || authUser?.email || 'Usuario')}
+                  {loading
+                    ? 'Cargando...'
+                    : isDemo
+                    ? 'visitante@kairos-sandbox.cl'
+                    : (profile?.email || authUser?.email || 'Usuario')}
                 </p>
               </div>
             </DropdownMenuLabel>

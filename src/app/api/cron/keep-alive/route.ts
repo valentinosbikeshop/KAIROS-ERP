@@ -39,13 +39,33 @@ export async function GET(req: Request) {
 
     // Limpieza automática de datos de prueba antiguos (>24h) si service role está disponible
     let demoCleaned = false;
+    let expiredSubscriptionsMarked = 0;
     if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
       try {
         const admin = createAdminClient();
         const res = await cleanupStaleDemoData(admin);
         demoCleaned = res.cleaned;
+
+        // Soft-Lock automático de suscripciones vencidas (NUNCA borra datos, solo marca past_due)
+        const { data: expiredOrgs } = await admin
+          .from('organizations')
+          .select('id')
+          .eq('is_exempt', false)
+          .eq('is_demo', false)
+          .neq('subscription_tier', 'free')
+          .eq('subscription_status', 'active')
+          .lt('current_period_end', new Date().toISOString());
+
+        if (expiredOrgs && expiredOrgs.length > 0) {
+          const ids = expiredOrgs.map((o: any) => o.id);
+          await admin
+            .from('organizations')
+            .update({ subscription_status: 'past_due' } as any)
+            .in('id', ids);
+          expiredSubscriptionsMarked = ids.length;
+        }
       } catch (cleanupErr) {
-        console.warn('Advertencia al limpiar datos demo antiguos:', cleanupErr);
+        console.warn('Advertencia en mantenimiento automático cron:', cleanupErr);
       }
     }
 
@@ -54,6 +74,7 @@ export async function GET(req: Request) {
       timestamp: new Date().toISOString(),
       recordFound: !!data && data.length > 0,
       demoCleaned,
+      expiredSubscriptionsMarked,
       message: 'Supabase mantenido activo exitosamente.',
     });
   } catch (err: any) {

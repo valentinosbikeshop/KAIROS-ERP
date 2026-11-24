@@ -5,11 +5,13 @@ import Link from 'next/link';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { DemoBanner } from '@/components/layout/demo-banner';
+import { TierWorkspaceBanner } from '@/components/billing/feature-gate';
 import { InteractiveGuideBot } from '@/components/guide/interactive-guide-bot';
 import { Sheet, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useUser } from '@/hooks/use-user';
+import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
 import { createClient } from '@/lib/supabase/client';
 import { DUO_ORG_SLUG } from '@/lib/constants';
 import { Loader2, Eye, ArrowLeft, Shield } from 'lucide-react';
@@ -22,6 +24,7 @@ export default function DashboardLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [returningHome, setReturningHome] = useState(false);
   const { organization, profile, authUser, loading, isAdmin, isSuperAdmin, isDemo } = useUser();
+  const { isDuoExempt, entitlements, terms } = useWorkspaceConfig();
 
   const handleSignOut = async () => {
     try {
@@ -65,20 +68,26 @@ export default function DashboardLayout({
     );
   }
 
-  const orgName = organization?.name || 'DUO Producciones';
+  const orgName = organization?.name || 'KAIROS ERP';
   const activeEmail = profile?.email || authUser?.email || null;
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div
+      data-theme-preset={isDuoExempt ? 'obsidian_gold' : entitlements.themePreset}
+      className="min-h-screen bg-background flex"
+    >
       {/* Desktop Sidebar */}
       <div className="hidden lg:block">
         <Sidebar
           isAdmin={isAdmin}
           isSuperAdmin={isSuperAdmin}
           isDemo={isDemo}
+          isDuoExempt={isDuoExempt}
           organizationName={orgName}
           organizationLogoUrl={organization?.logo_url}
           userEmail={activeEmail}
+          terms={terms}
+          entitlements={entitlements}
           onSignOut={handleSignOut}
         />
       </div>
@@ -92,9 +101,12 @@ export default function DashboardLayout({
             isAdmin={isAdmin}
             isSuperAdmin={isSuperAdmin}
             isDemo={isDemo}
+            isDuoExempt={isDuoExempt}
             organizationName={orgName}
             organizationLogoUrl={organization?.logo_url}
             userEmail={activeEmail}
+            terms={terms}
+            entitlements={entitlements}
             onSignOut={handleSignOut}
           />
         </div>
@@ -103,6 +115,7 @@ export default function DashboardLayout({
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
         {isDemo && <DemoBanner isSuperAdmin={isSuperAdmin} onSignOut={handleSignOut} />}
+        {!isDuoExempt && !isDemo && <TierWorkspaceBanner entitlements={entitlements} />}
         {isSuperAdmin && organization && !isDemo && organization.slug !== DUO_ORG_SLUG && (
           <div className="bg-slate-900 text-slate-100 border-b border-indigo-500/30 px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
             <div className="flex items-center gap-2">

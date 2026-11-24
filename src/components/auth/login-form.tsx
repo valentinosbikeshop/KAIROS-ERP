@@ -106,20 +106,9 @@ export function LoginForm() {
     setError(null);
   };
 
-  const handleEnterDemo = async () => {
+  const handleEnterDemo = () => {
     setDemoLoading(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/demo/enter', { method: 'POST' });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || 'No se pudo iniciar la sesión de prueba.');
-      }
-      window.location.href = '/';
-    } catch (err: any) {
-      setError(err.message || 'Error al acceder a la sesión de prueba.');
-      setDemoLoading(false);
-    }
+    router.push('/demo');
   };
 
   const handleResetPassword = async () => {
@@ -277,7 +266,7 @@ export function LoginForm() {
                 Explorar Sesión de Prueba Interactiva
               </h3>
               <p className="text-xs text-slate-300 leading-relaxed">
-                Investiga 4 eventos reales precargados (Gala Corporativa, Fonda Retail, Matrimonio en borrador y Cumbre), prueba la IA y crea tus propios registros con reseteo en 1 clic.
+                Prueba el ERP adaptado a cualquiera de los 9 rubros y simula todos los planes directamente en el caché local de tu navegador, sin registro y sin guardar datos en la nube.
               </p>
             </div>
             <div className="p-2.5 rounded-xl bg-indigo-500/20 border border-indigo-400/30 text-indigo-200 shrink-0">

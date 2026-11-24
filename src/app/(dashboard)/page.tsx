@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/hooks/use-user'
+import { useWorkspaceConfig } from '@/hooks/use-workspace-config'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatCLP } from '@/lib/utils'
@@ -34,6 +35,7 @@ interface DashboardData {
 
 export default function DashboardPage() {
   const { organization, isAdmin, isDemo } = useUser()
+  const { terms, industry, isDuoExempt, entitlements } = useWorkspaceConfig()
   const [data, setData] = useState<DashboardData>({
     eventsPlanning: 0,
     eventsApproved: 0,
@@ -126,58 +128,127 @@ export default function DashboardPage() {
     )
   }
 
-  const orgName = organization?.name || 'DUO Producciones'
+  const orgName = organization?.name || 'KAIROS ERP'
+  const activeModulesCount = Object.values(entitlements.modules).filter(Boolean).length
 
   return (
     <div className="p-6 space-y-8 max-w-7xl mx-auto">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Bienvenido a {orgName} ERP</h1>
-        <p className="text-muted-foreground text-lg">
-          Panel de control, planificación financiera y gestión de eventos
-        </p>
-      </div>
+      {!isDuoExempt && !isDemo ? (
+        <div
+          className={
+            entitlements.effectiveTier === 'growth'
+              ? 'glass-luxury text-white rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4'
+              : entitlements.effectiveTier === 'scale'
+              ? 'rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 text-white border border-emerald-400/25 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4'
+              : entitlements.effectiveTier === 'essential'
+              ? 'glass-card rounded-3xl p-6 sm:p-8 border-blue-200/80 bg-gradient-to-r from-blue-50/70 via-white to-white flex flex-col sm:flex-row sm:items-center justify-between gap-4'
+              : entitlements.effectiveTier === 'custom'
+              ? 'glass-card rounded-3xl p-6 sm:p-8 border-slate-300/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4'
+              : 'glass-card rounded-2xl p-6 border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4'
+          }
+        >
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge
+                className={
+                  entitlements.effectiveTier === 'growth'
+                    ? 'bg-amber-400 text-slate-950 border-0 font-bold'
+                    : entitlements.effectiveTier === 'scale'
+                    ? 'bg-emerald-400 text-slate-950 border-0 font-bold'
+                    : entitlements.effectiveTier === 'essential'
+                    ? 'bg-blue-600 text-white border-0'
+                    : 'bg-slate-900 text-white border-0'
+                }
+              >
+                {industry.shortName} · Meta {industry.targetMarginPct}%
+              </Badge>
+              {entitlements.modules.mod_ai_suite && (
+                <Badge variant="outline" className="border-amber-400/40 text-amber-300 bg-amber-400/10">
+                  <Sparkles className="h-3 w-3 mr-1" />
+                  IA ACTIVA ({entitlements.aiCallsRemaining} disp.)
+                </Badge>
+              )}
+              {entitlements.effectiveTier === 'custom' && (
+                <Badge variant="outline" className="text-xs">
+                  {activeModulesCount} módulos activos
+                </Badge>
+              )}
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight">Bienvenido a {orgName} ERP</h1>
+            <p
+              className={
+                entitlements.effectiveTier === 'growth' || entitlements.effectiveTier === 'scale'
+                  ? 'text-slate-300 text-sm sm:text-base'
+                  : 'text-muted-foreground text-sm sm:text-base'
+              }
+            >
+              Panel de control, rentabilidad y gestión de {terms.projectPlural.toLowerCase()}
+            </p>
+          </div>
+
+          <Link href="/billing" className="shrink-0">
+            <Button
+              size="sm"
+              className={
+                entitlements.effectiveTier === 'growth' || entitlements.effectiveTier === 'scale'
+                  ? 'bg-white text-slate-950 hover:bg-slate-100 font-semibold tactile-press'
+                  : 'bg-slate-900 text-white hover:bg-slate-800 font-semibold tactile-press'
+              }
+            >
+              {entitlements.effectiveTier === 'free' ? 'Desbloquear IA y PDF' : 'Gestionar Suscripción'}
+            </Button>
+          </Link>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight">Bienvenido a {orgName} ERP</h1>
+          <p className="text-muted-foreground text-lg">
+            Panel de control, planificación financiera y gestión de eventos
+          </p>
+        </div>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="hover:shadow-md transition-shadow animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '0ms' }}>
+        <Card className="glass-card animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '0ms' }}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Eventos en Planificación</CardTitle>
+            <CardTitle className="text-sm font-medium">{terms.projectPlural} en Planificación</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data.eventsPlanning}</div>
+            <div className="text-2xl font-bold font-mono tabular-nums">{data.eventsPlanning}</div>
             <Link href="/events" className="text-xs text-blue-600 hover:underline mt-1 inline-block">
-              Ver eventos →
+              Ver {terms.projectPlural.toLowerCase()} →
             </Link>
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-md transition-shadow animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '100ms' }}>
+        <Card className="glass-card animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '100ms' }}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Eventos Aprobados</CardTitle>
+            <CardTitle className="text-sm font-medium">{terms.projectPlural} Aprobados</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data.eventsApproved}</div>
+            <div className="text-2xl font-bold font-mono tabular-nums">{data.eventsApproved}</div>
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-md transition-shadow animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '200ms' }}>
+        <Card className="glass-card animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '200ms' }}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Eventos Completados</CardTitle>
+            <CardTitle className="text-sm font-medium">{terms.projectPlural} Completados</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data.eventsCompleted}</div>
+            <div className="text-2xl font-bold font-mono tabular-nums">{data.eventsCompleted}</div>
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-md transition-shadow animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '300ms' }}>
+        <Card className="glass-card animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '300ms' }}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Ingresos Totales (Completados)</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCLP(data.totalRevenue)}</div>
+            <div className="text-2xl font-bold font-mono tabular-nums">{formatCLP(data.totalRevenue)}</div>
           </CardContent>
         </Card>
 
@@ -291,21 +362,21 @@ export default function DashboardPage() {
         <h2 className="text-xl font-semibold tracking-tight">Acciones Rápidas</h2>
         <div className="flex flex-wrap gap-4">
           <Link href="/events/new">
-            <Button>
+            <Button className="tactile-press">
               <Plus className="mr-2 h-4 w-4" />
-              Nuevo Evento
+              {terms.newProjectCta}
             </Button>
           </Link>
           <Link href="/costs">
-            <Button variant="outline">
+            <Button variant="outline" className="tactile-press">
               <List className="mr-2 h-4 w-4" />
-              Ver Tarifas
+              Ver {terms.catalogLabel}
             </Button>
           </Link>
-          <Link href="/analytics">
-            <Button variant="outline">
+          <Link href={entitlements.modules.mod_analytics_excel || isDuoExempt || isDemo ? '/analytics' : '/billing'}>
+            <Button variant="outline" className="tactile-press">
               <BarChart className="mr-2 h-4 w-4" />
-              Analítica / Consolidación
+              {terms.analyticsLabel}
             </Button>
           </Link>
         </div>

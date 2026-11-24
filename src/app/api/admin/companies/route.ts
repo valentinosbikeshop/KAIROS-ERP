@@ -4,6 +4,9 @@ import { createAdminClient, getAuthenticatedContext } from '@/lib/supabase/admin
 import { SUPER_ADMIN_EMAIL, DUO_ORG_SLUG } from '@/lib/constants';
 import { calculateFinancials } from '@/lib/utils';
 import { COMPANY_COST_TEMPLATES, formatCostMetadata } from '@/lib/cost-metadata';
+import { isDuoProducciones, resolveOrgEntitlements } from '@/lib/entitlements';
+import { fetchPlansAndAddonsServer, hydrateOrganizationSaas } from '@/lib/saas-storage';
+import type { Organization } from '@/types/database';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -327,18 +330,62 @@ export async function PATCH(req: NextRequest) {
 
     const admin = createAdminClient();
 
-    // Prevent disabling DUO Producciones
-    const { data: targetOrg } = await admin
+    // Cargar organización completa para preservar __saas_config y validar permisos de marca blanca
+    const { data: targetOrgRaw } = await admin
       .from('organizations')
-      .select('slug')
+      .select('*')
       .eq('id', id)
       .single();
 
-    if (targetOrg?.slug === DUO_ORG_SLUG && updates.is_active === false) {
+    if (!targetOrgRaw) {
+      return NextResponse.json({ error: 'Empresa no encontrada.' }, { status: 404 });
+    }
+
+    const targetOrg = hydrateOrganizationSaas(targetOrgRaw as Organization)!;
+
+    if (targetOrg.slug === DUO_ORG_SLUG && updates.is_active === false) {
       return NextResponse.json(
         { error: 'No se puede desactivar la empresa matriz DUO Producciones.' },
         { status: 400 }
       );
+    }
+
+    // Gate mod_team_branding solo si realmente modifican logo_url o datos bancarios visibles
+    if (!isSuper && !isDuoProducciones(targetOrg) && !targetOrg.is_demo) {
+      const logoChanged =
+        updates.logo_url !== undefined &&
+        (updates.logo_url || null) !== (targetOrgRaw.logo_url || null);
+
+      const bankChanged = (() => {
+        if (!updates.bank_info) return false;
+        const prevBank = (targetOrgRaw.bank_info || {}) as Record<string, unknown>;
+        const nextBank = updates.bank_info as Record<string, unknown>;
+        const keys = ['banco', 'tipo_cuenta', 'numero_cuenta', 'titular', 'rut', 'email'];
+        return keys.some((k) => String(nextBank[k] ?? '') !== String(prevBank[k] ?? ''));
+      })();
+
+      if (logoChanged || bankChanged) {
+        const { plans, addons } = await fetchPlansAndAddonsServer();
+        const entitlements = resolveOrgEntitlements(targetOrg, plans, addons);
+        if (!entitlements.modules.mod_team_branding) {
+          return NextResponse.json(
+            {
+              error:
+                'La personalización de logo y datos bancarios de marca blanca requiere el módulo Equipo & Marca Blanca o el Plan Corporativo.',
+              upgradeRequired: true,
+            },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
+    // Preservar siempre bank_info.__saas_config para no perder configuración SaaS en modo fallback
+    if (updates.bank_info && targetOrgRaw.bank_info?.__saas_config) {
+      (updates as any).bank_info = {
+        ...updates.bank_info,
+        __saas_config: targetOrgRaw.bank_info.__saas_config,
+      };
     }
 
     const { data: updated, error } = await admin

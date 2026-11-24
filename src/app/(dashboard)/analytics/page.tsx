@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
+import { FeatureLockCard } from '@/components/billing/feature-gate';
 import { KpiCards } from '@/components/analytics/kpi-cards';
 import { RevenueChart } from '@/components/analytics/revenue-chart';
 import { CostDistribution } from '@/components/analytics/cost-distribution';
@@ -13,6 +15,7 @@ import { Loader2, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function AnalyticsPage() {
+  const { entitlements, isDuoExempt, isDemo, terms } = useWorkspaceConfig();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState('0');
   const [loading, setLoading] = useState(true);
@@ -233,31 +236,45 @@ export default function AnalyticsPage() {
     XLSX.writeFile(wb, fileName);
   };
 
+  const analyticsLocked =
+    !isDuoExempt && !isDemo && !entitlements.modules.mod_analytics_excel;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Consolidación Financiera</h1>
-          <p className="text-muted-foreground">Análisis de rendimiento y métricas de eventos completados.</p>
+          <h1 className="text-3xl font-bold tracking-tight">{terms.analyticsLabel}</h1>
+          <p className="text-muted-foreground">
+            Análisis de rendimiento y métricas de {terms.projectPlural.toLowerCase()} completados.
+          </p>
         </div>
-        <div className="flex gap-2">
-          <Select 
-            value={selectedYear} 
-            onChange={(e) => setSelectedYear(e.target.value)} 
-            options={years.map(y => ({value: y, label: y}))} 
-          />
-          <Select 
-            value={selectedMonth} 
-            onChange={(e) => setSelectedMonth(e.target.value)} 
-            options={months} 
-          />
-          <Button onClick={handleExportExcel} className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={loading || summary.totalIngresosBrutos === 0}>
-            <Download className="mr-2 h-4 w-4" /> Exportar Excel
-          </Button>
-        </div>
+        {!analyticsLocked && (
+          <div className="flex gap-2">
+            <Select 
+              value={selectedYear} 
+              onChange={(e) => setSelectedYear(e.target.value)} 
+              options={years.map(y => ({value: y, label: y}))} 
+            />
+            <Select 
+              value={selectedMonth} 
+              onChange={(e) => setSelectedMonth(e.target.value)} 
+              options={months} 
+            />
+            <Button onClick={handleExportExcel} className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={loading || summary.totalIngresosBrutos === 0}>
+              <Download className="mr-2 h-4 w-4" /> Exportar Excel
+            </Button>
+          </div>
+        )}
       </div>
 
-      {loading ? (
+      {analyticsLocked ? (
+        <FeatureLockCard
+          isExpiredLock={entitlements.isExpiredLock}
+          title="Módulo Analítica P&L & Exportación Excel F29"
+          description="Desbloquea gráficos mensuales de ventas vs costos, distribución por categoría, cálculo de IVA débito y libro contable Excel descargable."
+          requiredPlanLabel="Crecimiento Inteligente IA o Módulo Analítica"
+        />
+      ) : loading ? (
         <div className="flex justify-center items-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>

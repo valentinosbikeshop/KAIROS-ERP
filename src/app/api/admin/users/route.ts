@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createAdminClient, getAuthenticatedContext } from '@/lib/supabase/admin';
 import { SUPER_ADMIN_EMAIL } from '@/lib/constants';
-import type { Profile } from '@/types/database';
+import { isDuoProducciones, resolveOrgEntitlements } from '@/lib/entitlements';
+import { fetchPlansAndAddonsServer, hydrateOrganizationSaas } from '@/lib/saas-storage';
+import type { Organization, Profile } from '@/types/database';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -130,6 +132,40 @@ export async function PATCH(req: NextRequest) {
         { error: 'Debes asignar una empresa antes de aprobar la cuenta del usuario.' },
         { status: 400 }
       );
+    }
+
+    // Validar tope maxUsers del plan al activar un usuario (exento DUO Producciones y Demo)
+    if (updatePayload.status === 'active' && targetProfile.status !== 'active' && finalOrgId) {
+      const { data: orgRaw } = await admin
+        .from('organizations')
+        .select('*')
+        .eq('id', finalOrgId)
+        .single();
+
+      if (orgRaw) {
+        const org = hydrateOrganizationSaas(orgRaw as Organization)!;
+        if (!isDuoProducciones(org) && !org.is_demo) {
+          const { plans, addons } = await fetchPlansAndAddonsServer();
+          const entitlements = resolveOrgEntitlements(org, plans, addons);
+          if (entitlements.maxUsers !== null) {
+            const { count: activeCount } = await admin
+              .from('profiles')
+              .select('id', { count: 'exact', head: true })
+              .eq('organization_id', finalOrgId)
+              .eq('status', 'active');
+
+            if ((activeCount || 0) >= entitlements.maxUsers) {
+              return NextResponse.json(
+                {
+                  error: `Tu plan actual permite hasta ${entitlements.maxUsers} usuario(s) activo(s). Amplía tu plan o activa el módulo Equipo Multi-Usuario en Suscripción & Estilo.`,
+                  upgradeRequired: true,
+                },
+                { status: 403 }
+              );
+            }
+          }
+        }
+      }
     }
 
     const { data: updated, error } = await admin

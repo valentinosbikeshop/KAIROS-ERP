@@ -70,14 +70,14 @@ const DEFAULT_VIDEO_PRESETS: VideoPreset[] = [
 
 export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuotePdfDialogProps) {
   const { organization } = useUser();
-  const orgName = organization?.name || 'DUO Producciones';
-  const orgLegalName = organization?.legal_name || 'DUO Producciones SpA';
+  const orgName = organization?.name || 'KAIROS ERP';
+  const orgLegalName = organization?.legal_name || orgName;
   const orgSubtitle =
-    organization?.subtitle || 'PRODUCCIÓN DE EVENTOS, EXPERIENCIAS MUSICALES & SERVICIOS TÉCNICOS';
-  const orgRut = organization?.rut || '78.252.253-1';
-  const orgLocation = organization?.location || 'Rancagua, Chile';
-  const orgEmail = organization?.contact_email || 'duoprods.empresa@gmail.com';
-  const orgPhone = organization?.contact_phone || '+56 9 8229 0332';
+    organization?.subtitle || 'COTIZACIÓN COMERCIAL DE SERVICIOS';
+  const orgRut = organization?.rut || '';
+  const orgLocation = organization?.location || 'Chile';
+  const orgEmail = organization?.contact_email || '';
+  const orgPhone = organization?.contact_phone || '';
   const bankInfo = organization?.bank_info || {};
   const [isOpen, setIsOpen] = useState(false);
   const [generating, setGenerating] = useState(false);

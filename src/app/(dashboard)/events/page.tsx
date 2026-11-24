@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Plus, Search, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
+import { FeatureLockCard } from '@/components/billing/feature-gate';
 import { EventCard } from '@/components/events/event-card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -12,6 +14,7 @@ import { Event } from '@/types';
 
 export default function EventsPage() {
   const supabase = createClient();
+  const { terms, entitlements, isDuoExempt, isDemo } = useWorkspaceConfig();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -78,12 +81,20 @@ export default function EventsPage() {
     return matchesSearch && matchesStatus;
   });
 
+  const reachedProjectLimit =
+    !isDuoExempt &&
+    !isDemo &&
+    entitlements.maxProjects !== null &&
+    events.length >= entitlements.maxProjects;
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Eventos</h1>
-          <p className="text-muted-foreground mt-1">Gestión de eventos y planificación con IA</p>
+          <h1 className="text-3xl font-bold tracking-tight">{terms.projectPlural}</h1>
+          <p className="text-muted-foreground mt-1">
+            Gestión de {terms.projectPlural.toLowerCase()} y planificación financiera
+          </p>
         </div>
         <div className="flex gap-2">
           <Link href="/events/trash">
@@ -91,13 +102,31 @@ export default function EventsPage() {
               <Trash2 className="mr-2 h-4 w-4" /> Papelera
             </Button>
           </Link>
-          <Link href="/events/new">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" /> Nuevo Evento
-            </Button>
-          </Link>
+          {reachedProjectLimit ? (
+            <Link href="/billing">
+              <Button className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold">
+                Ampliar Cupo ({events.length}/{entitlements.maxProjects})
+              </Button>
+            </Link>
+          ) : (
+            <Link href="/events/new">
+              <Button className="tactile-press">
+                <Plus className="mr-2 h-4 w-4" /> {terms.newProjectCta}
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
+
+      {reachedProjectLimit && (
+        <FeatureLockCard
+          compact
+          isExpiredLock={entitlements.isExpiredLock}
+          title={`Alcanzaste el límite de ${entitlements.maxProjects} ${terms.projectPlural.toLowerCase()} de tu plan actual`}
+          description={`Todos tus ${terms.projectPlural.toLowerCase()} históricos permanecen intactos y visibles. Mejora tu suscripción para crear ${terms.projectPlural.toLowerCase()} adicionales o ilimitados.`}
+          requiredPlanLabel="Operación Esencial / Ilimitado"
+        />
+      )}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />

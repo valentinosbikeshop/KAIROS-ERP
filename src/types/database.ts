@@ -1,3 +1,65 @@
+export type IndustryType =
+  | 'eventos_banqueteria'
+  | 'marketing_audiovisual'
+  | 'construccion_arquitectura'
+  | 'catering_foodservice'
+  | 'ferias_stands_b2b'
+  | 'maestranza_muebles'
+  | 'ingenieria_hvac'
+  | 'consultoria_juridico'
+  | 'turismo_mice';
+
+export type ThemePreset =
+  | 'obsidian_gold'
+  | 'emerald_sovereign'
+  | 'sapphire_executive'
+  | 'terracotta_atelier'
+  | 'amethyst_studio';
+
+export type OperationMode = 'project' | 'retail_mixed' | 'retainer_hours';
+
+export type HonorariosRetentionPolicy = 'company' | 'contractor' | 'split_50_50';
+
+export type SubscriptionTier = 'free' | 'essential' | 'growth' | 'scale' | 'custom';
+
+export type SubscriptionStatus = 'active' | 'past_due' | 'canceled';
+
+export type ModuleKey =
+  | 'mod_unlimited_projects'
+  | 'mod_pdf_quotes'
+  | 'mod_transactions_sii'
+  | 'mod_consolidation_retail'
+  | 'mod_ai_suite'
+  | 'mod_analytics_excel'
+  | 'mod_team_branding';
+
+export type CustomTerminology = {
+  projectSingular?: string;
+  projectPlural?: string;
+  clientLabel?: string;
+  catalogLabel?: string;
+  locationLabel?: string;
+};
+
+export type OrganizationSaasConfig = {
+  industry_type: IndustryType;
+  theme_preset: ThemePreset;
+  operation_mode: OperationMode;
+  custom_terminology?: CustomTerminology;
+  onboarding_completed: boolean;
+  is_exempt: boolean;
+  subscription_tier: SubscriptionTier;
+  subscription_status: SubscriptionStatus;
+  selected_modules: ModuleKey[];
+  current_period_start: string | null;
+  current_period_end: string | null;
+  khipu_subscription_id?: string | null;
+  ai_calls_used: number;
+  ai_calls_reset_at: string;
+  honorarios_retention_policy?: HonorariosRetentionPolicy;
+  pending_payments?: BillingPayment[];
+};
+
 export type OrganizationBankInfo = {
   banco?: string;
   tipo_cuenta?: string;
@@ -5,6 +67,8 @@ export type OrganizationBankInfo = {
   titular?: string;
   rut?: string;
   email?: string;
+  __saas_config?: OrganizationSaasConfig;
+  [key: string]: unknown;
 };
 
 export type Organization = {
@@ -24,6 +88,71 @@ export type Organization = {
   is_active: boolean;
   max_demo_events: number;
   max_demo_costs: number;
+  created_at: string;
+  // Campos SaaS (pueden venir de columnas SQL o hidratados desde bank_info.__saas_config)
+  industry_type?: IndustryType;
+  theme_preset?: ThemePreset;
+  operation_mode?: OperationMode;
+  custom_terminology?: CustomTerminology | null;
+  onboarding_completed?: boolean;
+  is_exempt?: boolean;
+  subscription_tier?: SubscriptionTier;
+  subscription_status?: SubscriptionStatus;
+  selected_modules?: ModuleKey[];
+  current_period_start?: string | null;
+  current_period_end?: string | null;
+  khipu_subscription_id?: string | null;
+  ai_calls_used?: number;
+  ai_calls_reset_at?: string;
+};
+
+export type SubscriptionPlan = {
+  id: Exclude<SubscriptionTier, 'custom'>;
+  name: string;
+  tagline: string;
+  description: string;
+  price_clp: number;
+  is_recommended: boolean;
+  badge_text: string | null;
+  max_projects: number | null;
+  max_costs: number | null;
+  max_users: number | null;
+  ai_calls_limit: number;
+  included_modules: ModuleKey[];
+  features: string[];
+  sort_order: number;
+  is_active: boolean;
+  updated_at?: string;
+};
+
+export type SubscriptionAddon = {
+  id: 'base_custom' | ModuleKey;
+  name: string;
+  description: string;
+  price_clp: number;
+  category: 'base' | 'module';
+  ai_calls_bonus: number;
+  sort_order: number;
+  is_active: boolean;
+  updated_at?: string;
+};
+
+export type BillingPayment = {
+  id: string;
+  organization_id: string;
+  khipu_payment_id: string | null;
+  transaction_id: string;
+  tier: SubscriptionTier;
+  selected_modules: ModuleKey[];
+  amount_clp: number;
+  currency: string;
+  status: 'pending' | 'paid' | 'failed' | 'expired';
+  payment_url: string | null;
+  payer_email: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  raw_webhook?: unknown;
+  paid_at: string | null;
   created_at: string;
 };
 
@@ -134,6 +263,24 @@ export type Database = {
         Row: EventItem;
         Insert: Omit<EventItem, 'id' | 'created_at'> & { id?: string; created_at?: string };
         Update: Partial<Omit<EventItem, 'id'>>;
+        Relationships: [];
+      };
+      subscription_plans: {
+        Row: SubscriptionPlan;
+        Insert: SubscriptionPlan;
+        Update: Partial<Omit<SubscriptionPlan, 'id'>>;
+        Relationships: [];
+      };
+      subscription_addons: {
+        Row: SubscriptionAddon;
+        Insert: SubscriptionAddon;
+        Update: Partial<Omit<SubscriptionAddon, 'id'>>;
+        Relationships: [];
+      };
+      billing_payments: {
+        Row: BillingPayment;
+        Insert: Omit<BillingPayment, 'id' | 'created_at'> & { id?: string; created_at?: string };
+        Update: Partial<Omit<BillingPayment, 'id'>>;
         Relationships: [];
       };
     };

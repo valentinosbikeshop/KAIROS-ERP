@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Organization, Profile } from '@/types';
 import { SUPER_ADMIN_EMAIL } from '@/lib/constants';
+import { hydrateOrganizationSaas } from '@/lib/saas-storage-client';
 
 export function useUser() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -35,7 +36,7 @@ export function useUser() {
             .select('*')
             .eq('id', typedProfile.organization_id)
             .single();
-          setOrganization((orgData as Organization | null) ?? null);
+          setOrganization(hydrateOrganizationSaas((orgData as Organization | null) ?? null));
         } else {
           setOrganization(null);
         }
@@ -68,7 +69,7 @@ export function useUser() {
 
   const isSuperAdmin =
     Boolean(profile?.is_super_admin) ||
-    (authUser?.email?.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase());
+    authUser?.email?.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
   const isDemo = Boolean(organization?.is_demo);
 
   return {

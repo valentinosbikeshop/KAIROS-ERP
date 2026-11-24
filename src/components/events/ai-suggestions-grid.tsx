@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/table';
 import { Check, X, Loader2, Plus, CheckCheck, Trash2, Sparkles, ClipboardList, ChevronDown, ChevronRight, Combine, Copy, Split, GitFork, GripVertical, Undo2, Redo2, Banknote, Receipt, TrendingUp, MapPin } from 'lucide-react';
 import { useDragAutoScroll } from '@/hooks/use-drag-auto-scroll';
+import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
 import { ConsolidateDialog } from './consolidate-dialog';
 import { DistributeInsumoDialog } from './distribute-insumo-dialog';
 import { FloatingDraftAssistant } from './floating-draft-assistant';
@@ -55,6 +56,9 @@ export function AiSuggestionsGrid({
   onDraftChanged,
   hasRetailSales = false,
 }: AiSuggestionsGridProps) {
+  const { entitlements, isDuoExempt, isDemo } = useWorkspaceConfig();
+  const canUseAi = isDuoExempt || isDemo || entitlements.modules.mod_ai_suite;
+  const canConsolidate = isDuoExempt || isDemo || entitlements.modules.mod_consolidation_retail;
   const [editableSuggestions, setEditableSuggestions] = useState<EventItem[]>(draftItems);
   const [manualItem, setManualItem] = useState<AiSuggestion>({ ...emptySuggestion, id: 'manual' });
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -758,6 +762,10 @@ export function AiSuggestionsGrid({
     }
 
     const isTargetConsolidated = targetParent.tipo_evento?.toLowerCase() === 'consolidado' || editableSuggestions.some(s => s.parent_id === targetParentId);
+    if (!canConsolidate) {
+      alert('La consolidación y agrupación de ítems requiere el Plan Crecimiento IA o el módulo Consolidación & Retail en Suscripción.');
+      return;
+    }
     if (!isTargetConsolidated) {
       setSelectedIds([draggedId, targetParentId]);
       setConsolidateOpen(true);
@@ -895,11 +903,19 @@ export function AiSuggestionsGrid({
   };
 
   const handleConsolidateClick = () => {
+    if (!canConsolidate) {
+      alert('La consolidación de ítems requiere el Plan Crecimiento IA o el módulo Consolidación & Retail en Suscripción.');
+      return;
+    }
     if (selectedIds.length < 2) return;
     setConsolidateOpen(true);
   };
 
   const handleOpenDistribute = (item: EventItem) => {
+    if (!canConsolidate) {
+      alert('El prorrateo de insumos y recetas requiere el Plan Crecimiento IA o el módulo Consolidación & Retail en Suscripción.');
+      return;
+    }
     setDistributeItem(item);
     setDistributeOpen(true);
   };
@@ -1265,6 +1281,9 @@ export function AiSuggestionsGrid({
       try {
         // 1. CONSOLIDAR
         if (action.type === 'CONSOLIDATE') {
+          if (!canConsolidate) {
+            continue;
+          }
           let targetItemIds = action.itemIds || [];
           if (!Array.isArray(targetItemIds)) targetItemIds = [targetItemIds];
 
@@ -2953,10 +2972,12 @@ export function AiSuggestionsGrid({
         </div>
       )}
 
-      <FloatingDraftAssistant 
-        draftItems={editableSuggestions} 
-        onApplyActions={handleAssistantActions} 
-      />
+      {canUseAi && (
+        <FloatingDraftAssistant 
+          draftItems={editableSuggestions} 
+          onApplyActions={handleAssistantActions} 
+        />
+      )}
     </div>
   );
 }

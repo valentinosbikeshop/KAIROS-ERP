@@ -2,16 +2,20 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
 import { Event, EventItem } from '@/types';
 import { PdfGenerator } from '@/components/reports/pdf-generator';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCLP, formatPercentage } from '@/lib/utils';
 import Link from 'next/link';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Lock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function ReportPage({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const { entitlements, isDuoExempt, isDemo } = useWorkspaceConfig();
+  const canExportPdf = isDuoExempt || isDemo || entitlements.modules.mod_pdf_quotes;
   const [event, setEvent] = useState<Event | null>(null);
   const [items, setItems] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,7 +119,16 @@ export default function ReportPage({ params }: { params: { id: string } }) {
             <p className="text-muted-foreground">{event.name}</p>
           </div>
         </div>
-        <PdfGenerator event={event} items={items} />
+        {canExportPdf ? (
+          <PdfGenerator event={event} items={items} />
+        ) : (
+          <Link href="/billing">
+            <Button variant="outline" className="gap-2 text-xs">
+              <Lock className="h-3.5 w-3.5 text-amber-600" />
+              Activar Exportación PDF
+            </Button>
+          </Link>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">

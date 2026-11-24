@@ -13,7 +13,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
-import { MasterCost } from '@/types'
+import { MasterCost, HonorariosRetentionPolicy } from '@/types'
+import { useWorkspaceConfig } from '@/hooks/use-workspace-config'
 import { createClient } from '@/lib/supabase/client'
 import {
   formatCLP,
@@ -55,6 +56,10 @@ export function CostFormDialog({
   editingCost,
   onSuccess,
 }: CostFormDialogProps) {
+  const { organization, isDuoExempt } = useWorkspaceConfig()
+  const defaultPolicy: HonorariosRetentionPolicy =
+    organization?.bank_info?.__saas_config?.honorarios_retention_policy || 'contractor'
+  const [retentionPolicy, setRetentionPolicy] = useState<HonorariosRetentionPolicy>(defaultPolicy)
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 

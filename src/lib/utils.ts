@@ -158,7 +158,9 @@ export function getMonthName(month: number): string {
  * becomes Sept 12. This function parses the string directly.
  */
 export function parseDateSafe(dateStr: string): { year: number; month: number; day: number } {
-  const [y, m, d] = dateStr.split('-').map(Number);
+  if (!dateStr) return { year: 0, month: 0, day: 0 };
+  const cleanDate = String(dateStr).trim().split('T')[0].split(' ')[0];
+  const [y, m, d] = cleanDate.split('-').map(Number);
   return { year: y, month: m, day: d };
 }
 

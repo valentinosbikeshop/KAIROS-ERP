@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pdf from 'pdf-parse';
 import * as XLSX from 'xlsx';
-import { createServerClient } from '@supabase/ssr';
 import { GoogleGenAI } from '@google/genai';
+import { getAuthenticatedContext } from '@/lib/supabase/admin';
+import { OPTIMIZED_GEMINI_MODELS, guardAiEndpoint } from '@/lib/ai-optimizer';
 
 export const runtime = 'nodejs';
 
@@ -16,48 +17,32 @@ const ALLOWED_TYPES = new Set([
   'image/jpeg',
   'image/png',
   'image/webp',
-  'image/heic'
+  'image/heic',
 ]);
 
-const ALLOWED_EXTENSIONS = new Set(['.pdf', '.xlsx', '.xls', '.csv', '.jpg', '.jpeg', '.png', '.webp', '.heic']);
-
-// Verify the request comes from an authenticated user
-async function verifyAuth(req: NextRequest) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    console.warn('verifyAuth: Faltan variables de entorno NEXT_PUBLIC_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_ANON_KEY.');
-    return null;
-  }
-
-  const supabase = createServerClient(
-    supabaseUrl,
-    supabaseKey,
-    {
-      cookies: {
-        getAll() {
-          return req.cookies.getAll();
-        },
-        setAll() {},
-      },
-    }
-  );
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    return user;
-  } catch (err) {
-    console.error('Error al validar sesión en verifyAuth:', err);
-    return null;
-  }
-}
+const ALLOWED_EXTENSIONS = new Set([
+  '.pdf',
+  '.xlsx',
+  '.xls',
+  '.csv',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+  '.heic',
+]);
 
 export async function POST(req: NextRequest) {
   try {
-    // Auth guard
-    const user = await verifyAuth(req);
-    if (!user) {
+    const ctx = await getAuthenticatedContext(req);
+    if (!ctx || !ctx.profile?.organization_id) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    // Guardia de plan (OCR / Parsing documental pertenece a Suite IA)
+    const guard = await guardAiEndpoint(ctx);
+    if (!guard.allowed && guard.response) {
+      return guard.response;
     }
 
     const formData = await req.formData();
@@ -67,7 +52,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    // File size validation
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
         { error: `El archivo excede el tamaño máximo de ${MAX_FILE_SIZE / 1024 / 1024} MB` },
@@ -79,7 +63,6 @@ export async function POST(req: NextRequest) {
     const fileName = file.name.toLowerCase();
     const extension = '.' + fileName.split('.').pop();
 
-    // File type validation
     if (!ALLOWED_TYPES.has(fileType) && !ALLOWED_EXTENSIONS.has(extension)) {
       return NextResponse.json(
         { error: 'Formato de archivo no soportado. Use PDF, XLSX, CSV o Imágenes (JPG, PNG, WEBP).' },
@@ -88,7 +71,6 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-
     let text = '';
     let pages = 0;
 
@@ -96,73 +78,83 @@ export async function POST(req: NextRequest) {
       const pdfData = await pdf(buffer);
       text = pdfData.text;
       pages = pdfData.numpages;
-    } 
-    else if (
-      fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
+    } else if (
+      fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
       fileType === 'application/vnd.ms-excel' ||
       fileType === 'text/csv' ||
-      fileName.endsWith('.xlsx') || 
+      fileName.endsWith('.xlsx') ||
       fileName.endsWith('.xls') ||
       fileName.endsWith('.csv')
     ) {
       const workbook = XLSX.read(buffer, { type: 'buffer' });
-      text = workbook.SheetNames.map(sheetName => {
+      text = workbook.SheetNames.map((sheetName) => {
         const sheet = workbook.Sheets[sheetName];
-        return `--- Sheet: ${sheetName} ---\n` + XLSX.utils.sheet_to_csv(sheet);
+        return `--- Hoja: ${sheetName} ---\n` + XLSX.utils.sheet_to_csv(sheet, { blankrows: false });
       }).join('\n\n');
-    } 
-    else if (fileType.startsWith('image/') || ['.jpg', '.jpeg', '.png', '.webp', '.heic'].some(ext => fileName.endsWith(ext))) {
+    } else if (
+      fileType.startsWith('image/') ||
+      ['.jpg', '.jpeg', '.png', '.webp', '.heic'].some((ext) => fileName.endsWith(ext))
+    ) {
       if (!process.env.GEMINI_API_KEY) {
         return NextResponse.json(
-          { error: 'Falta configurar GEMINI_API_KEY en las Variables de Entorno de Vercel.' },
+          { error: 'Falta configurar GEMINI_API_KEY en el servidor.' },
           { status: 500 }
         );
       }
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const base64Data = buffer.toString('base64');
-      
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.5-flash',
-        contents: [
-          {
-            role: 'user',
-            parts: [
+
+      let ocrText = '';
+      for (const model of OPTIMIZED_GEMINI_MODELS) {
+        try {
+          const response = await ai.models.generateContent({
+            model,
+            contents: [
               {
-                inlineData: {
-                  data: base64Data,
-                  mimeType: fileType || 'image/jpeg',
-                }
+                role: 'user',
+                parts: [
+                  {
+                    inlineData: {
+                      data: base64Data,
+                      mimeType: fileType || 'image/jpeg',
+                    },
+                  },
+                  {
+                    text: 'Extrae en formato compacto: Título/Categoría si existe, luego cada ítem con Cantidad | Descripción | Precio CLP | Doc (Factura/Boleta). Sin texto introductorio.',
+                  },
+                ],
               },
-              {
-                text: "Analiza profundamente esta imagen y extrae todo el texto relevante, tablas y datos. IMPORTANTE: Si detectas que los ítems mostrados pertenecen a una categoría, receta, plato o grupo específico (por ejemplo, un listado de ingredientes bajo el título 'Empanadas' o '1. Empanadas', equipos para 'Iluminación', etc.), indica CLARAMENTE ese nombre de grupo o título principal al inicio de tu respuesta. Luego, estructura detalladamente los ítems, cantidades, precios/costos y cualquier observación tributaria (si fue comprado con Factura o Boleta)."
-              }
-            ]
+            ],
+            config: { maxOutputTokens: 4096 },
+          });
+          if (response?.text) {
+            ocrText = response.text;
+            break;
           }
-        ],
-        config: {
-          temperature: 0.1,
+        } catch {
+          // Intentar siguiente modelo
         }
-      });
-      
-      text = response.text || '';
-    }
-    else {
+      }
+
+      text = ocrText;
+      if (text) {
+        await guard.consumeCredit();
+      }
+    } else {
       return NextResponse.json({ error: 'Unsupported file format' }, { status: 400 });
     }
 
-    // Sanitize: limit output text length to prevent DoS
-    const MAX_TEXT_LENGTH = 50000;
+    // Compactar líneas vacías repetidas para ahorrar tokens en llamadas posteriores
+    text = text.replace(/\n{3,}/g, '\n\n').trim();
+
+    const MAX_TEXT_LENGTH = 30000;
     if (text.length > MAX_TEXT_LENGTH) {
-      text = text.substring(0, MAX_TEXT_LENGTH) + '\n\n... (texto truncado por límite de tamaño)';
+      text = text.substring(0, MAX_TEXT_LENGTH) + '\n... (truncado)';
     }
 
     return NextResponse.json({ text, type: fileType, pages });
-
   } catch (error: any) {
     console.error('Error parsing file:', error);
-    return NextResponse.json(
-      { error: 'Error al procesar el archivo' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Error al procesar el archivo' }, { status: 500 });
   }
 }
