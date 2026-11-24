@@ -169,7 +169,7 @@ export function RegisterForm() {
             className={cn(
               'flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-medium transition-all tactile-press',
               mode === 'owner'
-                ? 'bg-[#0D1829] text-white shadow-sm'
+                ? 'bg-[#4A607A] text-white shadow-xs'
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
@@ -185,7 +185,7 @@ export function RegisterForm() {
             className={cn(
               'flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-medium transition-all tactile-press',
               mode === 'invite'
-                ? 'bg-[#0D1829] text-white shadow-sm'
+                ? 'bg-[#4A607A] text-white shadow-xs'
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
@@ -198,9 +198,9 @@ export function RegisterForm() {
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-3.5">
           {mode === 'owner' && (
-            <div className="p-3.5 rounded-2xl glass-luxury text-slate-100 text-xs flex items-center justify-between gap-2">
+            <div className="p-3.5 rounded-2xl glass-luxury text-foreground text-xs flex items-center justify-between gap-2">
               <div className="space-y-0.5">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#38BDF8] block">
+                <span className="text-[10px] uppercase tracking-[0.14em] text-[#4A607A] font-semibold block">
                   Plan Preseleccionado
                 </span>
                 <span className="font-semibold">
@@ -208,7 +208,7 @@ export function RegisterForm() {
                 </span>
               </div>
               <Link href="/welcome#planes">
-                <Badge className="bg-[#2DD4BF] hover:bg-[#5EEAD4] text-[#080E1A] border-0 cursor-pointer">
+                <Badge className="bg-[#467366]/15 hover:bg-[#467366]/25 text-[#2E5248] border border-[#467366]/30 cursor-pointer">
                   {urlPlan ? 'Cambiar' : 'Ver Planes'}
                 </Badge>
               </Link>

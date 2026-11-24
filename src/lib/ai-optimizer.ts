@@ -76,7 +76,7 @@ export async function guardAiEndpoint(ctx: AuthenticatedContext): Promise<AiGuar
   const entitlements = resolveOrgEntitlements(hydratedOrg, plans, addons);
   const blueprint = getIndustryBlueprint(entitlements.industryType);
 
-  if (isDuoProducciones(hydratedOrg)) {
+  if (isDuoProducciones(hydratedOrg) || hydratedOrg.id === 'd0000000-0000-4000-8000-000000000000') {
     return {
       allowed: true,
       org: hydratedOrg,

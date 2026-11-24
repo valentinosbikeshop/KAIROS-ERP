@@ -2208,17 +2208,17 @@ export function AiSuggestionsGrid({
       {/* Resumen Ejecutivo de Cash & Rentabilidad Real en Borrador */}
       {editableSuggestions.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2">
-          <div className="p-3.5 rounded-xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent shadow-xs">
+          <div className="p-3.5 rounded-xl glass-card border-[#467366]/25">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Banknote className="h-4 w-4 text-emerald-600" />
+              <span className="text-xs font-semibold text-[#2E5248] uppercase tracking-wider flex items-center gap-1.5">
+                <Banknote className="h-4 w-4 text-[#467366]" />
                 Cash en Mano Estimado
               </span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#467366]/15 text-[#2E5248]">
                 Al Terminar Evento
               </span>
             </div>
-            <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400 mt-2">
+            <div className="text-2xl font-bold tabular-nums text-[#2E5248] mt-2">
               {formatCLP(cashInmediato)}
             </div>
             <p className="text-[11px] text-muted-foreground mt-1">
@@ -2226,17 +2226,17 @@ export function AiSuggestionsGrid({
             </p>
           </div>
 
-          <div className="p-3.5 rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent shadow-xs">
+          <div className="p-3.5 rounded-xl glass-card border-amber-800/20">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-amber-800 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Receipt className="h-4 w-4 text-amber-600" />
+              <span className="text-xs font-semibold text-amber-900/90 uppercase tracking-wider flex items-center gap-1.5">
+                <Receipt className="h-4 w-4 text-amber-800" />
                 Reserva IVA (F29 SII)
               </span>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${provisionIvaSII > 0 ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" : "bg-green-100 text-green-800"}`}>
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${provisionIvaSII > 0 ? "bg-amber-900/10 text-amber-900" : "bg-[#467366]/15 text-[#2E5248]"}`}>
                 {provisionIvaSII > 0 ? "Guardar p/ mes sig." : "Crédito a favor"}
               </span>
             </div>
-            <div className={`text-2xl font-black mt-2 ${provisionIvaSII > 0 ? "text-amber-700 dark:text-amber-400" : "text-emerald-600"}`}>
+            <div className={`text-2xl font-bold tabular-nums mt-2 ${provisionIvaSII > 0 ? "text-amber-900/90" : "text-[#2E5248]"}`}>
               {provisionIvaSII > 0 ? formatCLP(provisionIvaSII) : `${formatCLP(remanenteIvaFavor)} (a favor)`}
             </div>
             <p className="text-[11px] text-muted-foreground mt-1">
@@ -2244,17 +2244,17 @@ export function AiSuggestionsGrid({
             </p>
           </div>
 
-          <div className="p-3.5 rounded-xl border border-blue-500/30 bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-transparent shadow-xs">
+          <div className="p-3.5 rounded-xl glass-card border-[#4A607A]/25">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wider flex items-center gap-1.5">
-                <TrendingUp className="h-4 w-4 text-blue-600" />
+              <span className="text-xs font-semibold text-[#3B4F66] uppercase tracking-wider flex items-center gap-1.5">
+                <TrendingUp className="h-4 w-4 text-[#4A607A]" />
                 Ganancia Neta Real
               </span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#4A607A]/12 text-[#3B4F66]">
                 Margen: {formatPercentage(margenFinal)}
               </span>
             </div>
-            <div className={`text-2xl font-black mt-2 ${gananciaNetaLimpia >= 0 ? "text-blue-700 dark:text-blue-400" : "text-rose-600"}`}>
+            <div className={`text-2xl font-bold tabular-nums mt-2 ${gananciaNetaLimpia >= 0 ? "text-[#3B4F66]" : "text-rose-700"}`}>
               {formatCLP(gananciaNetaLimpia)}
             </div>
             <p className="text-[11px] text-muted-foreground mt-1">
@@ -2370,7 +2370,7 @@ export function AiSuggestionsGrid({
                 size="sm"
                 onClick={handleApproveAll}
                 disabled={approvingAll}
-                className="h-8 text-xs gap-1.5 bg-green-600 hover:bg-green-700 text-white shadow-xs"
+                className="h-8 text-xs gap-1.5 bg-[#467366] hover:bg-[#3A6155] text-white shadow-xs"
               >
                 {approvingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCheck className="h-3.5 w-3.5" />}
                 Aprobar Todos ({topLevelItems.length})
@@ -2382,16 +2382,16 @@ export function AiSuggestionsGrid({
 
       {/* SIMULADOR Y OPTIMIZADOR DE MARGEN OBJETIVO */}
       {editableSuggestions.length > 0 && (
-        <div className="bg-gradient-to-r from-indigo-50/70 via-background to-emerald-50/70 border border-indigo-100 dark:border-indigo-950/40 rounded-xl p-3.5 space-y-2.5 shadow-2xs">
+        <div className="glass-card rounded-xl p-3.5 space-y-2.5">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <div className="p-1.5 rounded-lg bg-indigo-600 text-white shadow-2xs">
+              <div className="p-1.5 rounded-lg bg-[#4A607A] text-white shadow-2xs">
                 <TrendingUp className="h-4 w-4" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-foreground">Optimizador de Margen del Evento</span>
-                  <Badge variant="outline" className="text-[10px] font-bold bg-background text-indigo-700 border-indigo-200">
+                  <Badge variant="outline" className="text-[10px] font-bold bg-white/80 text-[#3B4F66] border-[#4A607A]/30">
                     Actual: {formatPercentage(costoTotalGlobal > 0 ? (totalesFacturables.ganancia / costoTotalGlobal) * 100 : 0)}
                   </Badge>
                 </div>
@@ -2409,16 +2409,16 @@ export function AiSuggestionsGrid({
                   key={pct}
                   type="button"
                   onClick={() => setTargetEventMargin(pct)}
-                  className={`px-2 py-0.5 text-xs font-bold rounded-md transition-all ${
+                  className={`px-2 py-0.5 text-xs font-semibold rounded-md transition-all ${
                     targetEventMargin === pct
-                      ? 'bg-indigo-600 text-white shadow-2xs scale-105'
-                      : 'bg-background hover:bg-muted text-muted-foreground border border-border/80'
+                      ? 'bg-[#4A607A] text-white shadow-2xs scale-105'
+                      : 'bg-white/80 hover:bg-white text-muted-foreground border border-slate-200'
                   }`}
                 >
                   {pct}%
                 </button>
               ))}
-              <div className="flex items-center gap-1 ml-1 bg-background border border-border/80 rounded-md px-1.5 py-0.5">
+              <div className="flex items-center gap-1 ml-1 bg-white/80 border border-slate-200 rounded-md px-1.5 py-0.5">
                 <input
                   type="number"
                   min="1"
@@ -2435,7 +2435,7 @@ export function AiSuggestionsGrid({
                 size="sm"
                 variant="outline"
                 onClick={() => handleApplyDirectMargin(targetEventMargin)}
-                className="h-7 text-xs font-semibold gap-1 bg-background hover:bg-indigo-50 hover:text-indigo-700 border-indigo-200 ml-1 shadow-2xs"
+                className="h-7 text-xs font-semibold gap-1 bg-white/85 hover:bg-white text-[#3B4F66] border-slate-200 ml-1 shadow-2xs"
                 title="Aplica este margen directamente a todos los servicios de venta"
               >
                 <span>Calcular Directo</span>
@@ -2445,7 +2445,7 @@ export function AiSuggestionsGrid({
                 size="sm"
                 onClick={handleOptimizeMarginsWithAi}
                 disabled={isOptimizingWithAi}
-                className="h-7 text-xs font-bold gap-1 bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-700 hover:to-emerald-700 text-white shadow-2xs"
+                className="h-7 text-xs font-semibold gap-1 bg-[#467366] hover:bg-[#3A6155] text-white shadow-2xs"
                 title="La IA distribuye los márgenes estratégicamente según el rubro de cada servicio para alcanzar el objetivo global"
               >
                 {isOptimizingWithAi ? (
@@ -2510,7 +2510,7 @@ export function AiSuggestionsGrid({
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40 border-b-0 text-[11px]">
               <TableHead colSpan={5} className="text-center font-bold text-muted-foreground border-r">INFORMACIÓN DEL SERVICIO</TableHead>
-              <TableHead colSpan={2} className="text-center font-bold text-red-700 bg-red-50/50 border-r">COSTOS (PAGOS DUO)</TableHead>
+              <TableHead colSpan={2} className="text-center font-bold text-red-700 bg-red-50/50 border-r">COSTOS (PAGOS PROVEEDOR)</TableHead>
               <TableHead colSpan={3} className="text-center font-bold text-emerald-700 bg-emerald-50/50 border-r">VENTA CLIENTE (COBROS)</TableHead>
               <TableHead colSpan={2} className="text-center font-bold text-muted-foreground">GESTIÓN</TableHead>
             </TableRow>

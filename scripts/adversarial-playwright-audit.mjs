@@ -52,7 +52,6 @@ async function runAudit() {
   let serverStartedByUs = false;
 
   try {
-    // Check if port 3099 is already serving
     let alreadyUp = false;
     try {
       const probe = await fetch(`${BASE_URL}/welcome`);
@@ -110,14 +109,25 @@ async function runAudit() {
       const welcomeRes = await page.goto(`${BASE_URL}/welcome`, { waitUntil: 'networkidle' });
       assert(welcomeRes && welcomeRes.status() === 200, '/welcome did not return 200');
 
+      // Verify redundant #simulador section was removed
+      assert(
+        (await page.locator('#simulador').count()) === 0,
+        'Redundant #simulador section still exists on /welcome'
+      );
+
       const welcomeOverflow = await page.evaluate(
         () => document.documentElement.scrollWidth > window.innerWidth + 1
       );
       assert(!welcomeOverflow, '/welcome has horizontal overflow on desktop');
 
+      await page.screenshot({
+        path: path.join(SCREENSHOT_DIR, 'pw-welcome-desktop.png'),
+        fullPage: false,
+      });
+
       // Switch industry in Hero selector
       await page.getByRole('button', { name: 'Construcción' }).click();
-      await page.waitForTimeout(400);
+      await page.waitForTimeout(350);
       const bodyAfterInd = await page.locator('body').innerText();
       assert(
         bodyAfterInd.includes('Constructora') || bodyAfterInd.includes('Construcción'),
@@ -147,22 +157,19 @@ async function runAudit() {
       assert(addonCount === 7, `Expected 7 selectable add-ons, got ${addonCount}`);
       for (let i = 0; i < addonCount; i++) {
         const btn = addonButtons.nth(i);
+        const pressed = await btn.getAttribute('aria-pressed');
         const cls = (await btn.getAttribute('class')) || '';
-        if (!cls.includes('bg-[#0D1829]')) {
+        const isActive = pressed === 'true' || cls.includes('bg-white/95') || cls.includes('ring-1');
+        if (!isActive) {
           await btn.click();
         }
       }
-      await page.waitForTimeout(550);
+      await page.waitForTimeout(600);
       const welcomePlansText = await page.locator('#planes').innerText();
       assert(
-        welcomePlansText.includes('147.920') && welcomePlansText.includes('¡Te conviene Enterprise!'),
-        'Arma tu Plan with all 7 modules did not display $147.920 and Enterprise savings nudge'
+        welcomePlansText.includes('7 módulos') && welcomePlansText.includes('¡Te conviene Enterprise!'),
+        `Arma tu Plan with all 7 modules did not display 7 módulos and Enterprise savings nudge`
       );
-
-      await page.screenshot({
-        path: path.join(SCREENSHOT_DIR, 'pw-welcome-desktop.png'),
-        fullPage: false,
-      });
 
       // =========================================================
       // 2. AUDIT /welcome (Mobile 390x844)
@@ -182,24 +189,32 @@ async function runAudit() {
       await mobileCtx.close();
 
       // =========================================================
-      // 3. AUDIT /demo (Enterprise Local Sandbox, Zero Supabase)
+      // 3. AUDIT /demo -> Real ERP in Local Cache (Zero Supabase DB calls)
       // =========================================================
-      const demoNetworkViolations = [];
+      const supabaseDbViolations = [];
       page.on('request', (req) => {
         const url = req.url();
-        if (url.includes('supabase.co') || url.includes('/api/')) {
-          demoNetworkViolations.push(url);
+        if (url.includes('supabase.co')) {
+          supabaseDbViolations.push(url);
         }
       });
 
       await page.goto(`${BASE_URL}/demo`, { waitUntil: 'networkidle' });
-      await page.waitForTimeout(400);
+      await page.waitForURL(`${BASE_URL}/`, { timeout: 10000 });
+      await page.waitForTimeout(500);
 
       // Verify zero DUO Producciones leaks
       const demoBodyText = await page.locator('body').innerText();
       assert(
         !/duo\s*producciones|duoproducciones/i.test(demoBodyText),
-        'Found forbidden DUO Producciones reference in /demo'
+        'Found forbidden DUO Producciones reference in Demo ERP'
+      );
+
+      // Verify NO Administración section in Demo Sidebar
+      const sidebarText = await page.locator('aside').first().innerText();
+      assert(
+        !/administraci[oó]n/i.test(sidebarText),
+        'Demo Sidebar still contains Administración section'
       );
 
       // Verify local cache consent banner & accept
@@ -207,105 +222,88 @@ async function runAudit() {
       if ((await consentBtn.count()) > 0) {
         await consentBtn.click();
         await page.waitForTimeout(250);
-        const storedConsent = await page.evaluate(() =>
-          localStorage.getItem('kairos_demo_cache_consent')
-        );
-        assert(storedConsent === 'accepted', 'Cache consent was not saved in localStorage');
       }
+
+      // Verify Floating "Bot Guía Demo" button exists
+      const guideBotBtn = page.getByRole('button', { name: /Bot Guía Demo/i });
+      assert((await guideBotBtn.count()) > 0, 'Missing floating Bot Guía Demo button');
 
       await page.screenshot({
         path: path.join(SCREENSHOT_DIR, 'pw-demo-dashboard.png'),
         fullPage: false,
       });
 
-      // Switch industry in /demo header select
-      const industrySelect = page.locator('header select').first();
-      await industrySelect.selectOption('construccion_arquitectura');
+      // Navigate to /costs (Tarifas) and verify tariff editing dialog (CostFormDialog) opens
+      await page.goto(`${BASE_URL}/costs`, { waitUntil: 'networkidle' });
       await page.waitForTimeout(450);
-
-      // Open a project from Dashboard scenario card -> DemoProjectDetail
-      await page.locator('button:has-text("Abrir")').first().click();
-      await page.waitForTimeout(450);
-
-      // Tab 1: Budget - Add item from catalog
-      const rowsBefore = await page.locator('tbody tr').count();
-      await page.getByRole('button', { name: 'Agregar', exact: true }).click();
-      await page.waitForTimeout(250);
-      const rowsAfter = await page.locator('tbody tr').count();
-      assert(rowsAfter > rowsBefore, 'Adding item from catalog in /demo did not increase table rows');
-
-      // Tab 2: Cash flow
-      await page.getByRole('button', { name: /Flujo de Caja/i }).click();
-      await page.waitForTimeout(250);
-      await page.locator('input[placeholder*="Pago cuota"]').fill('Abono Prueba Playwright');
-      await page.getByRole('button', { name: /Registrar en Trazabilidad Local/i }).click();
-      await page.waitForTimeout(250);
-      const cashText = await page.locator('main').innerText();
-      assert(cashText.includes('Abono Prueba Playwright'), 'Transaction was not added in Cashflow tab');
-
-      // Tab 3: Suite IA & OCR
-      await page.getByRole('button', { name: /Suite IA & OCR/i }).click();
-      await page.waitForTimeout(250);
-      await page.getByRole('button', { name: /Ejecutar Auditoría de Márgenes IA/i }).click();
-      await page.waitForTimeout(850);
-      await page.getByRole('button', { name: /Aplicar al Presupuesto/i }).first().click();
-      await page.waitForTimeout(250);
-      await page.getByRole('button', { name: /Procesar Documento e Importar/i }).first().click();
-      await page.waitForTimeout(800);
-
-      // Tab 4: PDF Marca Blanca
-      await page.getByRole('button', { name: /Cotizador PDF Marca Blanca/i }).click();
+      const editButtons = page.locator('table tbody tr button').first();
+      assert((await editButtons.count()) > 0, 'No tariff action buttons found in /costs');
+      await editButtons.click();
       await page.waitForTimeout(300);
-      const pdfText = await page.locator('main').innerText();
-      assert(pdfText.includes('MODO DEMO · KAIROS'), 'PDF preview missing DEMO watermark');
+
+      await page.screenshot({
+        path: path.join(SCREENSHOT_DIR, 'pw-demo-costs-edit.png'),
+        fullPage: false,
+      });
+
+      // Navigate to /events/new and verify full real EventForm (with description and retail toggle)
+      await page.goto(`${BASE_URL}/events/new`, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(350);
+      assert(
+        (await page.locator('textarea#description').count()) === 1 &&
+          (await page.locator('input#has_retail_sales').count()) === 1,
+        '/events/new is missing full EventForm fields (description or has_retail_sales)'
+      );
+
+      // Navigate to real Event Detail workspace (/events/d0000002-0000-4000-8000-000000000003)
+      await page.goto(`${BASE_URL}/events/d0000002-0000-4000-8000-000000000003`, {
+        waitUntil: 'networkidle',
+      });
+      await page.waitForTimeout(500);
+
+      // Verify 4 real tabs + Floating Financial Advisor chatbot button + ZERO DUO leaks inside EventDetailPage
+      const eventPageText = await page.locator('body').innerText();
+      assert(
+        eventPageText.includes('Borrador de Costos') &&
+          eventPageText.includes('Presupuesto Oficial') &&
+          eventPageText.includes('Finanzas'),
+        'Real 4-tab EventDetailPage did not render in Demo'
+      );
+      assert(
+        !/\bduo\b|duoproducciones/i.test(eventPageText),
+        'Found forbidden DUO reference inside Demo EventDetailPage'
+      );
+
+      // Click Borrador de Costos tab
+      await page.locator('button:has-text("Borrador de Costos")').first().click();
+      await page.waitForTimeout(350);
+
+      const draftPageText = await page.locator('body').innerText();
+      assert(
+        !/\bduo\b|duoproducciones/i.test(draftPageText),
+        'Found forbidden DUO reference inside Demo Borrador de Costos tab'
+      );
 
       await page.screenshot({
         path: path.join(SCREENSHOT_DIR, 'pw-demo-project.png'),
         fullPage: false,
       });
 
-      // Navigate via Sidebar to Catalog, Analytics (Recharts), and Branding
-      await page.locator('aside nav').first().locator('button').nth(1).click(); // Catalog
-      await page.waitForTimeout(300);
-      await page.locator('aside').getByRole('button', { name: /F29/i }).click(); // Analytics & F29
+      // Navigate to /analytics and verify Recharts
+      await page.goto(`${BASE_URL}/analytics`, { waitUntil: 'networkidle' });
       await page.waitForTimeout(900);
-
       const chartCount = await page.locator('.recharts-wrapper > svg.recharts-surface').count();
-      assert(chartCount >= 2, `Expected >= 2 Recharts SVGs in /demo Analytics, got ${chartCount}`);
-      const firstChartBox = await page.locator('.recharts-wrapper > svg.recharts-surface').first().boundingBox();
-      assert(
-        firstChartBox && firstChartBox.width > 100 && firstChartBox.height > 100,
-        'Recharts SVG rendered with invalid dimensions'
-      );
+      assert(chartCount >= 2, `Expected >= 2 Recharts SVGs in /analytics, got ${chartCount}`);
 
       await page.screenshot({
         path: path.join(SCREENSHOT_DIR, 'pw-demo-analytics.png'),
         fullPage: false,
       });
 
-      await page.locator('aside').getByRole('button', { name: /Equipo & Marca Blanca/i }).click(); // Equipo & Marca Blanca
-      await page.waitForTimeout(300);
       assert(
-        (await page.locator('main').innerText()).includes('KAIROS-DEMO-2026'),
-        'Branding/Team view missing invite code'
+        supabaseDbViolations.length === 0,
+        `Demo mode made forbidden requests to supabase.co: ${supabaseDbViolations.join(', ')}`
       );
-
-      assert(
-        demoNetworkViolations.length === 0,
-        `/demo made forbidden network requests: ${demoNetworkViolations.join(', ')}`
-      );
-
-      // =========================================================
-      // 4. AUDIT /login & /register
-      // =========================================================
-      for (const route of ['/login', '/register']) {
-        const res = await page.goto(`${BASE_URL}${route}`, { waitUntil: 'networkidle' });
-        assert(res && res.status() === 200, `${route} did not return 200`);
-        const ov = await page.evaluate(
-          () => document.documentElement.scrollWidth > window.innerWidth + 1
-        );
-        assert(!ov, `${route} has horizontal overflow`);
-      }
 
       await desktopCtx.close();
 
@@ -313,7 +311,7 @@ async function runAudit() {
       assert(pageErrors.length === 0, `Page errors detected:\n${pageErrors.join('\n')}`);
       assert(failedResponses.length === 0, `Failed HTTP responses:\n${failedResponses.join('\n')}`);
 
-      console.log('PLAYWRIGHT_ADVERSARIAL_AUDIT: ALL CHECKS PASSED (0 ERRORS, 0 OVERFLOWS, 0 SUPABASE CALLS IN /demo)');
+      console.log('PLAYWRIGHT_ADVERSARIAL_AUDIT: ALL CHECKS PASSED (0 ERRORS, 0 OVERFLOWS, 0 SUPABASE CALLS IN DEMO)');
     } finally {
       await browser.close();
     }

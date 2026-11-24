@@ -5,16 +5,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowRight,
-  BarChart3,
-  CheckCircle2,
   FileSpreadsheet,
   FlaskConical,
   GitBranch,
   Layers,
   Receipt,
-  ShieldCheck,
   Sparkles,
-  TrendingUp,
   Wallet,
 } from 'lucide-react';
 import { INDUSTRY_BLUEPRINTS, INDUSTRY_LIST, THEME_PRESETS } from '@/lib/industries';
@@ -43,9 +39,6 @@ export default function WelcomeLandingPage() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>(DEFAULT_PLANS);
   const [addons, setAddons] = useState<SubscriptionAddon[]>(DEFAULT_ADDONS);
   const [selectedIndustry, setSelectedIndustry] = useState<IndustryType>('eventos_banqueteria');
-  const [projectsPerMonth, setProjectsPerMonth] = useState<number>(8);
-  const [avgTicketClp, setAvgTicketClp] = useState<number>(1800000);
-  const [invoiceSharePct, setInvoiceSharePct] = useState<number>(65);
 
   useEffect(() => {
     fetch('/api/plans')
@@ -59,21 +52,6 @@ export default function WelcomeLandingPage() {
 
   const blueprint = INDUSTRY_BLUEPRINTS[selectedIndustry];
   const themeDef = THEME_PRESETS[blueprint.recommendedTheme];
-
-  // Simulador Financiero + IVA F29 + ROI
-  const monthlyRevenue = projectsPerMonth * avgTicketClp;
-  const ivaDebito = Math.round(monthlyRevenue * 0.19);
-  const estimatedCostsNet = Math.round(monthlyRevenue * (1 - blueprint.targetMarginPct / 100));
-  const ivaCredito = Math.round(estimatedCostsNet * (invoiceSharePct / 100) * 0.19);
-  const ivaNetoPagar = Math.max(0, ivaDebito - ivaCredito);
-  const recoveredMarginMonthly = Math.round(monthlyRevenue * 0.045);
-
-  const recommendedPlan =
-    plans.find((p) => p.is_recommended) || plans.find((p) => p.id === 'growth') || DEFAULT_PLANS[2];
-  const roiMultiple =
-    recommendedPlan && recommendedPlan.price_clp > 0
-      ? (recoveredMarginMonthly / recommendedPlan.price_clp).toFixed(1)
-      : '10.0';
 
   const heroTotalSample = useMemo(
     () =>
@@ -106,20 +84,20 @@ export default function WelcomeLandingPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground relative overflow-x-clip">
-      {/* Fondo arquitectónico con grilla de precisión y orbes glaciales */}
+      {/* Fondo arquitectónico con grilla sutil y orbes perlados suaves */}
       <div
         className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-precision-grid"
         aria-hidden="true"
       >
-        <div className="absolute -top-44 -left-32 h-[540px] w-[540px] rounded-full bg-[#1261E0]/[0.075] blur-[115px] animate-ambient-drift" />
+        <div className="absolute -top-44 -left-32 h-[540px] w-[540px] rounded-full bg-[#647A94]/[0.12] blur-[120px] animate-ambient-drift" />
         <div
-          className="absolute top-[24%] -right-40 h-[500px] w-[500px] rounded-full bg-[#0D8A72]/[0.065] blur-[120px] animate-ambient-drift"
+          className="absolute top-[24%] -right-40 h-[500px] w-[500px] rounded-full bg-[#5C857A]/[0.1] blur-[125px] animate-ambient-drift"
           style={{ animationDelay: '-9s' }}
         />
       </div>
 
       {/* Navbar Glassmórfica */}
-      <header className="sticky top-0 z-50 border-b border-border/70 bg-white/75 backdrop-blur-2xl">
+      <header className="sticky top-0 z-50 border-b border-white/80 bg-white/70 backdrop-blur-2xl shadow-2xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between gap-4">
           <KairosLogo size="md" responsive subtitle="Precisión Financiera Multi-Rubro" />
 
@@ -130,9 +108,6 @@ export default function WelcomeLandingPage() {
             <a href="#capacidades" className="hover:text-foreground transition-colors">
               IVA &amp; Trazabilidad
             </a>
-            <a href="#simulador" className="hover:text-foreground transition-colors">
-              Simulador F29 &amp; ROI
-            </a>
             <a href="#planes" className="hover:text-foreground transition-colors">
               Planes
             </a>
@@ -141,8 +116,8 @@ export default function WelcomeLandingPage() {
           <div className="flex items-center gap-2 sm:gap-2.5">
             <Link href="/demo">
               <Button variant="outline" size="sm" className="gap-1.5 text-xs font-medium tactile-press">
-                <FlaskConical className="h-3.5 w-3.5 text-[#1261E0]" />
-                <span className="hidden sm:inline">Probar Demo Local</span>
+                <FlaskConical className="h-3.5 w-3.5 text-[#4A607A]" />
+                <span className="hidden sm:inline">Probar Demo Completa</span>
                 <span className="sm:hidden">Demo</span>
               </Button>
             </Link>
@@ -159,12 +134,12 @@ export default function WelcomeLandingPage() {
       <section className="relative pt-10 pb-16 px-4 sm:px-8">
         <div className="max-w-7xl mx-auto space-y-10">
           {/* Barra superior de selección de rubro (Primera interacción inmediata) */}
-          <div id="rubros" className="glass-card rounded-2xl p-3 sm:p-4 space-y-3 animate-reveal-up">
+          <div id="rubros" className="glass-card rounded-2xl p-3.5 sm:p-4 space-y-3 animate-reveal-up">
             <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#1261E0] font-semibold flex items-center gap-2">
+              <span className="text-[11px] uppercase tracking-[0.14em] text-[#4A607A] font-semibold flex items-center gap-2">
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-pulse-ring absolute inline-flex h-full w-full rounded-full bg-[#1261E0] opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#1261E0]" />
+                  <span className="animate-pulse-ring absolute inline-flex h-full w-full rounded-full bg-[#4A607A] opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#4A607A]" />
                 </span>
                 Paso 1 · Elige tu rubro para adaptar todo el ERP en vivo
               </span>
@@ -184,8 +159,8 @@ export default function WelcomeLandingPage() {
                     className={cn(
                       'px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-medium border transition-all duration-200 tactile-press',
                       active
-                        ? 'bg-[#0D1829] text-white border-[#0D1829] shadow-sm'
-                        : 'bg-white/80 text-muted-foreground border-border/80 hover:border-[#1261E0]/40 hover:text-foreground'
+                        ? 'bg-[#4A607A] text-white border-[#4A607A] shadow-xs'
+                        : 'bg-white/75 text-muted-foreground border-slate-200/90 hover:border-[#4A607A]/40 hover:text-foreground'
                     )}
                   >
                     {ind.shortName}
@@ -197,13 +172,13 @@ export default function WelcomeLandingPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
             <div className="lg:col-span-7 space-y-6">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#1261E0]/25 bg-[#1261E0]/[0.06] text-[11px] font-mono font-medium tracking-[0.12em] uppercase text-[#0F4FB8] animate-reveal-up">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#4A607A]/25 bg-white/70 backdrop-blur-md text-[11px] font-medium tracking-[0.1em] uppercase text-[#3B4F66] animate-reveal-up">
                 {blueprint.shortName} · Meta {blueprint.targetMarginPct}% Neto
               </div>
 
               <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-semibold tracking-[-0.035em] text-foreground leading-[1.06] animate-reveal-up stagger-1">
                 Cero sorpresas con tu{' '}
-                <span className="editorial-italic text-[#1261E0] font-normal">
+                <span className="editorial-italic text-[#4A607A] font-normal">
                   IVA a fin de mes
                 </span>
                 . Control total peso a peso.
@@ -217,103 +192,103 @@ export default function WelcomeLandingPage() {
                 <a href="#planes">
                   <Button size="lg" className="font-semibold gap-2 px-6 tactile-press">
                     Ver Planes desde $0 · Recomendado $59.990
-                    <ArrowRight className="h-4 w-4 text-[#38BDF8]" />
+                    <ArrowRight className="h-4 w-4" />
                   </Button>
                 </a>
                 <Link href="/demo">
                   <Button size="lg" variant="outline" className="gap-2 font-medium tactile-press">
-                    <FlaskConical className="h-4 w-4 text-[#1261E0]" />
-                    Probar Demo en Caché
+                    <FlaskConical className="h-4 w-4 text-[#4A607A]" />
+                    Probar Demo Completa en Caché
                   </Button>
                 </Link>
               </div>
 
               {/* Ficha rápida del rubro seleccionado */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2 animate-reveal-up stagger-4">
-                <div className="p-3 rounded-xl bg-white/80 border border-border/80">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground block">
+                <div className="p-3 rounded-xl glass-subtle">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground block">
                     Módulo Central
                   </span>
                   <strong className="text-xs sm:text-sm text-foreground mt-0.5 block">
                     {blueprint.terminology.projectPlural}
                   </strong>
                 </div>
-                <div className="p-3 rounded-xl bg-white/80 border border-border/80">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground block">
+                <div className="p-3 rounded-xl glass-subtle">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground block">
                     Catálogo
                   </span>
                   <strong className="text-xs sm:text-sm text-foreground mt-0.5 block">
                     {blueprint.terminology.catalogLabel}
                   </strong>
                 </div>
-                <div className="p-3 rounded-xl bg-white/80 border border-border/80">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground block">
+                <div className="p-3 rounded-xl glass-subtle">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground block">
                     Contraparte
                   </span>
                   <strong className="text-xs sm:text-sm text-foreground mt-0.5 block">
                     {blueprint.terminology.clientLabel}
                   </strong>
                 </div>
-                <div className="p-3 rounded-xl bg-white/80 border border-border/80">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground block">
+                <div className="p-3 rounded-xl glass-subtle">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground block">
                     Estilo Sugerido
                   </span>
-                  <strong className="text-xs text-[#1261E0] mt-0.5 block truncate">
+                  <strong className="text-xs text-[#4A607A] mt-0.5 block truncate">
                     {themeDef.name}
                   </strong>
                 </div>
               </div>
             </div>
 
-            {/* Consola Ejecutiva en Vivo (IVA + Trazabilidad) */}
+            {/* Consola Ejecutiva Glassmórfica Luminosa (IVA + Trazabilidad) */}
             <div className="lg:col-span-5 animate-reveal-up stagger-3">
-              <div className="rounded-3xl glass-luxury hairline-shimmer text-slate-100 p-6 sm:p-7 space-y-5">
-                <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
+              <div className="rounded-3xl glass-luxury hairline-shimmer p-6 sm:p-7 space-y-5">
+                <div className="flex items-center justify-between border-b border-slate-200/80 pb-4">
                   <div>
-                    <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#38BDF8]">
+                    <div className="text-[10px] uppercase tracking-[0.18em] text-[#4A607A] font-semibold">
                       Telemetría Financiera en Vivo
                     </div>
-                    <div className="text-lg font-semibold tracking-tight mt-1">
+                    <div className="text-lg font-semibold tracking-tight mt-1 text-foreground">
                       {blueprint.shortName}
                     </div>
                   </div>
-                  <Badge className="bg-[#0D8A72]/25 text-[#5EEAD4] border border-[#2DD4BF]/35 font-mono text-[11px]">
+                  <Badge className="bg-[#467366]/12 text-[#34594E] border border-[#467366]/25 text-[11px] font-medium">
                     Meta {blueprint.targetMarginPct}%
                   </Badge>
                 </div>
 
                 {/* Bloque IVA a fin de mes sin sorpresas */}
-                <div className="p-4 rounded-2xl bg-white/[0.04] border border-sky-400/20 space-y-2.5">
+                <div className="p-4 rounded-2xl bg-white/75 border border-slate-200/80 space-y-2.5 shadow-2xs">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-300 font-medium">Proyección IVA F29 (Ejemplo)</span>
-                    <span className="font-mono text-[10px] text-[#5EEAD4] uppercase tracking-wider">
+                    <span className="text-foreground font-medium">Proyección IVA F29 (Ejemplo)</span>
+                    <span className="text-[10px] text-[#467366] font-semibold uppercase tracking-wider">
                       Sin sorpresas
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 text-xs font-mono tabular-nums">
+                  <div className="grid grid-cols-3 gap-2 text-xs tabular-nums">
                     <div>
-                      <span className="text-[10px] text-slate-400 block">IVA Débito</span>
-                      <span className="text-slate-200 font-semibold">
+                      <span className="text-[10px] text-muted-foreground block">IVA Débito</span>
+                      <span className="text-foreground font-semibold">
                         <AnimatedNumber value={heroIvaDebito} format="clp" duration={500} />
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 block">IVA Crédito</span>
-                      <span className="text-[#5EEAD4] font-semibold">
+                      <span className="text-[10px] text-muted-foreground block">IVA Crédito</span>
+                      <span className="text-[#467366] font-semibold">
                         -<AnimatedNumber value={heroIvaCredito} format="clp" duration={500} />
                       </span>
                     </div>
                     <div className="text-right">
-                      <span className="text-[10px] text-slate-400 block">Neto a Pagar</span>
-                      <span className="text-[#38BDF8] font-bold">
+                      <span className="text-[10px] text-muted-foreground block">Neto a Pagar</span>
+                      <span className="text-[#4A607A] font-bold">
                         <AnimatedNumber value={heroIvaNeto} format="clp" duration={500} />
                       </span>
                     </div>
                   </div>
                   <AnimatedProgressBar
                     value={heroIvaDebito > 0 ? Math.round((heroIvaCredito / heroIvaDebito) * 100) : 0}
-                    trackClassName="bg-white/10"
-                    barClassName="bg-[#2DD4BF]"
+                    trackClassName="bg-slate-200/80"
+                    barClassName="bg-[#467366]"
                   />
                 </div>
 
@@ -322,21 +297,21 @@ export default function WelcomeLandingPage() {
                   {blueprint.starterCatalog.slice(0, 3).map((item) => (
                     <div
                       key={item.id}
-                      className="p-3 rounded-2xl bg-white/[0.035] border border-white/[0.08] flex items-center justify-between gap-3 transition-colors hover:bg-white/[0.06]"
+                      className="p-3 rounded-2xl bg-white/70 border border-slate-200/80 flex items-center justify-between gap-3 transition-colors hover:bg-white/90"
                     >
                       <div className="min-w-0">
-                        <div className="font-medium text-white truncate">{item.servicio}</div>
-                        <div className="text-[11px] text-slate-400 mt-0.5">
+                        <div className="font-medium text-foreground truncate">{item.servicio}</div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
                           {item.tipo_doc_costo === 'factura'
                             ? 'Factura (recupera 19% IVA Crédito)'
                             : 'Boleta Honorarios (15,25% configurable)'}
                         </div>
                       </div>
-                      <div className="text-right font-mono shrink-0 tabular-nums">
-                        <div className="text-[#38BDF8] font-semibold">
+                      <div className="text-right shrink-0 tabular-nums">
+                        <div className="text-foreground font-semibold">
                           {formatCLP(item.costo + item.ganancia)}
                         </div>
-                        <div className="text-[10px] text-[#5EEAD4]">
+                        <div className="text-[10px] text-[#467366] font-medium">
                           +{formatCLP(item.ganancia)} util.
                         </div>
                       </div>
@@ -350,16 +325,16 @@ export default function WelcomeLandingPage() {
       </section>
 
       {/* Sección Capacidades Profundas: IVA, Trazabilidad, Detalle Operativo e IA */}
-      <section id="capacidades" className="py-16 px-4 sm:px-8 border-t border-border/70 bg-white/50">
+      <section id="capacidades" className="py-16 px-4 sm:px-8 border-t border-white/80 bg-white/35">
         <div className="max-w-7xl mx-auto space-y-10">
           <Reveal>
             <div className="max-w-2xl space-y-2">
-              <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#1261E0] font-semibold">
+              <span className="text-[10px] uppercase tracking-[0.18em] text-[#4A607A] font-semibold">
                 Ingeniería Operativa &amp; Fiscal · {blueprint.shortName}
               </span>
               <h2 className="text-3xl font-semibold tracking-tight text-foreground">
                 Todo lo que puedes dominar con{' '}
-                <span className="editorial-italic text-[#1261E0]">precisión financiera</span>
+                <span className="editorial-italic text-[#4A607A]">precisión financiera</span>
               </h2>
               <p className="text-sm text-muted-foreground">
                 Cada peso cotizado, abonado, gastado y rendido queda conectado para que tomes decisiones rápidas y sin incertidumbre tributaria.
@@ -370,7 +345,7 @@ export default function WelcomeLandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             <Reveal delay={60}>
               <SpotlightCard className="p-6 h-full space-y-3">
-                <div className="h-10 w-10 rounded-xl bg-[#1261E0]/10 text-[#1261E0] flex items-center justify-center">
+                <div className="h-10 w-10 rounded-xl bg-[#4A607A]/10 text-[#4A607A] flex items-center justify-center">
                   <Receipt className="h-5 w-5" />
                 </div>
                 <h3 className="text-lg font-semibold">IVA a Fin de Mes Sin Sorpresas</h3>
@@ -382,7 +357,7 @@ export default function WelcomeLandingPage() {
 
             <Reveal delay={120}>
               <SpotlightCard className="p-6 h-full space-y-3">
-                <div className="h-10 w-10 rounded-xl bg-[#0D8A72]/10 text-[#0D8A72] flex items-center justify-center">
+                <div className="h-10 w-10 rounded-xl bg-[#467366]/10 text-[#467366] flex items-center justify-center">
                   <GitBranch className="h-5 w-5" />
                 </div>
                 <h3 className="text-lg font-semibold">Trazabilidad Peso a Peso</h3>
@@ -394,7 +369,7 @@ export default function WelcomeLandingPage() {
 
             <Reveal delay={180}>
               <SpotlightCard className="p-6 h-full space-y-3">
-                <div className="h-10 w-10 rounded-xl bg-[#0284C7]/10 text-[#0284C7] flex items-center justify-center">
+                <div className="h-10 w-10 rounded-xl bg-[#4A607A]/10 text-[#4A607A] flex items-center justify-center">
                   <Layers className="h-5 w-5" />
                 </div>
                 <h3 className="text-lg font-semibold">Operación al Detalle &amp; Cero Fugas</h3>
@@ -406,7 +381,7 @@ export default function WelcomeLandingPage() {
 
             <Reveal delay={240}>
               <SpotlightCard className="p-6 h-full space-y-3">
-                <div className="h-10 w-10 rounded-xl bg-[#1261E0]/10 text-[#1261E0] flex items-center justify-center">
+                <div className="h-10 w-10 rounded-xl bg-[#467366]/10 text-[#467366] flex items-center justify-center">
                   <Wallet className="h-5 w-5" />
                 </div>
                 <h3 className="text-lg font-semibold">Flujo de Caja &amp; Cobranza Clara</h3>
@@ -418,7 +393,7 @@ export default function WelcomeLandingPage() {
 
             <Reveal delay={300}>
               <SpotlightCard className="p-6 h-full space-y-3">
-                <div className="h-10 w-10 rounded-xl bg-[#0D8A72]/10 text-[#0D8A72] flex items-center justify-center">
+                <div className="h-10 w-10 rounded-xl bg-[#4A607A]/10 text-[#4A607A] flex items-center justify-center">
                   <Sparkles className="h-5 w-5" />
                 </div>
                 <h3 className="text-lg font-semibold">Suite IA + OCR Documental</h3>
@@ -430,7 +405,7 @@ export default function WelcomeLandingPage() {
 
             <Reveal delay={360}>
               <SpotlightCard className="p-6 h-full space-y-3">
-                <div className="h-10 w-10 rounded-xl bg-[#0D1829]/10 text-[#0D1829] flex items-center justify-center">
+                <div className="h-10 w-10 rounded-xl bg-[#467366]/10 text-[#467366] flex items-center justify-center">
                   <FileSpreadsheet className="h-5 w-5" />
                 </div>
                 <h3 className="text-lg font-semibold">PDF Comercial &amp; Excel Contable</h3>
@@ -443,146 +418,17 @@ export default function WelcomeLandingPage() {
         </div>
       </section>
 
-      {/* Simulador Interactivo de IVA F29 & Retorno (ROI) */}
-      <section id="simulador" className="py-16 px-4 sm:px-8 border-t border-border/70">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-          <div className="lg:col-span-6 glass-card rounded-3xl p-6 sm:p-8 flex flex-col justify-between space-y-6">
-            <div className="space-y-2">
-              <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#1261E0] font-semibold">
-                Simulador Financiero &amp; Tributario
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">
-                Proyecta tu operación mensual en {blueprint.shortName}
-              </h2>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                Ajusta tu volumen mensual para ver tu facturación, el IVA F29 estimado y cuánto margen recuperas evitando fugas operativas.
-              </p>
-            </div>
-
-            <div className="space-y-5 text-xs">
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="font-medium text-foreground">{blueprint.terminology.projectPlural} al mes</span>
-                  <span className="font-mono font-semibold text-[#1261E0]">{projectsPerMonth}</span>
-                </div>
-                <input
-                  type="range"
-                  min={1}
-                  max={40}
-                  value={projectsPerMonth}
-                  onChange={(e) => setProjectsPerMonth(Number(e.target.value))}
-                  className="w-full accent-[#1261E0] cursor-pointer"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="font-medium text-foreground">
-                    Ticket neto promedio por {blueprint.terminology.projectSingular.toLowerCase()}
-                  </span>
-                  <span className="font-mono font-semibold text-[#1261E0] tabular-nums">
-                    {formatCLP(avgTicketClp)}
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min={300000}
-                  max={15000000}
-                  step={100000}
-                  value={avgTicketClp}
-                  onChange={(e) => setAvgTicketClp(Number(e.target.value))}
-                  className="w-full accent-[#1261E0] cursor-pointer"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="font-medium text-foreground">
-                    % de tus costos respaldados con Factura (IVA Crédito)
-                  </span>
-                  <span className="font-mono font-semibold text-[#0D8A72]">{invoiceSharePct}%</span>
-                </div>
-                <input
-                  type="range"
-                  min={10}
-                  max={100}
-                  step={5}
-                  value={invoiceSharePct}
-                  onChange={(e) => setInvoiceSharePct(Number(e.target.value))}
-                  className="w-full accent-[#0D8A72] cursor-pointer"
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2 pt-1">
-              {blueprint.categories.map((cat) => (
-                <span
-                  key={cat}
-                  className="px-2.5 py-1 rounded-full bg-secondary/70 border border-border/80 text-[11px] font-medium text-muted-foreground"
-                >
-                  {cat}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className="lg:col-span-6 rounded-3xl glass-luxury hairline-shimmer text-slate-100 p-6 sm:p-8 flex flex-col justify-between space-y-6">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-[#38BDF8]">
-                <TrendingUp className="h-4 w-4" />
-                Resultado Proyectado Mensual
-              </div>
-              <Badge className="bg-white/10 text-slate-200 border border-white/15 font-mono text-[10px]">
-                Plan Recomendado: $59.990
-              </Badge>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-1">
-                <span className="text-xs text-slate-400">Facturación Neta Mensual</span>
-                <div className="text-2xl font-semibold font-mono text-white">
-                  <AnimatedNumber value={monthlyRevenue} format="clp" duration={420} />
-                </div>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-white/[0.04] border border-sky-400/25 space-y-1">
-                <span className="text-xs text-slate-300">IVA F29 Estimado a Pagar</span>
-                <div className="text-2xl font-semibold font-mono text-[#38BDF8]">
-                  <AnimatedNumber value={ivaNetoPagar} format="clp" duration={420} />
-                </div>
-                <span className="text-[10px] text-slate-400 block font-mono">
-                  Débito {formatCLP(ivaDebito)} − Crédito {formatCLP(ivaCredito)}
-                </span>
-              </div>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-[#0D8A72]/20 border border-[#2DD4BF]/35 space-y-1.5">
-              <div className="text-xs text-slate-200 flex items-center justify-between">
-                <span>Utilidad protegida estimada / mes (+4,5% control de fugas)</span>
-                <CheckCircle2 className="h-4 w-4 text-[#2DD4BF]" />
-              </div>
-              <div className="text-3xl font-semibold font-mono text-[#5EEAD4]">
-                +<AnimatedNumber value={recoveredMarginMonthly} format="clp" duration={450} />
-              </div>
-              <div className="text-xs text-slate-200">
-                Equivale a <strong className="text-white">{roiMultiple}x</strong> el valor del Plan Crecimiento Inteligente ($59.990/mes).
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Sección Planes & Paga lo que usas */}
-      <section id="planes" className="py-16 px-4 sm:px-8 border-t border-border/70 bg-white/40">
+      <section id="planes" className="py-16 px-4 sm:px-8 border-t border-white/80">
         <div className="max-w-7xl mx-auto space-y-8">
           <Reveal>
             <div className="text-center max-w-2xl mx-auto space-y-2">
-              <Badge className="bg-[#1261E0]/10 text-[#0F4FB8] border border-[#1261E0]/25 font-mono text-[10px] tracking-[0.16em] uppercase">
+              <Badge className="bg-[#4A607A]/10 text-[#3B4F66] border border-[#4A607A]/25 text-[10px] tracking-[0.14em] uppercase">
                 Haz clic en cualquier plan para ver el detalle completo
               </Badge>
               <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
                 Invierte según tu etapa o{' '}
-                <span className="editorial-italic text-[#1261E0]">arma tu ERP</span> a medida
+                <span className="editorial-italic text-[#4A607A]">arma tu ERP</span> a medida
               </h2>
               <p className="text-sm text-muted-foreground">
                 Selecciona tu modalidad para <strong>{blueprint.shortName}</strong> y pasa directo a crear tu espacio privado con Khipu o en plan gratuito.
@@ -600,20 +446,20 @@ export default function WelcomeLandingPage() {
         </div>
       </section>
 
-      {/* Footer Sobrio */}
-      <footer className="border-t border-white/[0.08] py-8 px-4 sm:px-8 bg-[#080E1A] text-slate-400 text-xs">
+      {/* Footer Glassmórfico Luminoso */}
+      <footer className="border-t border-white/80 py-8 px-4 sm:px-8 bg-white/60 backdrop-blur-xl text-muted-foreground text-xs">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <KairosLogo size="sm" darkSurface />
-            <span className="font-mono text-[11px] tracking-wide text-slate-400">
+            <KairosLogo size="sm" />
+            <span className="text-[11px] tracking-wide">
               © {new Date().getFullYear()} · Plataforma Multi-Empresa Chile
             </span>
           </div>
           <div className="flex items-center gap-6">
-            <Link href="/demo" className="hover:text-white transition-colors">
+            <Link href="/demo" className="hover:text-foreground transition-colors">
               Demo en Caché Local
             </Link>
-            <Link href="/login" className="hover:text-white transition-colors">
+            <Link href="/login" className="hover:text-foreground transition-colors">
               Acceso Clientes
             </Link>
           </div>

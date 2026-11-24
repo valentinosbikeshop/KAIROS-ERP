@@ -1053,17 +1053,17 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
     <div className="space-y-4">
       {/* Resumen Ejecutivo de Cash & Rentabilidad Real (Explicación Simple) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="p-4 rounded-xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent shadow-xs">
+        <div className="p-4 rounded-xl glass-card border-[#467366]/25">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
-              <Banknote className="h-4 w-4 text-emerald-600" />
+            <span className="text-xs font-semibold text-[#2E5248] uppercase tracking-wider flex items-center gap-1.5">
+              <Banknote className="h-4 w-4 text-[#467366]" />
               Dinero en Mano (Al Terminar)
             </span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#467366]/15 text-[#2E5248]">
               Cash Inmediato
             </span>
           </div>
-          <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400 mt-2">
+          <div className="text-2xl font-bold tabular-nums text-[#2E5248] mt-2">
             {formatCLP(cashInmediato)}
           </div>
           <p className="text-[11px] text-muted-foreground mt-1">
@@ -1071,17 +1071,17 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
           </p>
         </div>
 
-        <div className="p-4 rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent shadow-xs">
+        <div className="p-4 rounded-xl glass-card border-amber-800/20">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-amber-800 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-              <Receipt className="h-4 w-4 text-amber-600" />
+            <span className="text-xs font-semibold text-amber-900/90 uppercase tracking-wider flex items-center gap-1.5">
+              <Receipt className="h-4 w-4 text-amber-800" />
               Reserva para el IVA (SII F29)
             </span>
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${provisionIvaSII > 0 ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" : "bg-green-100 text-green-800"}`}>
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${provisionIvaSII > 0 ? "bg-amber-900/10 text-amber-900" : "bg-[#467366]/15 text-[#2E5248]"}`}>
               {provisionIvaSII > 0 ? "A pagar el mes sig." : "Crédito a favor"}
             </span>
           </div>
-          <div className={`text-2xl font-black mt-2 ${provisionIvaSII > 0 ? "text-amber-700 dark:text-amber-400" : "text-emerald-600"}`}>
+          <div className={`text-2xl font-bold tabular-nums mt-2 ${provisionIvaSII > 0 ? "text-amber-900/90" : "text-[#2E5248]"}`}>
             {provisionIvaSII > 0 ? formatCLP(provisionIvaSII) : `${formatCLP(remanenteIvaFavor)} (a favor)`}
           </div>
           <p className="text-[11px] text-muted-foreground mt-1">
@@ -1091,17 +1091,17 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
           </p>
         </div>
 
-        <div className="p-4 rounded-xl border border-blue-500/30 bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-transparent shadow-xs">
+        <div className="p-4 rounded-xl glass-card border-[#4A607A]/25">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wider flex items-center gap-1.5">
-              <TrendingUp className="h-4 w-4 text-blue-600" />
+            <span className="text-xs font-semibold text-[#3B4F66] uppercase tracking-wider flex items-center gap-1.5">
+              <TrendingUp className="h-4 w-4 text-[#4A607A]" />
               Tu Ganancia Limpia de Bolsillo
             </span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#4A607A]/12 text-[#3B4F66]">
               Margen: {formatPercentage(margenReal)}
             </span>
           </div>
-          <div className={`text-2xl font-black mt-2 ${gananciaNetaLimpia >= 0 ? "text-blue-700 dark:text-blue-400" : "text-rose-600"}`}>
+          <div className={`text-2xl font-bold tabular-nums mt-2 ${gananciaNetaLimpia >= 0 ? "text-[#3B4F66]" : "text-rose-700"}`}>
             {formatCLP(gananciaNetaLimpia)}
           </div>
           <p className="text-[11px] text-muted-foreground mt-1">
@@ -1173,7 +1173,7 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40 border-b-0 text-[11px]">
               <TableHead colSpan={5} className="text-center font-bold text-muted-foreground border-r">INFORMACIÓN DEL SERVICIO</TableHead>
-              <TableHead colSpan={2} className="text-center font-bold text-red-700 bg-red-50/50 border-r">COSTOS (PAGOS DUO)</TableHead>
+              <TableHead colSpan={2} className="text-center font-bold text-red-700 bg-red-50/50 border-r">COSTOS (PAGOS PROVEEDOR)</TableHead>
               <TableHead colSpan={3} className="text-center font-bold text-emerald-700 bg-emerald-50/50 border-r">VENTA CLIENTE (COBROS)</TableHead>
               <TableHead colSpan={isCompleted ? 2 : 3} className="text-center font-bold text-muted-foreground">GESTIÓN</TableHead>
             </TableRow>

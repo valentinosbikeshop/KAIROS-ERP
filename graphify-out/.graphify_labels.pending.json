@@ -1,7 +1,7 @@
 {
-  "0": "Button",
+  "0": "interactive-guide-bot.tsx",
   "1": "package.json",
-  "2": "createClient",
+  "2": "cn",
   "3": "ai-optimizer.ts",
   "4": "companies/route.ts",
   "5": "checkout/route.ts",
@@ -17,15 +17,16 @@
   "15": "(auth)/layout.tsx",
   "16": "vercel.json",
   "17": "postcss.config.js",
-  "18": "next",
+  "18": "local-demo-client.ts",
   "19": "database.ts",
   "20": "devDependencies",
   "21": "admin/plans/route.ts",
   "22": "getAuthenticatedContext",
   "23": "allowScripts",
   "24": "scripts",
-  "25": "tailwind.config.ts",
+  "25": "useWorkspaceConfig",
   "26": "react",
-  "27": "governance/page.tsx",
-  "28": "cost-metadata.ts"
+  "27": "next",
+  "28": "adversarial-playwright-audit.mjs",
+  "29": "register-owner/route.ts"
 }

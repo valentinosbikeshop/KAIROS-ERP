@@ -31,8 +31,9 @@ function Tabs({ defaultValue, value: controlledValue, onValueChange, children, c
 function TabsList({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
+      role="tablist"
       className={cn(
-        'inline-flex h-12 items-center justify-center rounded-2xl bg-muted/30 backdrop-blur-xl p-1.5 border border-border/40 text-muted-foreground shadow-sm',
+        'inline-flex h-12 items-center justify-center rounded-2xl bg-white/60 backdrop-blur-xl p-1.5 border border-slate-200/80 text-muted-foreground shadow-sm',
         className
       )}
       {...props}
@@ -42,11 +43,15 @@ function TabsList({ className, ...props }: React.HTMLAttributes<HTMLDivElement>)
 
 function TabsTrigger({ className, value, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { value: string }) {
   const context = React.useContext(TabsContext);
+  const isSelected = context.value === value;
   return (
     <button
+      type="button"
+      role="tab"
+      aria-selected={isSelected}
       className={cn(
-        'inline-flex items-center justify-center whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:text-foreground hover:bg-muted/50',
-        context.value === value && 'bg-background/90 text-foreground shadow-md border border-border/50 backdrop-blur-md',
+        'inline-flex items-center justify-center whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:text-foreground hover:bg-white/70',
+        isSelected && 'bg-white/95 text-foreground shadow-sm border border-slate-200/80 backdrop-blur-md',
         className
       )}
       onClick={() => context.onValueChange(value)}

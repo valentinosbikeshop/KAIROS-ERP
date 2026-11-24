@@ -254,22 +254,22 @@ export function LoginForm() {
       </Card>
 
       {/* Interactive Demo Sandbox Entry Card */}
-      <Card className="w-full glass-luxury hairline-shimmer border-sky-400/30 text-slate-100">
+      <Card className="w-full glass-luxury hairline-shimmer text-foreground">
         <CardContent className="p-5 space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1">
-              <div className="inline-flex items-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-[#38BDF8]">
+              <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#4A607A]">
                 <Sparkles className="h-3.5 w-3.5" />
                 Evaluación para Clientes Externos
               </div>
-              <h3 className="text-base font-semibold tracking-tight text-white">
+              <h3 className="text-base font-semibold tracking-tight text-foreground">
                 Explorar Sesión de Prueba Interactiva
               </h3>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Prueba el ERP adaptado a cualquiera de los 9 rubros y simula todos los planes directamente en el caché local de tu navegador, sin registro y sin guardar datos en la nube.
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Prueba el ERP completo adaptado a cualquiera de los 9 rubros directamente en el caché local de tu navegador, sin registro y sin guardar datos en la nube.
               </p>
             </div>
-            <div className="p-2.5 rounded-xl bg-[#1261E0]/20 border border-sky-400/30 text-[#38BDF8] shrink-0">
+            <div className="p-2.5 rounded-xl bg-[#4A607A]/12 border border-[#4A607A]/25 text-[#3B4F66] shrink-0">
               <FlaskConical className="h-5 w-5" />
             </div>
           </div>
@@ -278,7 +278,7 @@ export function LoginForm() {
             type="button"
             onClick={handleEnterDemo}
             disabled={busy}
-            className="w-full bg-[#2DD4BF] hover:bg-[#5EEAD4] text-[#080E1A] font-semibold gap-2 transition-all"
+            className="w-full font-semibold gap-2 transition-all"
           >
             {demoLoading ? (
               <>
@@ -293,8 +293,8 @@ export function LoginForm() {
             )}
           </Button>
 
-          <p className="text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
-            <ShieldCheck className="h-3.5 w-3.5 text-[#2DD4BF] shrink-0" />
+          <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5 text-[#467366] shrink-0" />
             Entorno sandbox 100% aislado de empresas privadas.
           </p>
         </CardContent>

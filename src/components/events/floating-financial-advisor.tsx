@@ -136,13 +136,13 @@ export function FloatingFinancialAdvisor({ event, items }: FloatingFinancialAdvi
         <Button
           onClick={() => setIsOpen(!isOpen)}
           className={cn(
-            "h-14 w-14 rounded-full shadow-2xl transition-all duration-300 relative",
-            isOpen ? "scale-0 opacity-0 pointer-events-none" : "scale-100 opacity-100 animate-bounce hover:scale-110",
-            "bg-gradient-to-br from-primary via-primary/90 to-primary/70 hover:from-primary hover:to-primary border border-primary/20"
+            "h-14 w-14 rounded-full shadow-lg transition-all duration-300 relative",
+            isOpen ? "scale-0 opacity-0 pointer-events-none" : "scale-100 opacity-100 hover:scale-105",
+            "bg-[#4A607A] hover:bg-[#3F536B] text-white border border-white/40"
           )}
         >
-          <Sparkles className="h-6 w-6 text-primary-foreground absolute top-3 right-3 animate-pulse opacity-70" />
-          <Bot className="h-7 w-7 text-primary-foreground" />
+          <Sparkles className="h-5 w-5 text-white/90 absolute top-3 right-3 opacity-80" />
+          <Bot className="h-6 w-6 text-white" />
         </Button>
       </div>
 
@@ -153,17 +153,17 @@ export function FloatingFinancialAdvisor({ event, items }: FloatingFinancialAdvi
           isOpen ? "scale-100 opacity-100 translate-y-0" : "scale-50 opacity-0 pointer-events-none translate-y-8"
         )}
       >
-        <div className="flex flex-col bg-card/90 backdrop-blur-xl border border-border/50 shadow-2xl rounded-2xl overflow-hidden h-[600px] max-h-[calc(100vh-6rem)]">
+        <div className="flex flex-col glass-luxury shadow-2xl rounded-2xl overflow-hidden h-[600px] max-h-[calc(100vh-6rem)]">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary/10 to-transparent border-b border-border/30">
+          <div className="flex items-center justify-between p-4 bg-white/85 border-b border-slate-200/80">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-primary/20 border border-primary/30 shadow-inner">
-                <Bot className="h-5 w-5 text-primary" />
+              <div className="p-2 rounded-xl bg-[#4A607A]/12 border border-[#4A607A]/25">
+                <Bot className="h-5 w-5 text-[#4A607A]" />
               </div>
               <div>
                 <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
                   Asesor Financiero
-                  <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+                  <span className="flex h-2 w-2 rounded-full bg-[#467366]"></span>
                 </h3>
                 <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
                   Analista IA Financiero

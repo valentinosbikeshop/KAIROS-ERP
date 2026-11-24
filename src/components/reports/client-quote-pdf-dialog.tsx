@@ -502,7 +502,7 @@ export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuot
           onClick={() => setIsOpen(true)}
           variant="default"
           size="sm"
-          className="h-8 gap-1.5 text-xs bg-slate-900 hover:bg-slate-800 text-white shadow-xs font-medium cursor-pointer"
+          className="h-8 gap-1.5 text-xs bg-[#4A607A] hover:bg-[#3F536B] text-white shadow-xs font-medium cursor-pointer"
         >
           <FileText className="h-3.5 w-3.5" />
           Cotización Formal (PDF)
@@ -512,7 +512,7 @@ export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuot
       <Dialog open={isOpen} onOpenChange={setIsOpen} className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-slate-900 text-white">
+            <div className="p-2 rounded-lg bg-[#4A607A]/12 border border-[#4A607A]/25 text-[#3B4F66]">
               <FileText className="h-4 w-4" />
             </div>
             <div>
@@ -797,7 +797,7 @@ export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuot
             size="sm"
             onClick={handleGeneratePDF}
             disabled={generating || selectedItemIds.length === 0}
-            className="h-9 px-4 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white gap-2 shadow-sm"
+            className="h-9 px-4 text-xs font-semibold bg-[#4A607A] hover:bg-[#3F536B] text-white gap-2 shadow-sm"
           >
             {generating ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

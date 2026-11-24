@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
-import { Manrope, Instrument_Serif, IBM_Plex_Mono } from 'next/font/google';
+import { Plus_Jakarta_Sans, Instrument_Serif } from 'next/font/google';
 import './globals.css';
 
-const manrope = Manrope({
+const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
   variable: '--font-sans',
   weight: ['400', '500', '600', '700', '800'],
@@ -14,13 +14,6 @@ const instrumentSerif = Instrument_Serif({
   variable: '--font-serif',
   weight: '400',
   style: ['normal', 'italic'],
-  display: 'swap',
-});
-
-const ibmPlexMono = IBM_Plex_Mono({
-  subsets: ['latin'],
-  variable: '--font-mono',
-  weight: ['400', '500', '600'],
   display: 'swap',
 });
 
@@ -38,9 +31,9 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`${manrope.variable} ${instrumentSerif.variable} ${ibmPlexMono.variable}`}
+      className={`${plusJakarta.variable} ${instrumentSerif.variable}`}
     >
-      <body className="font-sans antialiased selection:bg-[#1261E0]/15 selection:text-foreground">
+      <body className="font-sans antialiased selection:bg-[#4A607A]/15 selection:text-foreground">
         {children}
       </body>
     </html>

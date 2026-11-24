@@ -147,22 +147,24 @@ Asigna margen_sugerido (15%-55% según elasticidad del mercado chileno) y gananc
     }
 
     let catalogString = 'SIN_CATALOGO';
-    try {
-      const supabaseClient = createAdminClient();
-      const { data: masterCosts } = await supabaseClient
-        .from('master_costs')
-        .select('id, servicio, tiempo_detalle, tipo_evento, costo, ganancia')
-        .eq('organization_id', orgId);
+    if (orgId !== 'd0000000-0000-4000-8000-000000000000') {
+      try {
+        const supabaseClient = createAdminClient();
+        const { data: masterCosts } = await supabaseClient
+          .from('master_costs')
+          .select('id, servicio, tiempo_detalle, tipo_evento, costo, ganancia')
+          .eq('organization_id', orgId);
 
-      if (masterCosts && masterCosts.length > 0) {
-        catalogString = filterRelevantCatalog(
-          masterCosts as MasterCost[],
-          `${customPrompt} ${eventDescription} ${eventType}`,
-          25
-        );
+        if (masterCosts && masterCosts.length > 0) {
+          catalogString = filterRelevantCatalog(
+            masterCosts as MasterCost[],
+            `${customPrompt} ${eventDescription} ${eventType}`,
+            25
+          );
+        }
+      } catch {
+        // Continuar sin catálogo
       }
-    } catch {
-      // Continuar sin catálogo
     }
 
     const compactResponseSchema = {

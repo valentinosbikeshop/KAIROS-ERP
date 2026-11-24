@@ -52,26 +52,9 @@ export function Sidebar({
     return defaultLabel;
   };
 
-  const isDarkExecutiveShell =
-    !isDuoExempt &&
-    !isDemo &&
-    (entitlements?.effectiveTier === 'growth' || entitlements?.effectiveTier === 'scale');
-
   return (
-    <aside
-      className={cn(
-        'w-64 fixed left-0 top-0 bottom-0 h-full border-r flex flex-col z-50 transition-colors duration-300',
-        isDarkExecutiveShell
-          ? 'bg-[#080E1A]/95 backdrop-blur-2xl border-white/[0.08] text-slate-100'
-          : 'border-border/70 bg-white/80 backdrop-blur-2xl'
-      )}
-    >
-      <div
-        className={cn(
-          'h-16 flex items-center px-4 border-b shrink-0 gap-2.5',
-          isDarkExecutiveShell ? 'border-white/[0.08]' : 'border-border/65'
-        )}
-      >
+    <aside className="w-64 fixed left-0 top-0 bottom-0 h-full border-r border-white/80 bg-white/75 backdrop-blur-2xl flex flex-col z-50 shadow-[0_8px_30px_rgba(71,85,105,0.06)] transition-colors duration-300">
+      <div className="h-16 flex items-center px-4 border-b border-slate-200/75 shrink-0 gap-2.5">
         <CompanyLogoMark
           name={organizationName}
           logoUrl={organizationLogoUrl}
@@ -79,17 +62,15 @@ export function Sidebar({
           size="sm"
         />
         <div className="min-w-0 flex-1 flex items-center gap-1.5">
-          <span className="font-semibold text-sm tracking-tight truncate" title={organizationName}>
+          <span className="font-semibold text-sm tracking-tight truncate text-foreground" title={organizationName}>
             {organizationName}
           </span>
           <span
             className={cn(
-              'font-mono text-[9px] px-1.5 py-0.5 rounded-full font-medium tracking-wider border shrink-0',
+              'text-[9px] px-1.5 py-0.5 rounded-full font-semibold tracking-wider border shrink-0',
               isDemo
-                ? 'bg-[#1261E0]/10 text-[#0F4FB8] border-[#1261E0]/25'
-                : isDarkExecutiveShell
-                ? 'bg-[#38BDF8]/15 text-[#38BDF8] border-[#38BDF8]/30'
-                : 'bg-secondary text-muted-foreground border-border/80'
+                ? 'bg-[#467366]/12 text-[#2E5248] border-[#467366]/25'
+                : 'bg-[#4A607A]/12 text-[#3B4F66] border-[#4A607A]/25'
             )}
           >
             {isDemo ? 'DEMO' : 'ERP'}
@@ -116,22 +97,15 @@ export function Sidebar({
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  'relative flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 tactile-press',
+                  'relative flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 tactile-press',
                   isActive
-                    ? isDarkExecutiveShell
-                      ? 'bg-white/[0.08] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
-                      : 'bg-[#1261E0]/[0.07] text-foreground font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]'
-                    : isDarkExecutiveShell
-                    ? 'text-slate-400 hover:bg-white/[0.04] hover:text-white'
-                    : 'text-muted-foreground hover:bg-secondary/65 hover:text-foreground'
+                    ? 'bg-white/90 text-foreground font-semibold shadow-2xs border border-slate-200/80'
+                    : 'text-muted-foreground hover:bg-white/60 hover:text-foreground'
                 )}
               >
                 {isActive && (
                   <span
-                    className={cn(
-                      'absolute left-0 top-2 bottom-2 w-[2.5px] rounded-r-full',
-                      isDarkExecutiveShell ? 'bg-[#38BDF8]' : 'bg-[#1261E0]'
-                    )}
+                    className="absolute left-0 top-2 bottom-2 w-[2.5px] rounded-r-full bg-[#4A607A]"
                     aria-hidden="true"
                   />
                 )}
@@ -139,7 +113,7 @@ export function Sidebar({
                   <Icon
                     className={cn(
                       'h-4 w-4 shrink-0 transition-colors',
-                      isActive && (isDarkExecutiveShell ? 'text-[#38BDF8]' : 'text-[#1261E0]')
+                      isActive && 'text-[#4A607A]'
                     )}
                   />
                   <span className="truncate">{label}</span>
@@ -150,14 +124,10 @@ export function Sidebar({
           })}
         </nav>
 
-        {(isAdmin || isSuperAdmin) && visibleAdminLinks.length > 0 && (
+        {/* En Modo Demo NO se muestra la sección Administración */}
+        {!isDemo && (isAdmin || isSuperAdmin) && visibleAdminLinks.length > 0 && (
           <div className="mt-8">
-            <h4
-              className={cn(
-                'px-6.5 mb-2 font-mono text-[10px] font-medium uppercase tracking-[0.18em]',
-                isDarkExecutiveShell ? 'text-slate-500' : 'text-muted-foreground/80'
-              )}
-            >
+            <h4 className="px-6.5 mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
               Administración
             </h4>
             <nav className="px-3.5 space-y-1">
@@ -177,29 +147,22 @@ export function Sidebar({
                     key={link.href}
                     href={link.href}
                     className={cn(
-                      'relative flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 tactile-press',
+                      'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 tactile-press',
                       isActive
-                        ? isDarkExecutiveShell
-                          ? 'bg-white/[0.08] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
-                          : 'bg-[#1261E0]/[0.07] text-foreground font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]'
-                        : isDarkExecutiveShell
-                        ? 'text-slate-400 hover:bg-white/[0.04] hover:text-white'
-                        : 'text-muted-foreground hover:bg-secondary/65 hover:text-foreground'
+                        ? 'bg-white/90 text-foreground font-semibold shadow-2xs border border-slate-200/80'
+                        : 'text-muted-foreground hover:bg-white/60 hover:text-foreground'
                     )}
                   >
                     {isActive && (
                       <span
-                        className={cn(
-                          'absolute left-0 top-2 bottom-2 w-[2.5px] rounded-r-full',
-                          isDarkExecutiveShell ? 'bg-[#38BDF8]' : 'bg-[#1261E0]'
-                        )}
+                        className="absolute left-0 top-2 bottom-2 w-[2.5px] rounded-r-full bg-[#4A607A]"
                         aria-hidden="true"
                       />
                     )}
                     <Icon
                       className={cn(
                         'h-4 w-4 transition-colors',
-                        isActive && (isDarkExecutiveShell ? 'text-[#38BDF8]' : 'text-[#1261E0]')
+                        isActive && 'text-[#4A607A]'
                       )}
                     />
                     {label}
@@ -207,37 +170,29 @@ export function Sidebar({
                 );
               })}
 
-              {/* Suscripción & Estilo solo para tenants SaaS (exento DUO Producciones y Demo) */}
-              {!isDuoExempt && !isDemo && (
+              {!isDuoExempt && (
                 <Link
                   href="/billing"
                   className={cn(
-                    'relative flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 tactile-press',
+                    'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 tactile-press',
                     pathname.startsWith('/billing')
-                      ? isDarkExecutiveShell
-                        ? 'bg-white/[0.08] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
-                        : 'bg-[#1261E0]/[0.07] text-foreground font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]'
-                      : isDarkExecutiveShell
-                      ? 'text-slate-400 hover:bg-white/[0.04] hover:text-white'
-                      : 'text-muted-foreground hover:bg-secondary/65 hover:text-foreground'
+                      ? 'bg-white/90 text-foreground font-semibold shadow-2xs border border-slate-200/80'
+                      : 'text-muted-foreground hover:bg-white/60 hover:text-foreground'
                   )}
                 >
                   {pathname.startsWith('/billing') && (
                     <span
-                      className={cn(
-                        'absolute left-0 top-2 bottom-2 w-[2.5px] rounded-r-full',
-                        isDarkExecutiveShell ? 'bg-[#38BDF8]' : 'bg-[#1261E0]'
-                      )}
+                      className="absolute left-0 top-2 bottom-2 w-[2.5px] rounded-r-full bg-[#4A607A]"
                       aria-hidden="true"
                     />
                   )}
                   <CreditCard
                     className={cn(
                       'h-4 w-4 transition-colors',
-                      pathname.startsWith('/billing') && (isDarkExecutiveShell ? 'text-[#38BDF8]' : 'text-[#1261E0]')
+                      pathname.startsWith('/billing') && 'text-[#4A607A]'
                     )}
                   />
-                  Suscripción & Estilo
+                  Suscripción &amp; Estilo
                 </Link>
               )}
             </nav>
@@ -245,18 +200,10 @@ export function Sidebar({
         )}
       </div>
 
-      <div
-        className={cn(
-          'px-4 py-3.5 border-t shrink-0 space-y-2.5',
-          isDarkExecutiveShell ? 'border-white/[0.08] bg-white/[0.02]' : 'border-border/65 bg-secondary/35'
-        )}
-      >
+      <div className="px-4 py-3.5 border-t border-slate-200/75 bg-white/50 shrink-0 space-y-2.5">
         {userEmail && (
           <p
-            className={cn(
-              'font-mono text-[11px] truncate px-1',
-              isDarkExecutiveShell ? 'text-slate-400' : 'text-muted-foreground'
-            )}
+            className="text-[11px] truncate px-1 text-muted-foreground"
             title={isDemo ? 'visitante@kairos-sandbox.cl' : userEmail}
           >
             {isDemo ? 'visitante@kairos-sandbox.cl' : userEmail}
@@ -268,23 +215,14 @@ export function Sidebar({
             variant="outline"
             size="sm"
             onClick={onSignOut}
-            className={cn(
-              'w-full justify-start gap-2 h-8 text-xs font-medium transition-colors',
-              isDarkExecutiveShell
-                ? 'bg-transparent border-white/10 text-slate-300 hover:bg-[#B9382C]/20 hover:text-rose-200 hover:border-[#B9382C]/35'
-                : 'text-muted-foreground border-border/80 hover:bg-[#B9382C]/8 hover:text-[#B9382C] hover:border-[#B9382C]/25'
-            )}
+            className="w-full justify-start gap-2 h-8 text-xs font-medium text-muted-foreground border-slate-200/90 hover:bg-rose-50/80 hover:text-rose-700 hover:border-rose-200"
           >
             <LogOut className="h-3.5 w-3.5" />
-            Cerrar Sesión
+            {isDemo ? 'Salir de Demo' : 'Cerrar Sesión'}
           </Button>
         )}
         <div className="flex items-center justify-center pt-1">
-          <KairosLogo
-            size="sm"
-            subtitle="Multi-Tenant Cloud"
-            darkSurface={isDarkExecutiveShell}
-          />
+          <KairosLogo size="sm" subtitle="Multi-Tenant Cloud" />
         </div>
       </div>
     </aside>

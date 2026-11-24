@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Select } from '@/components/ui/select';
 import {
   Dialog,
   DialogBody,
@@ -13,170 +13,170 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { FlaskConical, RotateCcw, LogOut, Loader2, ShieldAlert, CheckCircle2, ArrowLeft, Compass } from 'lucide-react';
-
-interface DemoQuotaStats {
-  userEventsCount: number;
-  maxEvents: number;
-  userCostsCount: number;
-  maxCosts: number;
-  userItemsCount: number;
-  maxItems: number;
-}
+import {
+  FlaskConical,
+  RotateCcw,
+  LogOut,
+  ShieldAlert,
+  CheckCircle2,
+  Compass,
+  HardDrive,
+  Database,
+  ArrowRight,
+} from 'lucide-react';
+import { INDUSTRY_LIST } from '@/lib/industries';
+import {
+  LOCAL_DEMO_CONSENT_KEY,
+  disableLocalDemoMode,
+  getLocalDemoStats,
+  resetLocalDemoData,
+  switchLocalDemoIndustry,
+} from '@/lib/supabase/local-demo-client';
+import type { IndustryType } from '@/types/database';
 
 export function DemoBanner({
-  isSuperAdmin = false,
   onSignOut,
 }: {
   isSuperAdmin?: boolean;
   onSignOut?: () => Promise<void> | void;
 }) {
-  const router = useRouter();
-  const supabase = createClient();
-  const [stats, setStats] = useState<DemoQuotaStats | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [cacheAccepted, setCacheAccepted] = useState(true);
+  const [stats, setStats] = useState(() => getLocalDemoStats());
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [resetting, setResetting] = useState(false);
-  const [returningHome, setReturningHome] = useState(false);
   const [resetMessage, setResetMessage] = useState<string | null>(null);
 
-  const fetchStatus = useCallback(async () => {
-    try {
-      const res = await fetch('/api/demo/status', { cache: 'no-store' });
-      if (res.ok) {
-        const data = await res.json();
-        setStats(data.stats);
-      }
-    } catch {
-      // Silent fail on transient network error
-    }
+  const refreshStats = useCallback(() => {
+    setStats(getLocalDemoStats());
   }, []);
 
   useEffect(() => {
-    fetchStatus();
-  }, [fetchStatus]);
-
-  const handleReset = async () => {
-    setResetting(true);
-    setResetMessage(null);
+    setMounted(true);
     try {
-      const res = await fetch('/api/demo/reset', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'No se pudo resetear la sesión de prueba.');
-      }
-      setStats(data.stats);
-      setResetMessage('Sesión restaurada con éxito. Recargando...');
-      setTimeout(() => {
-        setConfirmOpen(false);
-        window.location.href = '/';
-      }, 700);
-    } catch (err: any) {
-      alert(err.message || 'Error al resetear la sesión de prueba.');
-      setResetting(false);
+      setCacheAccepted(localStorage.getItem(LOCAL_DEMO_CONSENT_KEY) === 'accepted');
+    } catch {
+      setCacheAccepted(true);
     }
+    refreshStats();
+
+    window.addEventListener('kairos:local-db-changed', refreshStats);
+    window.addEventListener('kairos:org-updated', refreshStats);
+    return () => {
+      window.removeEventListener('kairos:local-db-changed', refreshStats);
+      window.removeEventListener('kairos:org-updated', refreshStats);
+    };
+  }, [refreshStats]);
+
+  const handleAcceptCache = () => {
+    try {
+      localStorage.setItem(LOCAL_DEMO_CONSENT_KEY, 'accepted');
+    } catch {
+      // ignore
+    }
+    setCacheAccepted(true);
+  };
+
+  const handleIndustryChange = (nextIndustry: IndustryType) => {
+    switchLocalDemoIndustry(nextIndustry);
+    refreshStats();
+  };
+
+  const handleReset = () => {
+    resetLocalDemoData();
+    refreshStats();
+    setResetMessage('Caché local restaurado al estado inicial.');
+    setTimeout(() => {
+      setConfirmOpen(false);
+      window.location.href = '/';
+    }, 450);
   };
 
   const handleExitDemo = async () => {
+    disableLocalDemoMode();
     if (onSignOut) {
       await onSignOut();
       return;
     }
-    await supabase.auth.signOut();
-    router.push('/login');
-    router.refresh();
-  };
-
-  const handleReturnToDuo = async () => {
-    setReturningHome(true);
-    try {
-      const res = await fetch('/api/admin/switch-company', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ returnHome: true }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'No se pudo volver a DUO Producciones.');
-      }
-      window.location.href = '/governance';
-    } catch (err: any) {
-      alert(err.message || 'Error al regresar a tu empresa principal.');
-      setReturningHome(false);
-    }
+    window.location.href = '/welcome';
   };
 
   return (
     <>
       <div
         role="region"
-        aria-label="Barra de sesión de prueba"
-        className="bg-slate-900 text-slate-100 border-b border-indigo-500/30 px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3"
+        aria-label="Barra de sesión de prueba en caché local"
+        className="bg-white/80 backdrop-blur-2xl text-foreground border-b border-slate-200/80 px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-2xs"
       >
         <div className="flex flex-wrap items-center gap-2.5 text-xs">
-          <Badge className="bg-amber-400 text-slate-950 hover:bg-amber-400 font-bold tracking-wide uppercase px-2 py-0.5 flex items-center gap-1.5">
-            <FlaskConical className="h-3.5 w-3.5" />
-            Sesión de Prueba
+          <Badge className="bg-[#467366]/15 text-[#2E5248] border border-[#467366]/30 font-semibold tracking-wide uppercase px-2.5 py-0.5 flex items-center gap-1.5">
+            <FlaskConical className="h-3.5 w-3.5 text-[#467366]" />
+            Sesión de Prueba · Plan Enterprise
           </Badge>
-          <span className="text-slate-300 leading-snug">
-            Entorno sandbox aislado con ejemplos avanzados. Crea, edita y prueba libremente.
+
+          <div className="w-48 sm:w-56">
+            <Select
+              value={stats.industryType}
+              onChange={(e) => handleIndustryChange(e.target.value as IndustryType)}
+              options={INDUSTRY_LIST.map((ind) => ({
+                value: ind.id,
+                label: `Rubro: ${ind.shortName}`,
+              }))}
+              className="h-8 text-xs font-medium bg-white/90"
+            />
+          </div>
+
+          <span className="hidden xl:inline-flex items-center gap-2 rounded-lg bg-slate-100/80 border border-slate-200/80 px-2.5 py-1 text-[11px] font-medium text-muted-foreground tabular-nums">
+            <span>Eventos propios: {stats.userEventsCount}/{stats.maxEvents}</span>
+            <span>•</span>
+            <span>Tarifas propias: {stats.userCostsCount}/{stats.maxCosts}</span>
           </span>
-          {stats && (
-            <span className="inline-flex items-center gap-2 rounded-md bg-slate-800/90 border border-slate-700 px-2.5 py-1 text-[11px] font-medium text-indigo-200">
-              <span>Eventos nuevos: {stats.userEventsCount}/{stats.maxEvents}</span>
-              <span className="text-slate-600">•</span>
-              <span>Tarifas nuevas: {stats.userCostsCount}/{stats.maxCosts}</span>
-            </span>
-          )}
         </div>
 
         <div className="flex items-center gap-2">
           <Button
             type="button"
             size="sm"
-            variant="secondary"
+            variant="outline"
             onClick={() =>
               window.dispatchEvent(new CustomEvent('kairos:open-guide', { detail: { tab: 'tour' } }))
             }
-            className="h-8 gap-1.5 text-xs font-semibold bg-slate-800 text-amber-300 hover:bg-slate-700 border border-slate-700"
+            className="h-8 gap-1.5 text-xs font-medium"
           >
-            <Compass className="h-3.5 w-3.5" />
+            <Compass className="h-3.5 w-3.5 text-[#4A607A]" />
             <span className="hidden sm:inline">Guía Interactiva</span>
           </Button>
-          {isSuperAdmin && (
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              disabled={returningHome}
-              onClick={handleReturnToDuo}
-              className="h-8 gap-1.5 text-xs font-semibold bg-indigo-500 text-white hover:bg-indigo-400 border-0"
-            >
-              {returningHome ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <ArrowLeft className="h-3.5 w-3.5" />
-              )}
-              Volver a DUO / Gobernanza
-            </Button>
-          )}
+
           <Button
             type="button"
             size="sm"
+            variant="outline"
             onClick={() => {
               setResetMessage(null);
               setConfirmOpen(true);
             }}
-            className="h-8 gap-1.5 text-xs font-semibold bg-amber-400 text-slate-950 hover:bg-amber-300 focus-visible:ring-2 focus-visible:ring-amber-300 transition-colors"
+            className="h-8 gap-1.5 text-xs font-medium"
           >
             <RotateCcw className="h-3.5 w-3.5" />
-            Resetear Prueba
+            <span className="hidden sm:inline">Resetear Prueba</span>
           </Button>
+
+          <Link href="/welcome#planes">
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 gap-1.5 text-xs font-semibold tactile-press"
+            >
+              <span>Elegir Plan Oficial</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </Link>
+
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={handleExitDemo}
-            className="h-8 gap-1.5 text-xs text-slate-300 hover:text-white hover:bg-slate-800"
+            className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
           >
             <LogOut className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Salir</span>
@@ -184,29 +184,61 @@ export function DemoBanner({
         </div>
       </div>
 
+      {/* Aviso No Invasivo de Caché Local */}
+      {mounted && !cacheAccepted && (
+        <div
+          role="dialog"
+          aria-label="Aviso de almacenamiento en caché local"
+          className="fixed bottom-4 left-4 right-4 z-[60] max-w-3xl mx-auto rounded-2xl glass-luxury p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+        >
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-xl bg-[#4A607A]/12 border border-[#4A607A]/25 text-[#3B4F66] shrink-0">
+              <HardDrive className="h-4 w-4" />
+            </div>
+            <div className="space-y-0.5 text-xs">
+              <p className="font-semibold text-foreground flex items-center gap-1.5">
+                <Database className="h-3.5 w-3.5 text-[#4A607A]" />
+                Modo Evaluación: Almacenamiento Exclusivo en Caché Local
+              </p>
+              <p className="text-muted-foreground leading-relaxed">
+                Para proteger tu privacidad, ningún dato que edites o crees en esta sesión de prueba se guarda en Supabase; todo permanece temporalmente en el caché de tu navegador.
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleAcceptCache}
+            className="font-semibold shrink-0 tactile-press"
+          >
+            Entendido, continuar
+          </Button>
+        </div>
+      )}
+
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen} className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <RotateCcw className="h-4 w-4 text-amber-600" />
-            Resetear Sesión de Prueba
+            <RotateCcw className="h-4 w-4 text-[#4A607A]" />
+            Resetear Sesión de Prueba Local
           </DialogTitle>
           <DialogDescription>
-            Esta acción limpiará únicamente los datos nuevos creados durante esta prueba.
+            Esta acción limpiará los cambios guardados en el caché de tu navegador y restaurará los ejemplos base.
           </DialogDescription>
         </DialogHeader>
         <DialogBody className="space-y-3 text-sm">
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900 text-xs space-y-1.5">
+          <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-foreground text-xs space-y-1.5">
             <p className="font-semibold flex items-center gap-1.5">
-              <ShieldAlert className="h-4 w-4 shrink-0" />
+              <ShieldAlert className="h-4 w-4 text-[#4A607A] shrink-0" />
               ¿Qué ocurrirá al confirmar?
             </p>
-            <ul className="list-disc pl-4 space-y-1 text-amber-800">
-              <li>Se eliminarán todos los eventos, ítems y tarifas nuevas que creaste en esta sesión.</li>
-              <li>Se mantendrán y restaurarán intactos los 6 eventos base y las 24 tarifas de ejemplo.</li>
+            <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
+              <li>Se restaurarán los 6 eventos base y todas las tarifas maestras originales en tu navegador.</li>
+              <li>Ningún servidor externo es afectado.</li>
             </ul>
           </div>
           {resetMessage && (
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-emerald-800 text-xs font-medium flex items-center gap-2">
+            <div className="rounded-xl border border-[#467366]/30 bg-[#467366]/10 p-3 text-[#2E5248] text-xs font-medium flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 shrink-0" />
               <span>{resetMessage}</span>
             </div>
@@ -217,18 +249,16 @@ export function DemoBanner({
             type="button"
             variant="outline"
             onClick={() => setConfirmOpen(false)}
-            disabled={resetting}
           >
             Cancelar
           </Button>
           <Button
             type="button"
             onClick={handleReset}
-            disabled={resetting}
-            className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold gap-1.5"
+            className="font-semibold gap-1.5"
           >
-            {resetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-            {resetting ? 'Reseteando...' : 'Sí, Resetear Prueba'}
+            <RotateCcw className="h-4 w-4" />
+            Sí, Resetear Caché
           </Button>
         </DialogFooter>
       </Dialog>

@@ -6,6 +6,7 @@ export async function middleware(request: NextRequest) {
   try {
     const { supabaseResponse, user, supabase } = await updateSession(request);
     const { pathname } = request.nextUrl;
+    const isLocalDemoCookie = request.cookies.get('kairos_local_demo_mode')?.value === '1';
 
     const isPublicRoute =
       pathname === '/login' ||
@@ -17,14 +18,30 @@ export async function middleware(request: NextRequest) {
     const isOnboardingRoute = pathname === '/onboarding';
     const isApiRoute = pathname.startsWith('/api/');
     const isAuthCallback = pathname === '/api/auth/callback';
+    const isDemoAllowedApi =
+      isLocalDemoCookie &&
+      (pathname.startsWith('/api/ai/') || pathname === '/api/parse-file');
     const isPublicApi =
       isAuthCallback ||
+      isDemoAllowedApi ||
       pathname === '/api/cron/keep-alive' ||
       pathname === '/api/auth/register-owner' ||
       pathname === '/api/plans' ||
       pathname === '/api/webhooks/khipu';
 
     if (isPublicApi) {
+      return supabaseResponse;
+    }
+
+    // Si está en Modo Demo Local (100% caché navegador) y no tiene sesión real de Supabase
+    if (isLocalDemoCookie && !user && !isApiRoute) {
+      if (
+        pathname.startsWith('/governance') ||
+        pathname.startsWith('/billing') ||
+        pathname.startsWith('/security')
+      ) {
+        return NextResponse.redirect(new URL('/', request.url));
+      }
       return supabaseResponse;
     }
 

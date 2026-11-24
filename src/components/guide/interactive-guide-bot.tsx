@@ -322,36 +322,36 @@ export function InteractiveGuideBot({ isDemo = false }: { isDemo?: boolean }) {
             type="button"
             onClick={() => setIsOpen(true)}
             className={cn(
-              'h-11 px-4 rounded-full shadow-xl border border-indigo-400/40 gap-2 text-xs font-semibold transition-all hover:scale-[1.03]',
-              'bg-slate-900 text-white hover:bg-slate-800'
+              'h-11 px-4 rounded-full shadow-lg border border-white/80 gap-2 text-xs font-semibold transition-all hover:scale-[1.03] backdrop-blur-xl',
+              'bg-white/85 text-foreground hover:bg-white'
             )}
           >
-            <Compass className="h-4 w-4 text-amber-400" />
+            <Compass className="h-4 w-4 text-[#4A607A]" />
             <span>{isDemo ? 'Bot Guía Demo' : 'Guía Interactiva'}</span>
-            <Sparkles className="h-3.5 w-3.5 text-indigo-300" />
+            <Sparkles className="h-3.5 w-3.5 text-[#467366]" />
           </Button>
         </div>
       )}
 
       {/* Panel flotante Guía Interactiva */}
       {isOpen && (
-        <div className="fixed bottom-5 left-4 right-4 sm:right-auto lg:left-[17.5rem] sm:w-[400px] z-50 rounded-2xl border border-border/80 bg-card/98 backdrop-blur-xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100dvh-5.5rem)] animate-in fade-in slide-in-from-bottom-4 duration-200">
+        <div className="fixed bottom-5 left-4 right-4 sm:right-auto lg:left-[17.5rem] sm:w-[400px] z-50 rounded-2xl glass-luxury shadow-2xl overflow-hidden flex flex-col max-h-[calc(100dvh-5.5rem)] animate-modal-in">
           {/* Header */}
-          <div className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between border-b border-slate-800 shrink-0">
+          <div className="bg-white/85 text-foreground px-4 py-3 flex items-center justify-between border-b border-slate-200/80 shrink-0">
             <div className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-xl bg-amber-400/15 border border-amber-400/30 flex items-center justify-center">
-                <Compass className="h-4 w-4 text-amber-400" />
+              <div className="h-8 w-8 rounded-xl bg-[#4A607A]/12 border border-[#4A607A]/25 flex items-center justify-center">
+                <Compass className="h-4 w-4 text-[#4A607A]" />
               </div>
               <div>
                 <h3 className="text-sm font-bold leading-none flex items-center gap-1.5">
                   Guía Interactiva KAIROS
                   {isDemo && (
-                    <Badge className="bg-amber-400 text-slate-950 text-[9px] px-1.5 py-0 border-0">
+                    <Badge className="bg-[#467366]/15 text-[#2E5248] text-[9px] px-1.5 py-0 border border-[#467366]/30">
                       DEMO
                     </Badge>
                   )}
                 </h3>
-                <p className="text-[11px] text-slate-300 mt-1">
+                <p className="text-[11px] text-muted-foreground mt-1">
                   Acompañamiento paso a paso en vivo
                 </p>
               </div>
@@ -361,7 +361,7 @@ export function InteractiveGuideBot({ isDemo = false }: { isDemo?: boolean }) {
               variant="ghost"
               size="icon"
               onClick={() => setIsOpen(false)}
-              className="h-8 w-8 text-slate-300 hover:text-white hover:bg-slate-800 rounded-full"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-slate-100 rounded-full"
             >
               <X className="h-4 w-4" />
             </Button>

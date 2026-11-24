@@ -57,7 +57,47 @@ export async function getAuthenticatedContext(req: NextRequest): Promise<Authent
       error: userError,
     } = await supabase.auth.getUser();
 
-    if (userError || !user) return null;
+    if (userError || !user) {
+      // Soporte para Modo Demo en Caché Local (permite que los asistentes IA funcionen sin guardar nada en Supabase)
+      const isLocalDemo = req.cookies.get('kairos_local_demo_mode')?.value === '1';
+      if (isLocalDemo) {
+        const demoOrgId = 'd0000000-0000-4000-8000-000000000000';
+        const demoUserId = 'd0000000-0000-4000-8000-000000000099';
+        return {
+          userId: demoUserId,
+          email: 'visitante@kairos-sandbox.cl',
+          profile: {
+            id: demoUserId,
+            email: 'visitante@kairos-sandbox.cl',
+            role: 'admin',
+            status: 'active',
+            organization_id: demoOrgId,
+            is_super_admin: false,
+            full_name: 'Visitante Demo',
+            created_at: new Date().toISOString(),
+          },
+          organization: {
+            id: demoOrgId,
+            name: 'Productora Horizonte (Demo)',
+            slug: 'productora-horizonte-demo',
+            invite_code: 'KAIROS-DEMO-2026',
+            legal_name: 'Productora Horizonte Eventos SpA',
+            rut: '76.890.123-4',
+            subtitle: 'SANDBOX LOCAL',
+            location: 'Santiago, Chile',
+            contact_email: 'contacto@horizonte-demo.cl',
+            contact_phone: '+56 9 8420 1190',
+            bank_info: null,
+            is_demo: true,
+            is_active: true,
+            max_demo_events: 8,
+            max_demo_costs: 15,
+            created_at: new Date().toISOString(),
+          },
+        };
+      }
+      return null;
+    }
 
     // Enforce 2FA (AAL2) when the user has a verified MFA factor enrolled
     const hasVerifiedMfa = Boolean(user.factors?.some((f) => f.status === 'verified'));

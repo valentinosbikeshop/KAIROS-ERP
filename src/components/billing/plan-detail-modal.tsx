@@ -138,7 +138,7 @@ export function PlanDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-[#080E1A]/65 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/25 backdrop-blur-md"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -147,28 +147,20 @@ export function PlanDetailModal({
       <div
         onClick={(e) => e.stopPropagation()}
         className={cn(
-          'relative w-full max-w-3xl max-h-[88vh] flex flex-col rounded-3xl overflow-hidden animate-modal-in shadow-2xl',
-          isRec
-            ? 'glass-luxury text-slate-100 border border-sky-400/30'
-            : 'bg-white/95 backdrop-blur-2xl text-foreground border border-border/90'
+          'relative w-full max-w-3xl max-h-[88vh] flex flex-col rounded-3xl overflow-hidden animate-modal-in glass-luxury text-foreground'
         )}
       >
         {/* Header */}
-        <div
-          className={cn(
-            'px-6 sm:px-8 py-5 border-b flex items-start justify-between gap-4 shrink-0',
-            isRec ? 'border-white/10' : 'border-border/75'
-          )}
-        >
+        <div className="px-6 sm:px-8 py-5 border-b border-slate-200/80 flex items-start justify-between gap-4 shrink-0">
           <div className="space-y-1.5">
             <div className="flex flex-wrap items-center gap-2">
               {plan.badge_text && (
                 <Badge
                   className={cn(
-                    'font-mono text-[10px] tracking-[0.16em] uppercase',
+                    'text-[10px] tracking-[0.14em] uppercase',
                     isRec
-                      ? 'bg-[#2DD4BF] text-[#080E1A] border-0'
-                      : 'bg-[#1261E0]/10 text-[#1261E0] border border-[#1261E0]/25'
+                      ? 'bg-[#467366]/15 text-[#2E5248] border border-[#467366]/30'
+                      : 'bg-[#4A607A]/12 text-[#3B4F66] border border-[#4A607A]/25'
                   )}
                 >
                   {isRec && <Sparkles className="h-3 w-3 mr-1 inline" />}
@@ -176,12 +168,7 @@ export function PlanDetailModal({
                 </Badge>
               )}
               {industryName && (
-                <span
-                  className={cn(
-                    'text-[11px] font-medium',
-                    isRec ? 'text-sky-300' : 'text-[#1261E0]'
-                  )}
-                >
+                <span className="text-[11px] font-medium text-[#4A607A]">
                   Configurado para {industryName}
                 </span>
               )}
@@ -189,22 +176,17 @@ export function PlanDetailModal({
             <h2 id="plan-detail-title" className="text-2xl sm:text-3xl font-semibold tracking-tight">
               {plan.name}
             </h2>
-            <p className={cn('text-xs sm:text-sm', isRec ? 'text-slate-300' : 'text-muted-foreground')}>
+            <p className="text-xs sm:text-sm text-muted-foreground">
               {pitch.headline}
             </p>
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
             <div className="text-right hidden sm:block">
-              <div
-                className={cn(
-                  'text-2xl font-semibold font-mono tabular-nums',
-                  isRec ? 'text-[#38BDF8]' : 'text-foreground'
-                )}
-              >
+              <div className="text-2xl font-semibold tabular-nums text-foreground">
                 {plan.price_clp === 0 ? '$0' : formatCLP(plan.price_clp)}
               </div>
-              <div className={cn('text-[11px]', isRec ? 'text-slate-400' : 'text-muted-foreground')}>
+              <div className="text-[11px] text-muted-foreground">
                 / mes + IVA
               </div>
             </div>
@@ -212,12 +194,7 @@ export function PlanDetailModal({
               type="button"
               onClick={onClose}
               aria-label="Cerrar detalle del plan"
-              className={cn(
-                'h-9 w-9 rounded-full flex items-center justify-center border transition-colors',
-                isRec
-                  ? 'border-white/15 hover:bg-white/10 text-slate-300'
-                  : 'border-border hover:bg-secondary text-muted-foreground'
-              )}
+              className="h-9 w-9 rounded-full flex items-center justify-center border border-slate-200 bg-white/70 hover:bg-white text-muted-foreground transition-colors"
             >
               <X className="h-4 w-4" />
             </button>
@@ -228,97 +205,67 @@ export function PlanDetailModal({
         <div className="flex-1 overflow-y-auto overscroll-contain px-6 sm:px-8 py-6 space-y-6 custom-scrollbar">
           {/* Capacidades cuantitativas */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div
-              className={cn(
-                'p-3.5 rounded-2xl border',
-                isRec ? 'bg-white/[0.04] border-white/10' : 'bg-secondary/50 border-border/75'
-              )}
-            >
-              <div className={cn('flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider', isRec ? 'text-slate-400' : 'text-muted-foreground')}>
-                <FolderKanban className="h-3.5 w-3.5 text-[#1261E0]" />
+            <div className="p-3.5 rounded-2xl bg-white/75 border border-slate-200/80">
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                <FolderKanban className="h-3.5 w-3.5 text-[#4A607A]" />
                 Proyectos
               </div>
-              <div className="text-base font-semibold mt-1 font-mono">
+              <div className="text-base font-semibold mt-1 tabular-nums">
                 {plan.max_projects === null ? 'Ilimitados' : `${plan.max_projects} / mes`}
               </div>
             </div>
 
-            <div
-              className={cn(
-                'p-3.5 rounded-2xl border',
-                isRec ? 'bg-white/[0.04] border-white/10' : 'bg-secondary/50 border-border/75'
-              )}
-            >
-              <div className={cn('flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider', isRec ? 'text-slate-400' : 'text-muted-foreground')}>
-                <Layers className="h-3.5 w-3.5 text-[#0D8A72]" />
+            <div className="p-3.5 rounded-2xl bg-white/75 border border-slate-200/80">
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                <Layers className="h-3.5 w-3.5 text-[#467366]" />
                 Tarifas
               </div>
-              <div className="text-base font-semibold mt-1 font-mono">
+              <div className="text-base font-semibold mt-1 tabular-nums">
                 {plan.max_costs === null ? 'Ilimitadas' : `${plan.max_costs} ítems`}
               </div>
             </div>
 
-            <div
-              className={cn(
-                'p-3.5 rounded-2xl border',
-                isRec ? 'bg-white/[0.04] border-white/10' : 'bg-secondary/50 border-border/75'
-              )}
-            >
-              <div className={cn('flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider', isRec ? 'text-slate-400' : 'text-muted-foreground')}>
-                <Users className="h-3.5 w-3.5 text-[#0284C7]" />
+            <div className="p-3.5 rounded-2xl bg-white/75 border border-slate-200/80">
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                <Users className="h-3.5 w-3.5 text-[#4A607A]" />
                 Equipo
               </div>
-              <div className="text-base font-semibold mt-1 font-mono">
+              <div className="text-base font-semibold mt-1 tabular-nums">
                 {plan.max_users === null ? 'Ilimitados' : `${plan.max_users} usuario${plan.max_users > 1 ? 's' : ''}`}
               </div>
             </div>
 
-            <div
-              className={cn(
-                'p-3.5 rounded-2xl border',
-                isRec ? 'bg-white/[0.04] border-white/10' : 'bg-secondary/50 border-border/75'
-              )}
-            >
-              <div className={cn('flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider', isRec ? 'text-slate-400' : 'text-muted-foreground')}>
-                <Cpu className="h-3.5 w-3.5 text-[#2DD4BF]" />
+            <div className="p-3.5 rounded-2xl bg-white/75 border border-slate-200/80">
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                <Cpu className="h-3.5 w-3.5 text-[#467366]" />
                 Consultas IA
               </div>
-              <div className="text-base font-semibold mt-1 font-mono">
+              <div className="text-base font-semibold mt-1 tabular-nums">
                 {plan.ai_calls_limit === 0 ? 'Sin IA' : `${plan.ai_calls_limit} / mes`}
               </div>
             </div>
           </div>
 
           {/* Pitch de valor */}
-          <div
-            className={cn(
-              'p-4 rounded-2xl border space-y-1.5 text-xs sm:text-sm leading-relaxed',
-              isRec
-                ? 'bg-[#1261E0]/15 border-sky-400/25 text-slate-200'
-                : 'bg-[#1261E0]/[0.05] border-[#1261E0]/20 text-foreground/90'
-            )}
-          >
-            <p className="font-medium">{pitch.audience}</p>
-            <p className={cn('text-xs', isRec ? 'text-[#5EEAD4]' : 'text-[#0D8A72]')}>
+          <div className="p-4 rounded-2xl border bg-white/75 border-slate-200/80 space-y-1.5 text-xs sm:text-sm leading-relaxed">
+            <p className="font-medium text-foreground">{pitch.audience}</p>
+            <p className="text-xs text-[#467366]">
               <strong>Impacto financiero:</strong> {pitch.roiNote}
             </p>
           </div>
 
           {/* Lo que incluye */}
           <div className="space-y-3">
-            <h3 className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#0D8A72] font-semibold">
+            <h3 className="text-[11px] uppercase tracking-[0.14em] text-[#467366] font-semibold">
               Lo que incluye este plan
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {(plan.features || []).map((f, i) => (
                 <div
                   key={i}
-                  className={cn(
-                    'p-3 rounded-xl border flex items-start gap-2.5 text-xs',
-                    isRec ? 'bg-white/[0.04] border-white/10' : 'bg-card border-border/75'
-                  )}
+                  className="p-3 rounded-xl border bg-white/75 border-slate-200/80 flex items-start gap-2.5 text-xs"
                 >
-                  <Check className="h-4 w-4 text-[#0D8A72] shrink-0 mt-0.5" />
+                  <Check className="h-4 w-4 text-[#467366] shrink-0 mt-0.5" />
                   <span>{f}</span>
                 </div>
               ))}
@@ -327,15 +274,12 @@ export function PlanDetailModal({
                 return (
                   <div
                     key={modKey}
-                    className={cn(
-                      'p-3 rounded-xl border flex items-start gap-2.5 text-xs',
-                      isRec ? 'bg-white/[0.04] border-white/10' : 'bg-card border-border/75'
-                    )}
+                    className="p-3 rounded-xl border bg-white/75 border-slate-200/80 flex items-start gap-2.5 text-xs"
                   >
-                    <Check className="h-4 w-4 text-[#2DD4BF] shrink-0 mt-0.5" />
+                    <Check className="h-4 w-4 text-[#467366] shrink-0 mt-0.5" />
                     <div>
                       <div className="font-semibold">{info.title}</div>
-                      <div className={cn('text-[11px] mt-0.5', isRec ? 'text-slate-400' : 'text-muted-foreground')}>
+                      <div className="text-[11px] mt-0.5 text-muted-foreground">
                         {info.benefit}
                       </div>
                     </div>
@@ -345,10 +289,10 @@ export function PlanDetailModal({
             </div>
           </div>
 
-          {/* Lo que le falta (transparencia total para impulsar upgrade) */}
+          {/* Lo que le falta */}
           {missingModules.length > 0 && (
             <div className="space-y-3">
-              <h3 className={cn('font-mono text-[11px] uppercase tracking-[0.16em]', isRec ? 'text-slate-400' : 'text-muted-foreground')}>
+              <h3 className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">
                 Lo que no incluye (disponible en planes superiores)
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -357,17 +301,12 @@ export function PlanDetailModal({
                   return (
                     <div
                       key={modKey}
-                      className={cn(
-                        'p-3 rounded-xl border flex items-start gap-2.5 text-xs opacity-80',
-                        isRec
-                          ? 'bg-white/[0.02] border-white/10 text-slate-400'
-                          : 'bg-secondary/40 border-border/60 text-muted-foreground'
-                      )}
+                      className="p-3 rounded-xl border bg-slate-100/60 border-slate-200/70 text-muted-foreground flex items-start gap-2.5 text-xs opacity-85"
                     >
                       <Lock className="h-3.5 w-3.5 shrink-0 mt-0.5 opacity-70" />
                       <div>
                         <div className="font-medium">{info.title}</div>
-                        <div className="text-[11px] mt-0.5 opacity-85">{info.benefit}</div>
+                        <div className="text-[11px] mt-0.5">{info.benefit}</div>
                       </div>
                     </div>
                   );
@@ -378,14 +317,9 @@ export function PlanDetailModal({
         </div>
 
         {/* Footer CTA */}
-        <div
-          className={cn(
-            'px-6 sm:px-8 py-4 border-t flex flex-wrap items-center justify-between gap-3 shrink-0',
-            isRec ? 'border-white/10 bg-black/20' : 'border-border/75 bg-secondary/35'
-          )}
-        >
-          <span className={cn('text-xs flex items-center gap-1.5', isRec ? 'text-slate-300' : 'text-muted-foreground')}>
-            <ShieldCheck className="h-4 w-4 text-[#0D8A72]" />
+        <div className="px-6 sm:px-8 py-4 border-t border-slate-200/80 bg-white/60 flex flex-wrap items-center justify-between gap-3 shrink-0">
+          <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+            <ShieldCheck className="h-4 w-4 text-[#467366]" />
             Tus datos históricos nunca se eliminan si cambias o pausas tu plan.
           </span>
 
@@ -396,9 +330,9 @@ export function PlanDetailModal({
                 variant="outline"
                 size="sm"
                 onClick={onSwitchToRecommended}
-                className="text-xs gap-1.5 border-[#1261E0]/35 text-[#1261E0] hover:bg-[#1261E0]/10"
+                className="text-xs gap-1.5"
               >
-                <Sparkles className="h-3.5 w-3.5" />
+                <Sparkles className="h-3.5 w-3.5 text-[#4A607A]" />
                 Ver Recomendado ($59.990)
               </Button>
             )}
@@ -406,12 +340,7 @@ export function PlanDetailModal({
               type="button"
               disabled={Boolean(loadingTier)}
               onClick={() => onSelectPlan(plan.id)}
-              className={cn(
-                'font-semibold gap-2 tactile-press',
-                isRec
-                  ? 'bg-[#2DD4BF] hover:bg-[#5EEAD4] text-[#080E1A]'
-                  : 'bg-[#0D1829] hover:bg-[#172842] text-white'
-              )}
+              className="font-semibold gap-2 tactile-press"
             >
               {plan.price_clp === 0 ? <ArrowRight className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
               {isCurrent && plan.price_clp > 0

@@ -58,35 +58,31 @@ export function KairosLogo({
         aria-hidden="true"
       >
         <defs>
-          <linearGradient id={`kairosAbyss-${uid}`} x1="2" y1="2" x2="42" y2="42" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#0D1829" />
-            <stop offset="100%" stopColor="#070C15" />
+          <linearGradient id={`kairosGlassBg-${uid}`} x1="2" y1="2" x2="42" y2="42" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#566E8A" />
+            <stop offset="100%" stopColor="#3E526A" />
           </linearGradient>
-          <linearGradient id={`kairosCobalt-${uid}`} x1="16" y1="11" x2="31" y2="33" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#60A5FA" />
-            <stop offset="50%" stopColor="#2563EB" />
-            <stop offset="100%" stopColor="#2DD4BF" />
+          <linearGradient id={`kairosArm-${uid}`} x1="16" y1="11" x2="31" y2="33" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#E2E8F0" />
+            <stop offset="100%" stopColor="#A7F3D0" />
           </linearGradient>
           <linearGradient id={`kairosRim-${uid}`} x1="2" y1="2" x2="42" y2="42" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#93C5FD" stopOpacity="0.55" />
-            <stop offset="50%" stopColor="#2DD4BF" stopOpacity="0.22" />
-            <stop offset="100%" stopColor="#60A5FA" stopOpacity="0.55" />
+            <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.65" />
+            <stop offset="100%" stopColor="#CBD5E1" stopOpacity="0.35" />
           </linearGradient>
         </defs>
 
-        {/* Base squircle en Azul Abisal */}
         <rect
           x="2"
           y="2"
           width="40"
           height="40"
           rx="12"
-          fill={`url(#kairosAbyss-${uid})`}
+          fill={`url(#kairosGlassBg-${uid})`}
           stroke={`url(#kairosRim-${uid})`}
-          strokeWidth="1"
+          strokeWidth="1.1"
         />
 
-        {/* Anillo de calibración de precisión con rotación suave al hover */}
         <g
           style={{ transformOrigin: '22px 22px' }}
           className="transition-transform duration-700 ease-out group-hover:rotate-[12deg]"
@@ -95,42 +91,38 @@ export function KairosLogo({
             cx="22"
             cy="22"
             r="15.5"
-            stroke="#60A5FA"
-            strokeOpacity="0.26"
+            stroke="#F8FAFC"
+            strokeOpacity="0.28"
             strokeWidth="0.75"
             strokeDasharray="2 3.5"
           />
-          <circle cx="22" cy="6.5" r="1" fill="#38BDF8" fillOpacity="0.85" />
-          <circle cx="22" cy="37.5" r="0.9" fill="#2DD4BF" fillOpacity="0.65" />
+          <circle cx="22" cy="6.5" r="1" fill="#E2E8F0" fillOpacity="0.85" />
+          <circle cx="22" cy="37.5" r="0.9" fill="#A7F3D0" fillOpacity="0.75" />
         </g>
 
-        {/* Eje vertical arquitectónico del monograma K */}
         <path
           d="M15.25 13V31"
-          stroke="#F8FAFC"
+          stroke="#FFFFFF"
           strokeWidth="2.15"
           strokeLinecap="round"
         />
 
-        {/* Brazo superior de precisión en Cobalto → Mineral Teal */}
         <path
           d="M28.5 13.5L17.6 22.1"
-          stroke={`url(#kairosCobalt-${uid})`}
+          stroke={`url(#kairosArm-${uid})`}
           strokeWidth="2.2"
           strokeLinecap="round"
         />
 
-        {/* Contra-diagonal inferior */}
         <path
           d="M20.2 20.4L28.8 30.5"
-          stroke="#E2E8F0"
+          stroke="#F1F5F9"
           strokeOpacity="0.92"
           strokeWidth="1.95"
           strokeLinecap="round"
         />
 
-        {/* Nodo focal cinético */}
-        <circle cx="17.6" cy="22.1" r="1.85" fill="#2DD4BF" />
+        <circle cx="17.6" cy="22.1" r="1.85" fill="#A7F3D0" />
       </svg>
 
       {showWordmark && (
@@ -138,25 +130,18 @@ export function KairosLogo({
           <div className="flex items-center gap-1.5 sm:gap-2">
             <span
               className={cn(
-                'font-semibold tracking-[0.2em] transition-colors',
-                darkSurface ? 'text-[#F8FAFC]' : 'text-foreground',
+                'font-semibold tracking-[0.18em] transition-colors',
+                darkSurface ? 'text-slate-800' : 'text-foreground',
                 dims.title,
                 wordmarkClassName
               )}
             >
               KAIROS
             </span>
+            <span className="h-3 sm:h-3.5 w-px bg-border" aria-hidden="true" />
             <span
               className={cn(
-                'h-3 sm:h-3.5 w-px',
-                darkSurface ? 'bg-white/20' : 'bg-border/90'
-              )}
-              aria-hidden="true"
-            />
-            <span
-              className={cn(
-                'font-mono font-medium tracking-[0.22em] uppercase',
-                darkSurface ? 'text-[#38BDF8]' : 'text-[#1261E0]',
+                'font-medium tracking-[0.2em] uppercase text-[#4A607A]',
                 dims.badge
               )}
             >
@@ -164,12 +149,7 @@ export function KairosLogo({
             </span>
           </div>
           {subtitle && (
-            <span
-              className={cn(
-                'hidden sm:block text-[10px] font-medium tracking-[0.05em] mt-1',
-                darkSurface ? 'text-slate-400' : 'text-muted-foreground'
-              )}
-            >
+            <span className="hidden sm:block text-[10px] font-medium tracking-[0.04em] mt-1 text-muted-foreground">
               {subtitle}
             </span>
           )}
@@ -206,7 +186,7 @@ export function CompanyLogoMark({
     return (
       <div
         className={cn(
-          'shrink-0 overflow-hidden border border-border/70 bg-card flex items-center justify-center p-0.5 shadow-2xs',
+          'shrink-0 overflow-hidden border border-border/70 bg-white/80 backdrop-blur-md flex items-center justify-center p-0.5 shadow-2xs',
           boxClass,
           className
         )}
@@ -231,10 +211,10 @@ export function CompanyLogoMark({
   return (
     <div
       className={cn(
-        'shrink-0 flex items-center justify-center font-mono font-semibold tracking-wider border shadow-2xs',
+        'shrink-0 flex items-center justify-center font-semibold tracking-wider border shadow-2xs backdrop-blur-md',
         isDemo
-          ? 'bg-[#1261E0]/10 text-[#0F4FB8] border-[#1261E0]/25'
-          : 'bg-[#0D1829] text-[#38BDF8] border-[#38BDF8]/25',
+          ? 'bg-[#4A607A]/12 text-[#3B4F66] border-[#4A607A]/25'
+          : 'bg-[#4A607A]/15 text-[#2C3E50] border-[#4A607A]/25',
         boxClass,
         className
       )}

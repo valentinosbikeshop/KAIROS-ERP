@@ -28,12 +28,12 @@ export function RevenueChart({ data }: { data: MonthlyData[] }) {
             <AreaChart data={data} margin={{ top: 10, right: 24, left: 16, bottom: 5 }}>
               <defs>
                 <linearGradient id="kairosSalesGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#1261E0" stopOpacity={0.28} />
-                  <stop offset="95%" stopColor="#1261E0" stopOpacity={0.01} />
+                  <stop offset="5%" stopColor="#4A607A" stopOpacity={0.28} />
+                  <stop offset="95%" stopColor="#4A607A" stopOpacity={0.01} />
                 </linearGradient>
                 <linearGradient id="kairosCostsGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#B9382C" stopOpacity={0.22} />
-                  <stop offset="95%" stopColor="#B9382C" stopOpacity={0.01} />
+                  <stop offset="5%" stopColor="#9E4A47" stopOpacity={0.22} />
+                  <stop offset="95%" stopColor="#9E4A47" stopOpacity={0.01} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148,163,184,0.22)" />
@@ -65,11 +65,11 @@ export function RevenueChart({ data }: { data: MonthlyData[] }) {
                 type="monotone"
                 name="Ventas"
                 dataKey="ventas"
-                stroke="#1261E0"
+                stroke="#4A607A"
                 strokeWidth={2.5}
                 fillOpacity={1}
                 fill="url(#kairosSalesGrad)"
-                dot={{ r: 3.5, fill: '#1261E0', strokeWidth: 0 }}
+                dot={{ r: 3.5, fill: '#4A607A', strokeWidth: 0 }}
                 activeDot={{ r: 6, stroke: '#fff', strokeWidth: 2 }}
                 animationDuration={900}
                 animationEasing="ease-out"
@@ -78,11 +78,11 @@ export function RevenueChart({ data }: { data: MonthlyData[] }) {
                 type="monotone"
                 name="Costos"
                 dataKey="costos"
-                stroke="#B9382C"
+                stroke="#9E4A47"
                 strokeWidth={2.2}
                 fillOpacity={1}
                 fill="url(#kairosCostsGrad)"
-                dot={{ r: 3.5, fill: '#B9382C', strokeWidth: 0 }}
+                dot={{ r: 3.5, fill: '#9E4A47', strokeWidth: 0 }}
                 activeDot={{ r: 6, stroke: '#fff', strokeWidth: 2 }}
                 animationDuration={900}
                 animationEasing="ease-out"

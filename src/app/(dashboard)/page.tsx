@@ -135,36 +135,14 @@ export default function DashboardPage() {
   return (
     <div className="p-6 space-y-8 max-w-7xl mx-auto">
       {!isDuoExempt && !isDemo ? (
-        <div
-          className={
-            entitlements.effectiveTier === 'growth'
-              ? 'glass-luxury hairline-shimmer text-white rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-reveal-up'
-              : entitlements.effectiveTier === 'scale'
-              ? 'rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-[#080E1A] via-[#0B1C28] to-[#0B2E2B] text-white border border-[#2DD4BF]/30 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-reveal-up'
-              : entitlements.effectiveTier === 'essential'
-              ? 'glass-card rounded-3xl p-6 sm:p-8 border-[#1261E0]/25 bg-gradient-to-r from-[#1261E0]/[0.06] via-white to-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-reveal-up'
-              : entitlements.effectiveTier === 'custom'
-              ? 'glass-card rounded-3xl p-6 sm:p-8 border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-reveal-up'
-              : 'glass-card rounded-2xl p-6 border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-reveal-up'
-          }
-        >
+        <div className="glass-luxury hairline-shimmer text-foreground rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-reveal-up">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge
-                className={
-                  entitlements.effectiveTier === 'growth'
-                    ? 'bg-[#2DD4BF] text-[#080E1A] border-0 font-mono text-[10px] tracking-wider uppercase font-semibold'
-                    : entitlements.effectiveTier === 'scale'
-                    ? 'bg-[#38BDF8] text-[#080E1A] border-0 font-mono text-[10px] tracking-wider uppercase font-semibold'
-                    : entitlements.effectiveTier === 'essential'
-                    ? 'bg-[#1261E0] text-white border-0 font-mono text-[10px] tracking-wider uppercase'
-                    : 'bg-[#0D1829] text-white border-0 font-mono text-[10px] tracking-wider uppercase'
-                }
-              >
+              <Badge className="bg-[#4A607A]/12 text-[#3B4F66] border border-[#4A607A]/25 text-[10px] tracking-wider uppercase font-semibold">
                 {industry.shortName} · Meta {industry.targetMarginPct}%
               </Badge>
               {entitlements.modules.mod_ai_suite && (
-                <Badge variant="outline" className="border-[#38BDF8]/40 text-[#38BDF8] bg-[#38BDF8]/10 font-mono text-[10px]">
+                <Badge variant="outline" className="border-[#467366]/35 text-[#2E5248] bg-[#467366]/10 text-[10px]">
                   <Sparkles className="h-3 w-3 mr-1" />
                   IA ACTIVA ({entitlements.aiCallsRemaining} disp.)
                 </Badge>
@@ -176,26 +154,13 @@ export default function DashboardPage() {
               )}
             </div>
             <h1 className="text-3xl font-bold tracking-tight">Bienvenido a {orgName} ERP</h1>
-            <p
-              className={
-                entitlements.effectiveTier === 'growth' || entitlements.effectiveTier === 'scale'
-                  ? 'text-slate-300 text-sm sm:text-base'
-                  : 'text-muted-foreground text-sm sm:text-base'
-              }
-            >
+            <p className="text-muted-foreground text-sm sm:text-base">
               Panel de control, rentabilidad y gestión de {terms.projectPlural.toLowerCase()}
             </p>
           </div>
 
           <Link href="/billing" className="shrink-0">
-            <Button
-              size="sm"
-              className={
-                entitlements.effectiveTier === 'growth' || entitlements.effectiveTier === 'scale'
-                  ? 'bg-white text-slate-950 hover:bg-slate-100 font-semibold tactile-press'
-                  : 'bg-slate-900 text-white hover:bg-slate-800 font-semibold tactile-press'
-              }
-            >
+            <Button size="sm" className="font-semibold tactile-press">
               {entitlements.effectiveTier === 'free' ? 'Desbloquear IA y PDF' : 'Gestionar Suscripción'}
             </Button>
           </Link>

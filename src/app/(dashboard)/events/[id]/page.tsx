@@ -547,7 +547,7 @@ export default function EventDetailPage() {
                         onClick={handleGenerateCustomBreakdown} 
                         disabled={customAiLoading || !customPrompt.trim() || isCompleted}
                         size="sm"
-                        className="h-6 rounded-md text-[11px] px-2 font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-2xs"
+                        className="h-6 rounded-md text-[11px] px-2 font-semibold bg-[#4A607A] hover:bg-[#3F536B] text-white shadow-2xs"
                       >
                         {customAiLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
                         Generar

@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { CostCategory } from '@/types';
 import { formatCLP, formatPercentage } from '@/lib/utils';
 
-const COLORS = ['#1261E0', '#0D8A72', '#0284C7', '#43536B', '#38BDF8', '#14B8A6'];
+const COLORS = ['#4A607A', '#467366', '#68829E', '#628F82', '#8399B2', '#8AAEA3'];
 
 export function CostDistribution({ data }: { data: CostCategory[] }) {
   return (
