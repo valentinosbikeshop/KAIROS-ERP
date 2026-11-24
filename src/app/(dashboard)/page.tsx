@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { AnimatedNumber } from '@/components/ui/motion-primitives'
 
 interface DashboardData {
   eventsPlanning: number
@@ -137,14 +138,14 @@ export default function DashboardPage() {
         <div
           className={
             entitlements.effectiveTier === 'growth'
-              ? 'glass-luxury text-white rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4'
+              ? 'glass-luxury hairline-shimmer text-white rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-reveal-up'
               : entitlements.effectiveTier === 'scale'
-              ? 'rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 text-white border border-emerald-400/25 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4'
+              ? 'rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-[#080E1A] via-[#0B1C28] to-[#0B2E2B] text-white border border-[#2DD4BF]/30 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-reveal-up'
               : entitlements.effectiveTier === 'essential'
-              ? 'glass-card rounded-3xl p-6 sm:p-8 border-blue-200/80 bg-gradient-to-r from-blue-50/70 via-white to-white flex flex-col sm:flex-row sm:items-center justify-between gap-4'
+              ? 'glass-card rounded-3xl p-6 sm:p-8 border-[#1261E0]/25 bg-gradient-to-r from-[#1261E0]/[0.06] via-white to-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-reveal-up'
               : entitlements.effectiveTier === 'custom'
-              ? 'glass-card rounded-3xl p-6 sm:p-8 border-slate-300/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4'
-              : 'glass-card rounded-2xl p-6 border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4'
+              ? 'glass-card rounded-3xl p-6 sm:p-8 border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-reveal-up'
+              : 'glass-card rounded-2xl p-6 border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-reveal-up'
           }
         >
           <div className="space-y-2">
@@ -152,18 +153,18 @@ export default function DashboardPage() {
               <Badge
                 className={
                   entitlements.effectiveTier === 'growth'
-                    ? 'bg-amber-400 text-slate-950 border-0 font-bold'
+                    ? 'bg-[#2DD4BF] text-[#080E1A] border-0 font-mono text-[10px] tracking-wider uppercase font-semibold'
                     : entitlements.effectiveTier === 'scale'
-                    ? 'bg-emerald-400 text-slate-950 border-0 font-bold'
+                    ? 'bg-[#38BDF8] text-[#080E1A] border-0 font-mono text-[10px] tracking-wider uppercase font-semibold'
                     : entitlements.effectiveTier === 'essential'
-                    ? 'bg-blue-600 text-white border-0'
-                    : 'bg-slate-900 text-white border-0'
+                    ? 'bg-[#1261E0] text-white border-0 font-mono text-[10px] tracking-wider uppercase'
+                    : 'bg-[#0D1829] text-white border-0 font-mono text-[10px] tracking-wider uppercase'
                 }
               >
                 {industry.shortName} · Meta {industry.targetMarginPct}%
               </Badge>
               {entitlements.modules.mod_ai_suite && (
-                <Badge variant="outline" className="border-amber-400/40 text-amber-300 bg-amber-400/10">
+                <Badge variant="outline" className="border-[#38BDF8]/40 text-[#38BDF8] bg-[#38BDF8]/10 font-mono text-[10px]">
                   <Sparkles className="h-3 w-3 mr-1" />
                   IA ACTIVA ({entitlements.aiCallsRemaining} disp.)
                 </Badge>
@@ -209,61 +210,69 @@ export default function DashboardPage() {
       )}
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="glass-card animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '0ms' }}>
+        <Card className="glass-card spotlight-card animate-reveal-up opacity-0" style={{ animationDelay: '0ms' }}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{terms.projectPlural} en Planificación</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <Clock className="h-4 w-4 text-[#1261E0]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-mono tabular-nums">{data.eventsPlanning}</div>
-            <Link href="/events" className="text-xs text-blue-600 hover:underline mt-1 inline-block">
+            <div className="text-2xl font-semibold font-mono tabular-nums">
+              <AnimatedNumber value={data.eventsPlanning} duration={550} />
+            </div>
+            <Link href="/events" className="text-xs text-[#1261E0] hover:underline mt-1 inline-block">
               Ver {terms.projectPlural.toLowerCase()} →
             </Link>
           </CardContent>
         </Card>
 
-        <Card className="glass-card animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '100ms' }}>
+        <Card className="glass-card spotlight-card animate-reveal-up opacity-0" style={{ animationDelay: '80ms' }}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{terms.projectPlural} Aprobados</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-500" />
+            <CheckCircle className="h-4 w-4 text-[#0D8A72]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-mono tabular-nums">{data.eventsApproved}</div>
+            <div className="text-2xl font-semibold font-mono tabular-nums">
+              <AnimatedNumber value={data.eventsApproved} duration={550} />
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="glass-card animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '200ms' }}>
+        <Card className="glass-card spotlight-card animate-reveal-up opacity-0" style={{ animationDelay: '160ms' }}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{terms.projectPlural} Completados</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <Calendar className="h-4 w-4 text-[#0284C7]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-mono tabular-nums">{data.eventsCompleted}</div>
+            <div className="text-2xl font-semibold font-mono tabular-nums">
+              <AnimatedNumber value={data.eventsCompleted} duration={550} />
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="glass-card animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '300ms' }}>
+        <Card className="glass-card spotlight-card animate-reveal-up opacity-0" style={{ animationDelay: '240ms' }}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Ingresos Totales (Completados)</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <DollarSign className="h-4 w-4 text-[#0D8A72]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-mono tabular-nums">{formatCLP(data.totalRevenue)}</div>
+            <div className="text-2xl font-semibold font-mono tabular-nums">
+              <AnimatedNumber value={data.totalRevenue} format="clp" duration={700} />
+            </div>
           </CardContent>
         </Card>
 
         {!isDemo && data.pendingUsers > 0 && (
-          <Card className="hover:shadow-md transition-shadow animate-in fade-in slide-in-from-bottom-4 duration-500 md:col-span-2 lg:col-span-4 bg-yellow-50/50 border-yellow-200" style={{ animationDelay: '400ms' }}>
+          <Card className="glass-card animate-reveal-up md:col-span-2 lg:col-span-4 bg-[#1261E0]/[0.05] border-[#1261E0]/25" style={{ animationDelay: '320ms' }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-yellow-800">Atención Requerida</CardTitle>
-              <Users className="h-4 w-4 text-yellow-600" />
+              <CardTitle className="text-sm font-medium text-[#0F4FB8]">Atención Requerida</CardTitle>
+              <Users className="h-4 w-4 text-[#1261E0]" />
             </CardHeader>
             <CardContent className="flex items-center justify-between">
-              <div className="text-sm text-yellow-700">
-                Hay <span className="font-bold">{data.pendingUsers}</span> solicitudes de usuarios pendientes de aprobación.
+              <div className="text-sm text-foreground/85">
+                Hay <span className="font-bold font-mono">{data.pendingUsers}</span> solicitudes de usuarios pendientes de aprobación.
               </div>
               <Link href="/governance">
-                <Button variant="outline" size="sm" className="border-yellow-300 text-yellow-800 hover:bg-yellow-100">
+                <Button variant="outline" size="sm" className="border-[#1261E0]/30 text-[#0F4FB8] hover:bg-[#1261E0]/10">
                   Ir a Gobernanza
                 </Button>
               </Link>
@@ -274,14 +283,14 @@ export default function DashboardPage() {
 
       {/* Demo Sandbox Guided Tour */}
       {isDemo && (
-        <Card className="border-indigo-200 bg-gradient-to-br from-indigo-50/80 via-white to-amber-50/60 shadow-xs">
+        <Card className="glass-card border-[#1261E0]/25 bg-gradient-to-br from-[#1261E0]/[0.05] via-white to-[#0D8A72]/[0.04]">
           <CardHeader className="pb-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <FlaskConical className="h-5 w-5 text-indigo-600" />
+                <FlaskConical className="h-5 w-5 text-[#1261E0]" />
                 <CardTitle className="text-lg">Guía de Exploración de la Sesión de Prueba</CardTitle>
               </div>
-              <Badge variant="outline" className="bg-amber-100 text-amber-900 border-amber-300 font-semibold">
+              <Badge variant="outline" className="bg-[#1261E0]/10 text-[#0F4FB8] border-[#1261E0]/25 font-mono text-[11px] font-semibold">
                 4 Escenarios Base Profundos
               </Badge>
             </div>
@@ -289,68 +298,68 @@ export default function DashboardPage() {
           <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 text-xs">
             <Link
               href="/events/d0000002-0000-4000-8000-000000000001"
-              className="group rounded-xl border border-border/80 bg-white p-4 hover:border-indigo-300 hover:shadow-sm transition-all flex flex-col justify-between gap-2"
+              className="group rounded-xl border border-border/80 bg-white p-4 hover:border-[#1261E0]/40 hover:shadow-sm transition-all flex flex-col justify-between gap-2"
             >
               <div className="space-y-1.5">
-                <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-0">Completado + Cierre</Badge>
-                <h3 className="font-bold text-sm text-foreground group-hover:text-indigo-700">Gala TechChile 2026</h3>
+                <Badge className="bg-[#0D8A72]/12 text-[#0D8A72] hover:bg-[#0D8A72]/15 border-0">Completado + Cierre</Badge>
+                <h3 className="font-bold text-sm text-foreground group-hover:text-[#1261E0]">Gala TechChile 2026</h3>
                 <p className="text-muted-foreground leading-relaxed">
                   Explora ítems consolidados, abonos, gastos reales, flujo de caja e informe contable PDF.
                 </p>
               </div>
-              <span className="inline-flex items-center gap-1 font-semibold text-indigo-600">
+              <span className="inline-flex items-center gap-1 font-semibold text-[#1261E0]">
                 Investigar evento <ArrowRight className="h-3.5 w-3.5" />
               </span>
             </Link>
 
             <Link
               href="/events/d0000002-0000-4000-8000-000000000002"
-              className="group rounded-xl border border-border/80 bg-white p-4 hover:border-indigo-300 hover:shadow-sm transition-all flex flex-col justify-between gap-2"
+              className="group rounded-xl border border-border/80 bg-white p-4 hover:border-[#1261E0]/40 hover:shadow-sm transition-all flex flex-col justify-between gap-2"
             >
               <div className="space-y-1.5">
-                <Badge className="bg-indigo-100 text-indigo-800 hover:bg-indigo-100 border-0 inline-flex items-center gap-1">
+                <Badge className="bg-[#0284C7]/12 text-[#0369A1] hover:bg-[#0284C7]/15 border-0 inline-flex items-center gap-1">
                   <Store className="h-3 w-3" /> Retail / Bar
                 </Badge>
-                <h3 className="font-bold text-sm text-foreground group-hover:text-indigo-700">Fonda Primavera 2026</h3>
+                <h3 className="font-bold text-sm text-foreground group-hover:text-[#1261E0]">Fonda Primavera 2026</h3>
                 <p className="text-muted-foreground leading-relaxed">
                   Revisa recetas e insumos prorrateados por unidad vendida (terremotos, empanadas y barra).
                 </p>
               </div>
-              <span className="inline-flex items-center gap-1 font-semibold text-indigo-600">
+              <span className="inline-flex items-center gap-1 font-semibold text-[#1261E0]">
                 Investigar retail <ArrowRight className="h-3.5 w-3.5" />
               </span>
             </Link>
 
             <Link
               href="/events/d0000002-0000-4000-8000-000000000003"
-              className="group rounded-xl border border-border/80 bg-white p-4 hover:border-indigo-300 hover:shadow-sm transition-all flex flex-col justify-between gap-2"
+              className="group rounded-xl border border-border/80 bg-white p-4 hover:border-[#1261E0]/40 hover:shadow-sm transition-all flex flex-col justify-between gap-2"
             >
               <div className="space-y-1.5">
-                <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-0 inline-flex items-center gap-1">
+                <Badge className="bg-[#1261E0]/12 text-[#0F4FB8] hover:bg-[#1261E0]/15 border-0 inline-flex items-center gap-1">
                   <Sparkles className="h-3 w-3" /> Borrador + IA
                 </Badge>
-                <h3 className="font-bold text-sm text-foreground group-hover:text-indigo-700">Matrimonio Sofía & Tomás</h3>
+                <h3 className="font-bold text-sm text-foreground group-hover:text-[#1261E0]">Matrimonio Sofía & Tomás</h3>
                 <p className="text-muted-foreground leading-relaxed">
                   Prueba el Borrador de Costos, optimización de márgenes IA, Drag & Drop y cotizador PDF.
                 </p>
               </div>
-              <span className="inline-flex items-center gap-1 font-semibold text-indigo-600">
+              <span className="inline-flex items-center gap-1 font-semibold text-[#1261E0]">
                 Probar borrador <ArrowRight className="h-3.5 w-3.5" />
               </span>
             </Link>
 
             <Link
               href="/analytics"
-              className="group rounded-xl border border-border/80 bg-white p-4 hover:border-indigo-300 hover:shadow-sm transition-all flex flex-col justify-between gap-2"
+              className="group rounded-xl border border-border/80 bg-white p-4 hover:border-[#1261E0]/40 hover:shadow-sm transition-all flex flex-col justify-between gap-2"
             >
               <div className="space-y-1.5">
-                <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-0">Consolidación</Badge>
-                <h3 className="font-bold text-sm text-foreground group-hover:text-indigo-700">Analítica & Excel</h3>
+                <Badge className="bg-slate-200/80 text-slate-800 hover:bg-slate-200 border-0">Consolidación</Badge>
+                <h3 className="font-bold text-sm text-foreground group-hover:text-[#1261E0]">Analítica & Excel</h3>
                 <p className="text-muted-foreground leading-relaxed">
                   Revisa métricas P&L, gráficos mensuales de ventas vs costos, IVA F29 y descarga Excel contable.
                 </p>
               </div>
-              <span className="inline-flex items-center gap-1 font-semibold text-indigo-600">
+              <span className="inline-flex items-center gap-1 font-semibold text-[#1261E0]">
                 Ver consolidación <ArrowRight className="h-3.5 w-3.5" />
               </span>
             </Link>

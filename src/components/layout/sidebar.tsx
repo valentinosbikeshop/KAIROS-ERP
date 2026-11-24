@@ -62,8 +62,8 @@ export function Sidebar({
       className={cn(
         'w-64 fixed left-0 top-0 bottom-0 h-full border-r flex flex-col z-50 transition-colors duration-300',
         isDarkExecutiveShell
-          ? 'bg-[#121210]/95 backdrop-blur-2xl border-white/[0.08] text-[#F7F5F0]'
-          : 'border-border/70 bg-[#FCFBF9]/80 backdrop-blur-2xl'
+          ? 'bg-[#080E1A]/95 backdrop-blur-2xl border-white/[0.08] text-slate-100'
+          : 'border-border/70 bg-white/80 backdrop-blur-2xl'
       )}
     >
       <div
@@ -86,9 +86,9 @@ export function Sidebar({
             className={cn(
               'font-mono text-[9px] px-1.5 py-0.5 rounded-full font-medium tracking-wider border shrink-0',
               isDemo
-                ? 'bg-[#9A7B4F]/12 text-[#85673E] border-[#9A7B4F]/25'
+                ? 'bg-[#1261E0]/10 text-[#0F4FB8] border-[#1261E0]/25'
                 : isDarkExecutiveShell
-                ? 'bg-[#9A7B4F]/18 text-[#D7BE96] border-[#9A7B4F]/30'
+                ? 'bg-[#38BDF8]/15 text-[#38BDF8] border-[#38BDF8]/30'
                 : 'bg-secondary text-muted-foreground border-border/80'
             )}
           >
@@ -119,21 +119,29 @@ export function Sidebar({
                   'relative flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 tactile-press',
                   isActive
                     ? isDarkExecutiveShell
-                      ? 'bg-white/[0.08] text-[#F7F5F0] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
-                      : 'bg-[#171715]/[0.055] text-foreground font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]'
+                      ? 'bg-white/[0.08] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
+                      : 'bg-[#1261E0]/[0.07] text-foreground font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]'
                     : isDarkExecutiveShell
-                    ? 'text-stone-400 hover:bg-white/[0.04] hover:text-[#F7F5F0]'
+                    ? 'text-slate-400 hover:bg-white/[0.04] hover:text-white'
                     : 'text-muted-foreground hover:bg-secondary/65 hover:text-foreground'
                 )}
               >
                 {isActive && (
                   <span
-                    className="absolute left-0 top-2 bottom-2 w-[2px] rounded-r-full bg-[#9A7B4F]"
+                    className={cn(
+                      'absolute left-0 top-2 bottom-2 w-[2.5px] rounded-r-full',
+                      isDarkExecutiveShell ? 'bg-[#38BDF8]' : 'bg-[#1261E0]'
+                    )}
                     aria-hidden="true"
                   />
                 )}
                 <span className="flex items-center gap-3 truncate">
-                  <Icon className={cn('h-4 w-4 shrink-0 transition-colors', isActive && 'text-[#9A7B4F]')} />
+                  <Icon
+                    className={cn(
+                      'h-4 w-4 shrink-0 transition-colors',
+                      isActive && (isDarkExecutiveShell ? 'text-[#38BDF8]' : 'text-[#1261E0]')
+                    )}
+                  />
                   <span className="truncate">{label}</span>
                 </span>
                 {isAnalyticsLocked && <Lock className="h-3 w-3 opacity-60 shrink-0" />}
@@ -147,7 +155,7 @@ export function Sidebar({
             <h4
               className={cn(
                 'px-6.5 mb-2 font-mono text-[10px] font-medium uppercase tracking-[0.18em]',
-                isDarkExecutiveShell ? 'text-stone-500' : 'text-muted-foreground/80'
+                isDarkExecutiveShell ? 'text-slate-500' : 'text-muted-foreground/80'
               )}
             >
               Administración
@@ -172,20 +180,28 @@ export function Sidebar({
                       'relative flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 tactile-press',
                       isActive
                         ? isDarkExecutiveShell
-                          ? 'bg-white/[0.08] text-[#F7F5F0] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
-                          : 'bg-[#171715]/[0.055] text-foreground font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]'
+                          ? 'bg-white/[0.08] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
+                          : 'bg-[#1261E0]/[0.07] text-foreground font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]'
                         : isDarkExecutiveShell
-                        ? 'text-stone-400 hover:bg-white/[0.04] hover:text-[#F7F5F0]'
+                        ? 'text-slate-400 hover:bg-white/[0.04] hover:text-white'
                         : 'text-muted-foreground hover:bg-secondary/65 hover:text-foreground'
                     )}
                   >
                     {isActive && (
                       <span
-                        className="absolute left-0 top-2 bottom-2 w-[2px] rounded-r-full bg-[#9A7B4F]"
+                        className={cn(
+                          'absolute left-0 top-2 bottom-2 w-[2.5px] rounded-r-full',
+                          isDarkExecutiveShell ? 'bg-[#38BDF8]' : 'bg-[#1261E0]'
+                        )}
                         aria-hidden="true"
                       />
                     )}
-                    <Icon className={cn('h-4 w-4 transition-colors', isActive && 'text-[#9A7B4F]')} />
+                    <Icon
+                      className={cn(
+                        'h-4 w-4 transition-colors',
+                        isActive && (isDarkExecutiveShell ? 'text-[#38BDF8]' : 'text-[#1261E0]')
+                      )}
+                    />
                     {label}
                   </Link>
                 );
@@ -199,20 +215,28 @@ export function Sidebar({
                     'relative flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 tactile-press',
                     pathname.startsWith('/billing')
                       ? isDarkExecutiveShell
-                        ? 'bg-white/[0.08] text-[#F7F5F0] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
-                        : 'bg-[#171715]/[0.055] text-foreground font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]'
+                        ? 'bg-white/[0.08] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
+                        : 'bg-[#1261E0]/[0.07] text-foreground font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]'
                       : isDarkExecutiveShell
-                      ? 'text-stone-400 hover:bg-white/[0.04] hover:text-[#F7F5F0]'
+                      ? 'text-slate-400 hover:bg-white/[0.04] hover:text-white'
                       : 'text-muted-foreground hover:bg-secondary/65 hover:text-foreground'
                   )}
                 >
                   {pathname.startsWith('/billing') && (
                     <span
-                      className="absolute left-0 top-2 bottom-2 w-[2px] rounded-r-full bg-[#9A7B4F]"
+                      className={cn(
+                        'absolute left-0 top-2 bottom-2 w-[2.5px] rounded-r-full',
+                        isDarkExecutiveShell ? 'bg-[#38BDF8]' : 'bg-[#1261E0]'
+                      )}
                       aria-hidden="true"
                     />
                   )}
-                  <CreditCard className={cn('h-4 w-4 transition-colors', pathname.startsWith('/billing') && 'text-[#9A7B4F]')} />
+                  <CreditCard
+                    className={cn(
+                      'h-4 w-4 transition-colors',
+                      pathname.startsWith('/billing') && (isDarkExecutiveShell ? 'text-[#38BDF8]' : 'text-[#1261E0]')
+                    )}
+                  />
                   Suscripción & Estilo
                 </Link>
               )}
@@ -231,7 +255,7 @@ export function Sidebar({
           <p
             className={cn(
               'font-mono text-[11px] truncate px-1',
-              isDarkExecutiveShell ? 'text-stone-400' : 'text-muted-foreground'
+              isDarkExecutiveShell ? 'text-slate-400' : 'text-muted-foreground'
             )}
             title={isDemo ? 'visitante@kairos-sandbox.cl' : userEmail}
           >
@@ -247,8 +271,8 @@ export function Sidebar({
             className={cn(
               'w-full justify-start gap-2 h-8 text-xs font-medium transition-colors',
               isDarkExecutiveShell
-                ? 'bg-transparent border-white/10 text-stone-300 hover:bg-[#9E3B33]/20 hover:text-[#F2B8B3] hover:border-[#9E3B33]/35'
-                : 'text-muted-foreground border-border/80 hover:bg-[#9E3B33]/8 hover:text-[#9E3B33] hover:border-[#9E3B33]/25'
+                ? 'bg-transparent border-white/10 text-slate-300 hover:bg-[#B9382C]/20 hover:text-rose-200 hover:border-[#B9382C]/35'
+                : 'text-muted-foreground border-border/80 hover:bg-[#B9382C]/8 hover:text-[#B9382C] hover:border-[#B9382C]/25'
             )}
           >
             <LogOut className="h-3.5 w-3.5" />
@@ -259,7 +283,7 @@ export function Sidebar({
           <KairosLogo
             size="sm"
             subtitle="Multi-Tenant Cloud"
-            wordmarkClassName={isDarkExecutiveShell ? 'text-[#F7F5F0]' : undefined}
+            darkSurface={isDarkExecutiveShell}
           />
         </div>
       </div>

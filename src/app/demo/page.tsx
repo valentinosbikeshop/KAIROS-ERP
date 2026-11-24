@@ -18,13 +18,14 @@ import {
 } from 'lucide-react';
 import { INDUSTRY_BLUEPRINTS, INDUSTRY_LIST, THEME_PRESETS } from '@/lib/industries';
 import { KairosLogo } from '@/components/ui/kairos-logo';
+import { AnimatedNumber } from '@/components/ui/motion-primitives';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
-import { calculateFinancials, cn, formatCLP, formatPercentage } from '@/lib/utils';
+import { calculateFinancials, cn, formatCLP } from '@/lib/utils';
 import type { HonorariosRetentionPolicy, IndustryType, SubscriptionTier } from '@/types/database';
 
 interface LocalDemoProject {
@@ -65,32 +66,32 @@ const TIER_SIM_INFO: Record<
     hasAi: false,
     hasPdf: true,
     hasAnalytics: false,
-    shellClass: 'bg-[#F1F3F5]/90 border-[#3A5A80]/25 text-[#1E2A38]',
-    badgeClass: 'bg-[#3A5A80] text-white',
+    shellClass: 'bg-[#F0F6FC]/90 border-[#1261E0]/25 text-[#0D1829]',
+    badgeClass: 'bg-[#1261E0] text-white',
   },
   growth: {
     name: 'Crecimiento Inteligente IA',
     hasAi: true,
     hasPdf: true,
     hasAnalytics: true,
-    shellClass: 'glass-luxury hairline-shimmer text-[#F7F5F0] border-[#9A7B4F]/35',
-    badgeClass: 'bg-[#C9AD82] text-[#171715]',
+    shellClass: 'glass-luxury hairline-shimmer text-slate-100 border-sky-400/35',
+    badgeClass: 'bg-[#2DD4BF] text-[#080E1A]',
   },
   scale: {
     name: 'Corporativo & Escala',
     hasAi: true,
     hasPdf: true,
     hasAnalytics: true,
-    shellClass: 'bg-gradient-to-br from-[#141412] via-[#151816] to-[#13221C] text-[#F7F5F0] border-[#356854]/40',
-    badgeClass: 'bg-[#9FD3BC] text-[#141412]',
+    shellClass: 'bg-gradient-to-br from-[#080E1A] via-[#0B1C28] to-[#0B2E2B] text-slate-100 border-[#2DD4BF]/35',
+    badgeClass: 'bg-[#38BDF8] text-[#080E1A]',
   },
   custom: {
     name: 'Paga lo que usas',
     hasAi: true,
     hasPdf: true,
     hasAnalytics: false,
-    shellClass: 'bg-[#171715] text-[#F7F5F0] border-white/10',
-    badgeClass: 'bg-[#F7F5F0] text-[#171715]',
+    shellClass: 'bg-[#0D1829] text-slate-100 border-white/10',
+    badgeClass: 'bg-white text-[#0D1829]',
   },
 };
 
@@ -214,15 +215,15 @@ export default function LocalDemoSandboxPage() {
       className="min-h-screen bg-background pb-24"
     >
       {/* Top Bar Sandbox */}
-      <header className="sticky top-0 z-40 border-b border-white/[0.08] bg-[#121210]/95 backdrop-blur-2xl text-[#F7F5F0] px-4 sm:px-8 py-3">
+      <header className="sticky top-0 z-40 border-b border-white/[0.08] bg-[#080E1A]/95 backdrop-blur-2xl text-slate-100 px-4 sm:px-8 py-3">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <KairosLogo size="sm" subtitle="Evaluación en Caché" wordmarkClassName="text-[#F7F5F0]" />
-            <Badge className="bg-[#C9AD82]/15 text-[#D7BE96] border border-[#9A7B4F]/35 font-mono text-[10px] tracking-[0.14em] gap-1">
+            <KairosLogo size="sm" subtitle="Evaluación en Caché" darkSurface responsive />
+            <Badge className="bg-[#38BDF8]/15 text-[#38BDF8] border border-[#38BDF8]/30 font-mono text-[10px] tracking-[0.14em] gap-1">
               <FlaskConical className="h-3 w-3" />
               MODO DEMO LOCAL
             </Badge>
-            <span className="hidden md:inline text-xs text-stone-400">
+            <span className="hidden md:inline text-xs text-slate-400">
               Cero guardado en servidor · Solo caché de tu navegador
             </span>
           </div>
@@ -233,7 +234,7 @@ export default function LocalDemoSandboxPage() {
               size="sm"
               variant="outline"
               onClick={handleResetCache}
-              className="h-8 text-xs bg-transparent border-white/15 text-stone-300 hover:bg-white/10 hover:text-white gap-1.5"
+              className="h-8 text-xs bg-transparent border-white/15 text-slate-300 hover:bg-white/10 hover:text-white gap-1.5"
             >
               <RotateCcw className="h-3.5 w-3.5" />
               Resetear Caché
@@ -241,7 +242,7 @@ export default function LocalDemoSandboxPage() {
             <Link href="/welcome#planes">
               <Button
                 size="sm"
-                className="h-8 text-xs bg-[#C9AD82] hover:bg-[#D7BE96] text-[#171715] font-semibold gap-1.5 tactile-press"
+                className="h-8 text-xs bg-[#2DD4BF] hover:bg-[#5EEAD4] text-[#080E1A] font-semibold gap-1.5 tactile-press"
               >
                 Elegir Plan Oficial
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -338,7 +339,7 @@ export default function LocalDemoSandboxPage() {
                       className={cn(
                         'px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border transition-all tactile-press',
                         simulatedTier === t
-                          ? 'bg-amber-400 text-slate-950 border-amber-400'
+                          ? 'bg-[#2DD4BF] text-[#080E1A] border-[#2DD4BF]'
                           : 'bg-black/10 border-current/20 hover:bg-black/20'
                       )}
                     >
@@ -366,10 +367,10 @@ export default function LocalDemoSandboxPage() {
         </div>
 
         {simNotice && (
-          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-950 flex flex-wrap items-center justify-between gap-3">
+          <div className="p-4 rounded-2xl bg-[#1261E0]/[0.07] border border-[#1261E0]/25 text-xs text-foreground flex flex-wrap items-center justify-between gap-3">
             <span>{simNotice}</span>
             <Link href="/welcome#planes">
-              <Button size="sm" className="h-7 text-xs bg-slate-900 text-white">
+              <Button size="sm" className="h-7 text-xs bg-[#0D1829] text-white">
                 Ver Planes Oficiales
               </Button>
             </Link>
@@ -485,7 +486,7 @@ export default function LocalDemoSandboxPage() {
                   }
                   className="gap-1.5 text-xs"
                 >
-                  {tierMeta.hasAi ? <Sparkles className="h-3.5 w-3.5 text-amber-600" /> : <Lock className="h-3.5 w-3.5" />}
+                  {tierMeta.hasAi ? <Sparkles className="h-3.5 w-3.5 text-[#1261E0]" /> : <Lock className="h-3.5 w-3.5" />}
                   Probar Asistente IA
                 </Button>
               </div>
@@ -542,12 +543,12 @@ export default function LocalDemoSandboxPage() {
                         </span>
                       </div>
                       {proj.docType === 'boleta' && (
-                        <div className="flex flex-col gap-0.5 text-[11px] text-amber-800 bg-amber-50 px-2 py-1.5 rounded">
+                        <div className="flex flex-col gap-0.5 text-[11px] text-[#0F4FB8] bg-[#1261E0]/[0.06] border border-[#1261E0]/15 px-2.5 py-1.5 rounded-lg">
                           <div className="flex justify-between">
                             <span>Retención 15,25% ({retentionPolicy === 'company' ? 'Empresa' : retentionPolicy === 'split_50_50' ? '50/50' : 'Contratado'}):</span>
                             <span className="font-mono font-semibold">{formatCLP(retencion1525)}</span>
                           </div>
-                          <div className="flex justify-between text-emerald-800">
+                          <div className="flex justify-between text-[#0D8A72]">
                             <span>Líquido Contratado:</span>
                             <span className="font-mono font-semibold">{formatCLP(liquidoContratado)}</span>
                           </div>
@@ -555,14 +556,14 @@ export default function LocalDemoSandboxPage() {
                       )}
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Venta Total c/ IVA:</span>
-                        <span className="font-mono font-bold text-slate-950 tabular-nums">
-                          {formatCLP(fin.valorTotal)}
+                        <span className="font-mono font-bold text-foreground tabular-nums">
+                          <AnimatedNumber value={fin.valorTotal} format="clp" duration={450} />
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Margen Neto:</span>
-                        <span className="font-mono font-bold text-emerald-700 tabular-nums">
-                          {formatPercentage(fin.margen)}
+                        <span className="font-mono font-bold text-[#0D8A72] tabular-nums">
+                          <AnimatedNumber value={fin.margen} format="percent" duration={450} />
                         </span>
                       </div>
                     </CardContent>
@@ -582,12 +583,12 @@ export default function LocalDemoSandboxPage() {
           className="fixed bottom-4 left-4 right-4 z-50 max-w-3xl mx-auto rounded-2xl glass-luxury text-white p-4 sm:p-5 shadow-2xl border border-white/15 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom-4 duration-300"
         >
           <div className="flex items-start gap-3">
-            <div className="p-2 rounded-xl bg-amber-400/15 border border-amber-400/30 text-amber-300 shrink-0">
+            <div className="p-2 rounded-xl bg-[#1261E0]/20 border border-sky-400/30 text-[#38BDF8] shrink-0">
               <HardDrive className="h-4 w-4" />
             </div>
             <div className="space-y-0.5 text-xs">
               <p className="font-semibold text-white flex items-center gap-1.5">
-                <Database className="h-3.5 w-3.5 text-amber-300" />
+                <Database className="h-3.5 w-3.5 text-[#38BDF8]" />
                 Modo Evaluación: Almacenamiento Exclusivo en Caché Local
               </p>
               <p className="text-slate-300 leading-relaxed">
@@ -599,7 +600,7 @@ export default function LocalDemoSandboxPage() {
             type="button"
             size="sm"
             onClick={handleAcceptCache}
-            className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold shrink-0 tactile-press"
+            className="bg-[#2DD4BF] hover:bg-[#5EEAD4] text-[#080E1A] font-bold shrink-0 tactile-press"
           >
             Entendido, continuar
           </Button>

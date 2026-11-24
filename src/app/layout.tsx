@@ -40,7 +40,7 @@ export default function RootLayout({
       lang="es"
       className={`${manrope.variable} ${instrumentSerif.variable} ${ibmPlexMono.variable}`}
     >
-      <body className="font-sans antialiased selection:bg-[#9A7B4F]/20 selection:text-foreground">
+      <body className="font-sans antialiased selection:bg-[#1261E0]/15 selection:text-foreground">
         {children}
       </body>
     </html>

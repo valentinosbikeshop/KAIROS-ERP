@@ -11,9 +11,12 @@ import {
   Zap,
   ArrowRight,
   Sliders,
+  Eye,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { AnimatedNumber } from '@/components/ui/motion-primitives';
+import { PlanDetailModal } from './plan-detail-modal';
 import { cn, formatCLP } from '@/lib/utils';
 import { calculateCustomPriceClp } from '@/lib/entitlements';
 import type {
@@ -28,6 +31,7 @@ interface PlansMatrixProps {
   addons: SubscriptionAddon[];
   currentTier?: SubscriptionTier;
   currentModules?: ModuleKey[];
+  industryName?: string;
   khipuReady?: boolean;
   isSuperAdmin?: boolean;
   isOnboarding?: boolean;
@@ -44,6 +48,7 @@ export function PlansMatrix({
   addons,
   currentTier,
   currentModules = [],
+  industryName,
   khipuReady = false,
   isSuperAdmin = false,
   isOnboarding = false,
@@ -51,6 +56,7 @@ export function PlansMatrix({
   loadingTier = null,
 }: PlansMatrixProps) {
   const [selectedModules, setSelectedModules] = useState<ModuleKey[]>(currentModules);
+  const [detailPlan, setDetailPlan] = useState<SubscriptionPlan | null>(null);
 
   const currentModulesKey = currentModules.join(',');
   useEffect(() => {
@@ -76,9 +82,20 @@ export function PlansMatrix({
     () => plans.find((p) => p.is_recommended) || plans.find((p) => p.id === 'growth'),
     [plans]
   );
+  const scalePlan = useMemo(
+    () => plans.find((p) => p.id === 'scale'),
+    [plans]
+  );
 
+  const customExceedsScale =
+    Boolean(scalePlan && scalePlan.price_clp > 0 && customTotalClp > scalePlan.price_clp);
   const customExceedsRecommended =
-    recommendedPlan && customTotalClp >= recommendedPlan.price_clp;
+    Boolean(
+      !customExceedsScale &&
+        recommendedPlan &&
+        recommendedPlan.price_clp > 0 &&
+        customTotalClp >= recommendedPlan.price_clp
+    );
 
   const toggleModule = (modId: ModuleKey) => {
     setSelectedModules((prev) =>
@@ -98,122 +115,142 @@ export function PlansMatrix({
           return (
             <div
               key={plan.id}
+              onClick={() => setDetailPlan(plan)}
               className={cn(
-                'relative rounded-3xl p-6 flex flex-col justify-between transition-all duration-300',
+                'group relative rounded-3xl p-6 flex flex-col justify-between transition-all duration-300 cursor-pointer text-left',
                 isRec
-                  ? 'glass-luxury hairline-shimmer text-[#F7F5F0] ring-1 ring-[#9A7B4F]/50 xl:-translate-y-1.5'
-                  : 'glass-card text-foreground hover:-translate-y-0.5'
+                  ? 'glass-luxury hairline-shimmer text-slate-100 ring-1 ring-sky-400/40 xl:-translate-y-1.5'
+                  : 'glass-card spotlight-card text-foreground hover:-translate-y-1'
               )}
             >
-              {plan.badge_text && (
-                <div className="flex items-center justify-between gap-2 mb-4">
-                  <Badge
-                    className={cn(
-                      'font-mono text-[10px] font-medium tracking-[0.14em] uppercase px-2.5 py-0.5',
-                      isRec
-                        ? 'bg-[#C9AD82] text-[#171715] border-0'
-                        : plan.id === 'free'
-                        ? 'bg-secondary text-muted-foreground border border-border/80'
-                        : 'bg-[#171715] text-[#F7F5F0] border-0'
-                    )}
-                  >
-                    {isRec && <Sparkles className="h-3 w-3 mr-1 inline" />}
-                    {plan.badge_text}
-                  </Badge>
-                  {isCurrent && (
+              <div>
+                {plan.badge_text && (
+                  <div className="flex items-center justify-between gap-2 mb-4">
                     <Badge
-                      variant="outline"
                       className={cn(
-                        'font-mono text-[10px]',
+                        'font-mono text-[10px] font-medium tracking-[0.14em] uppercase px-2.5 py-0.5',
                         isRec
-                          ? 'border-[#356854]/60 text-[#9FD3BC] bg-[#356854]/20'
-                          : 'border-[#356854]/40 text-[#356854] bg-[#356854]/10'
+                          ? 'bg-[#2DD4BF] text-[#080E1A] border-0'
+                          : plan.id === 'free'
+                          ? 'bg-secondary text-muted-foreground border border-border/80'
+                          : 'bg-[#0D1829] text-white border-0'
                       )}
                     >
-                      Plan Actual
+                      {isRec && <Sparkles className="h-3 w-3 mr-1 inline" />}
+                      {plan.badge_text}
                     </Badge>
-                  )}
-                </div>
-              )}
-
-              <div className="space-y-3">
-                <div>
-                  <h3
-                    className={cn(
-                      'text-xl font-semibold tracking-tight',
-                      isRec ? 'text-[#F7F5F0]' : 'text-foreground'
-                    )}
-                  >
-                    {plan.name}
-                  </h3>
-                  <p
-                    className={cn(
-                      'text-xs mt-1 leading-relaxed',
-                      isRec ? 'text-stone-300' : 'text-muted-foreground'
-                    )}
-                  >
-                    {plan.tagline}
-                  </p>
-                </div>
-
-                <div className="pt-2 pb-3 border-b border-current/10">
-                  <div className="flex items-baseline gap-1.5">
-                    <span
-                      className={cn(
-                        'text-3xl font-semibold font-mono tabular-nums tracking-tight',
-                        isRec ? 'text-[#D7BE96]' : 'text-foreground'
-                      )}
-                    >
-                      {plan.price_clp === 0 ? '$0' : formatCLP(plan.price_clp)}
-                    </span>
-                    <span
-                      className={cn(
-                        'text-xs font-medium',
-                        isRec ? 'text-stone-400' : 'text-muted-foreground'
-                      )}
-                    >
-                      / mes + IVA
-                    </span>
-                  </div>
-                  <p
-                    className={cn(
-                      'text-[11px] mt-2 leading-relaxed',
-                      isRec ? 'text-stone-300' : 'text-muted-foreground'
-                    )}
-                  >
-                    {plan.description}
-                  </p>
-                </div>
-
-                <ul className="space-y-2.5 pt-1 text-xs">
-                  {(plan.features || []).map((feat, idx) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <Check
+                    {isCurrent && (
+                      <Badge
+                        variant="outline"
                         className={cn(
-                          'h-4 w-4 shrink-0 mt-0.5',
-                          isRec ? 'text-[#C9AD82]' : 'text-[#356854]'
+                          'font-mono text-[10px]',
+                          isRec
+                            ? 'border-[#2DD4BF]/50 text-[#5EEAD4] bg-[#0D8A72]/20'
+                            : 'border-[#0D8A72]/35 text-[#0D8A72] bg-[#0D8A72]/10'
                         )}
-                      />
-                      <span className={isRec ? 'text-stone-200' : 'text-foreground/85'}>
-                        {feat}
+                      >
+                        Plan Actual
+                      </Badge>
+                    )}
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <div>
+                    <h3
+                      className={cn(
+                        'text-xl font-semibold tracking-tight',
+                        isRec ? 'text-white' : 'text-foreground'
+                      )}
+                    >
+                      {plan.name}
+                    </h3>
+                    <p
+                      className={cn(
+                        'text-xs mt-1 leading-relaxed',
+                        isRec ? 'text-slate-300' : 'text-muted-foreground'
+                      )}
+                    >
+                      {plan.tagline}
+                    </p>
+                  </div>
+
+                  <div className="pt-2 pb-3 border-b border-current/10">
+                    <div className="flex items-baseline gap-1.5">
+                      <span
+                        className={cn(
+                          'text-3xl font-semibold font-mono tabular-nums tracking-tight',
+                          isRec ? 'text-[#38BDF8]' : 'text-foreground'
+                        )}
+                      >
+                        {plan.price_clp === 0 ? '$0' : formatCLP(plan.price_clp)}
                       </span>
-                    </li>
-                  ))}
-                </ul>
+                      <span
+                        className={cn(
+                          'text-xs font-medium',
+                          isRec ? 'text-slate-400' : 'text-muted-foreground'
+                        )}
+                      >
+                        / mes + IVA
+                      </span>
+                    </div>
+                    <p
+                      className={cn(
+                        'text-[11px] mt-2 leading-relaxed',
+                        isRec ? 'text-slate-300' : 'text-muted-foreground'
+                      )}
+                    >
+                      {plan.description}
+                    </p>
+                  </div>
+
+                  <ul className="space-y-2.5 pt-1 text-xs">
+                    {(plan.features || []).map((feat, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <Check
+                          className={cn(
+                            'h-4 w-4 shrink-0 mt-0.5',
+                            isRec ? 'text-[#2DD4BF]' : 'text-[#0D8A72]'
+                          )}
+                        />
+                        <span className={isRec ? 'text-slate-200' : 'text-foreground/85'}>
+                          {feat}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
 
-              <div className="pt-6 mt-6 border-t border-current/10 space-y-2">
+              <div
+                className="pt-5 mt-6 border-t border-current/10 space-y-2"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={() => setDetailPlan(plan)}
+                  className={cn(
+                    'w-full flex items-center justify-center gap-1.5 text-[11px] font-medium py-1.5 rounded-lg transition-colors',
+                    isRec
+                      ? 'text-sky-300 hover:bg-white/[0.06]'
+                      : 'text-[#1261E0] hover:bg-[#1261E0]/[0.06]'
+                  )}
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  Ver detalle completo y qué incluye
+                </button>
+
                 <Button
                   type="button"
                   disabled={Boolean(loadingTier) || (!isOnboarding && isCurrent && plan.id === 'free')}
                   onClick={() => onSelectCheckout(plan.id, [])}
                   className={cn(
-                    'w-full tactile-press font-medium gap-2',
+                    'w-full tactile-press font-semibold gap-2',
                     isRec
-                      ? 'bg-[#C9AD82] hover:bg-[#D7BE96] text-[#171715]'
+                      ? 'bg-[#2DD4BF] hover:bg-[#5EEAD4] text-[#080E1A]'
                       : plan.id === 'free'
                       ? 'bg-secondary hover:bg-secondary/80 text-foreground border border-border/80'
-                      : 'bg-[#171715] hover:bg-[#2A2A27] text-[#F7F5F0]'
+                      : 'bg-[#0D1829] hover:bg-[#172842] text-white'
                   )}
                 >
                   {isBusy ? (
@@ -244,8 +281,8 @@ export function PlansMatrix({
                     className={cn(
                       'w-full text-[11px] h-7',
                       isRec
-                        ? 'text-amber-200 hover:bg-white/10'
-                        : 'text-indigo-700 hover:bg-indigo-50'
+                        ? 'text-sky-200 hover:bg-white/10'
+                        : 'text-[#1261E0] hover:bg-[#1261E0]/10'
                     )}
                   >
                     Simular Activación (SuperAdmin)
@@ -261,39 +298,65 @@ export function PlansMatrix({
       <div className="rounded-3xl border border-border/80 glass-card p-6 sm:p-8 space-y-6">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-border/75 pb-6">
           <div className="space-y-1.5">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#171715] text-[#F7F5F0] font-mono text-[10px] tracking-[0.14em] uppercase">
-              <Sliders className="h-3.5 w-3.5 text-[#C9AD82]" />
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0D1829] text-white font-mono text-[10px] tracking-[0.14em] uppercase">
+              <Sliders className="h-3.5 w-3.5 text-[#38BDF8]" />
               Modalidad Flexible · Paga lo que usas
             </div>
             <h3 className="text-2xl font-semibold tracking-tight text-foreground">
-              Arma tu propio ERP <span className="editorial-italic text-[#9A7B4F]">a medida</span>
+              Arma tu propio ERP <span className="editorial-italic text-[#1261E0]">a medida</span>
             </h3>
             <p className="text-sm text-muted-foreground max-w-2xl">
               Parte con la <strong>{baseAddon?.name || 'Plataforma Activa Base'}</strong> (
               <span className="font-mono font-semibold text-foreground">
-                {formatCLP(baseAddon?.price_clp ?? 29990)}
+                {formatCLP(baseAddon?.price_clp ?? 19990)}
               </span>
-              /mes) y enciende exclusivamente los módulos que tu operación necesita hoy.
+              /mes) y enciende exclusivamente los módulos que tu operación necesita hoy. Si armas un paquete grande, te avisamos cuando te conviene más un plan cerrado.
             </p>
           </div>
 
-          <div className="rounded-2xl glass-luxury text-[#F7F5F0] p-5 min-w-[260px] space-y-3">
-            <div className="flex items-center justify-between text-xs text-stone-400">
+          <div className="rounded-2xl glass-luxury text-slate-100 p-5 min-w-[280px] max-w-sm space-y-3">
+            <div className="flex items-center justify-between text-xs text-slate-400">
               <span>Tu inversión mensual</span>
               <span className="font-mono">{selectedModules.length} módulos</span>
             </div>
-            <div className="text-3xl font-semibold font-mono tabular-nums text-[#D7BE96]">
-              {formatCLP(customTotalClp)}
-              <span className="text-xs font-sans font-normal text-stone-400 ml-1.5">/ mes</span>
+            <div className="text-3xl font-semibold font-mono tabular-nums text-[#38BDF8]">
+              <AnimatedNumber value={customTotalClp} format="clp" duration={360} />
+              <span className="text-xs font-sans font-normal text-slate-400 ml-1.5">/ mes</span>
             </div>
 
+            {customExceedsScale && scalePlan && (
+              <div className="p-3 rounded-xl bg-[#0D8A72]/20 border border-[#2DD4BF]/35 text-[11px] text-[#A7F3D0] leading-snug space-y-1">
+                <div>
+                  <Zap className="h-3.5 w-3.5 inline mr-1 text-[#2DD4BF]" />
+                  <strong>¡Te conviene Enterprise!</strong> Por{' '}
+                  <strong>{formatCLP(scalePlan.price_clp)}/mes</strong> tienes TODO incluido, usuarios ilimitados y 600 IA/mes. Ahorras{' '}
+                  <strong>{formatCLP(customTotalClp - scalePlan.price_clp)}/mes</strong>.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDetailPlan(scalePlan)}
+                  className="underline font-semibold text-white hover:text-[#2DD4BF]"
+                >
+                  Comparar con {scalePlan.name} →
+                </button>
+              </div>
+            )}
+
             {customExceedsRecommended && recommendedPlan && (
-              <div className="p-2.5 rounded-xl bg-[#9A7B4F]/18 border border-[#9A7B4F]/35 text-[11px] text-[#E9D7BA] leading-snug">
-                <Zap className="h-3.5 w-3.5 inline mr-1 text-[#D7BE96]" />
-                Por{' '}
-                <strong>{formatCLP(recommendedPlan.price_clp)}/mes</strong> obtienes{' '}
-                <strong>{recommendedPlan.name}</strong> con casi todo incluido y ahorras{' '}
-                {formatCLP(Math.max(0, customTotalClp - recommendedPlan.price_clp))}.
+              <div className="p-3 rounded-xl bg-[#1261E0]/20 border border-sky-400/35 text-[11px] text-sky-100 leading-snug space-y-1">
+                <div>
+                  <Zap className="h-3.5 w-3.5 inline mr-1 text-[#38BDF8]" />
+                  Por <strong>{formatCLP(recommendedPlan.price_clp)}/mes</strong> obtienes{' '}
+                  <strong>{recommendedPlan.name}</strong> con casi todo incluido y ahorras{' '}
+                  <strong>{formatCLP(Math.max(0, customTotalClp - recommendedPlan.price_clp))}/mes</strong>.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDetailPlan(recommendedPlan)}
+                  className="underline font-semibold text-white hover:text-[#38BDF8]"
+                >
+                  Ver qué incluye {recommendedPlan.name} →
+                </button>
               </div>
             )}
 
@@ -301,7 +364,7 @@ export function PlansMatrix({
               type="button"
               disabled={Boolean(loadingTier)}
               onClick={() => onSelectCheckout('custom', selectedModules)}
-              className="w-full bg-[#C9AD82] hover:bg-[#D7BE96] text-[#171715] font-semibold gap-2 tactile-press"
+              className="w-full bg-[#2DD4BF] hover:bg-[#5EEAD4] text-[#080E1A] font-semibold gap-2 tactile-press"
             >
               {loadingTier === 'custom' ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -318,7 +381,7 @@ export function PlansMatrix({
                 variant="ghost"
                 disabled={Boolean(loadingTier)}
                 onClick={() => onSelectCheckout('custom', selectedModules, true)}
-                className="w-full text-[11px] h-7 text-[#D7BE96] hover:bg-white/10"
+                className="w-full text-[11px] h-7 text-sky-200 hover:bg-white/10"
               >
                 Simular Custom (SuperAdmin)
               </Button>
@@ -339,8 +402,8 @@ export function PlansMatrix({
                 className={cn(
                   'text-left rounded-2xl p-4 border transition-all duration-200 tactile-press flex flex-col justify-between gap-3',
                   active
-                    ? 'bg-[#171715] text-[#F7F5F0] border-[#9A7B4F]/45 shadow-md'
-                    : 'bg-card/85 hover:bg-card text-foreground border-border/80 hover:border-[#9A7B4F]/35'
+                    ? 'bg-[#0D1829] text-white border-[#1261E0]/60 shadow-md'
+                    : 'bg-card/85 hover:bg-card text-foreground border-border/80 hover:border-[#1261E0]/35'
                 )}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -349,7 +412,7 @@ export function PlansMatrix({
                       <Layers
                         className={cn(
                           'h-4 w-4 shrink-0',
-                          active ? 'text-[#C9AD82]' : 'text-muted-foreground'
+                          active ? 'text-[#38BDF8]' : 'text-muted-foreground'
                         )}
                       />
                       <span className="font-semibold text-sm leading-tight">{addon.name}</span>
@@ -357,7 +420,7 @@ export function PlansMatrix({
                     <p
                       className={cn(
                         'text-xs leading-relaxed',
-                        active ? 'text-stone-300' : 'text-muted-foreground'
+                        active ? 'text-slate-300' : 'text-muted-foreground'
                       )}
                     >
                       {addon.description}
@@ -367,7 +430,7 @@ export function PlansMatrix({
                     className={cn(
                       'h-5 w-5 rounded-md border flex items-center justify-center shrink-0 mt-0.5',
                       active
-                        ? 'bg-[#C9AD82] border-[#C9AD82] text-[#171715]'
+                        ? 'bg-[#2DD4BF] border-[#2DD4BF] text-[#080E1A]'
                         : 'border-border bg-background'
                     )}
                   >
@@ -376,13 +439,13 @@ export function PlansMatrix({
                 </div>
 
                 <div className="flex items-center justify-between pt-2 border-t border-current/10 text-xs">
-                  <span className={active ? 'text-stone-400' : 'text-muted-foreground'}>
+                  <span className={active ? 'text-slate-400' : 'text-muted-foreground'}>
                     Cargo mensual adicional
                   </span>
                   <span
                     className={cn(
                       'font-mono font-semibold tabular-nums',
-                      active ? 'text-[#D7BE96]' : 'text-foreground'
+                      active ? 'text-[#38BDF8]' : 'text-foreground'
                     )}
                   >
                     +{formatCLP(addon.price_clp)}
@@ -395,7 +458,7 @@ export function PlansMatrix({
 
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
-            <ShieldCheck className="h-4 w-4 text-[#356854]" />
+            <ShieldCheck className="h-4 w-4 text-[#0D8A72]" />
             Pagos procesados mediante transferencia bancaria certificada por <strong>Khipu</strong>.
           </span>
           <span>
@@ -403,6 +466,24 @@ export function PlansMatrix({
           </span>
         </div>
       </div>
+
+      {/* Modal de Detalle Extendido por Plan */}
+      <PlanDetailModal
+        plan={detailPlan}
+        industryName={industryName}
+        isCurrent={Boolean(detailPlan && currentTier === detailPlan.id)}
+        loadingTier={loadingTier}
+        onClose={() => setDetailPlan(null)}
+        onSelectPlan={(tier) => {
+          setDetailPlan(null);
+          onSelectCheckout(tier, []);
+        }}
+        onSwitchToRecommended={
+          recommendedPlan
+            ? () => setDetailPlan(recommendedPlan)
+            : undefined
+        }
+      />
     </div>
   );
 }

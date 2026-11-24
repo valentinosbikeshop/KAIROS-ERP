@@ -48,8 +48,8 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
     name: 'Operación Esencial',
     tagline: 'Cotización formal y control de flujo de caja',
     description:
-      'Pensado para empresas en marcha que necesitan emitir propuestas PDF profesionales y controlar abonos y gastos reales.',
-    price_clp: 59990,
+      'Pensado para empresas en marcha que necesitan emitir propuestas PDF profesionales y controlar abonos, gastos reales e IVA SII.',
+    price_clp: 34990,
     is_recommended: false,
     badge_text: 'Inicial',
     max_projects: 12,
@@ -70,10 +70,10 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
   {
     id: 'growth',
     name: 'Crecimiento Inteligente IA',
-    tagline: 'Máximo retorno: IA + OCR + Control Total',
+    tagline: 'Máximo retorno: IA + OCR + IVA F29 sin sorpresas',
     description:
-      'La opción más rentable: automatiza cotizaciones desde PDF/Excel/Fotos con IA, consolida recetas e insumos y domina tu P&L.',
-    price_clp: 99990,
+      'La opción más rentable: automatiza cotizaciones desde PDF/Excel/Fotos con IA, domina tu IVA mensual y protege tu margen neto.',
+    price_clp: 59990,
     is_recommended: true,
     badge_text: 'Recomendado',
     max_projects: null,
@@ -104,7 +104,7 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
     tagline: 'Multi-equipo, marca blanca y alta demanda IA',
     description:
       'Para productoras, constructoras, consultoras y operaciones consolidadas que exigen gobernanza avanzada y equipo ilimitado.',
-    price_clp: 179990,
+    price_clp: 109990,
     is_recommended: false,
     badge_text: 'Enterprise',
     max_projects: null,
@@ -138,7 +138,7 @@ export const DEFAULT_ADDONS: SubscriptionAddon[] = [
     name: 'Plataforma Activa Base',
     description:
       'Acceso base al ERP personalizado para tu rubro: hasta 5 proyectos activos, 50 tarifas maestras y 1 usuario.',
-    price_clp: 29990,
+    price_clp: 19990,
     category: 'base',
     ai_calls_bonus: 0,
     sort_order: 0,
@@ -149,7 +149,7 @@ export const DEFAULT_ADDONS: SubscriptionAddon[] = [
     name: 'Proyectos y Catálogo Ilimitados',
     description:
       'Elimina los topes de proyectos activos y tarifas maestras en tu organización.',
-    price_clp: 19990,
+    price_clp: 16990,
     category: 'module',
     ai_calls_bonus: 0,
     sort_order: 1,
@@ -160,7 +160,7 @@ export const DEFAULT_ADDONS: SubscriptionAddon[] = [
     name: 'Cotizador PDF Ejecutivo',
     description:
       'Genera propuestas comerciales e informes contables en PDF listos para enviar al cliente.',
-    price_clp: 16990,
+    price_clp: 14990,
     category: 'module',
     ai_calls_bonus: 0,
     sort_order: 2,
@@ -182,7 +182,7 @@ export const DEFAULT_ADDONS: SubscriptionAddon[] = [
     name: 'Consolidación, Recetas y Modo Retail',
     description:
       'Agrupa ítems padre/hijo, prorratea insumos unitarios y gestiona venta al detalle.',
-    price_clp: 16990,
+    price_clp: 15990,
     category: 'module',
     ai_calls_bonus: 0,
     sort_order: 4,
@@ -193,7 +193,7 @@ export const DEFAULT_ADDONS: SubscriptionAddon[] = [
     name: 'Suite IA + OCR Documental (150 créditos/mes)',
     description:
       'Asistente de borradores, desglose automático de costos, optimizador de márgenes y lectura de PDF/Excel/Fotos.',
-    price_clp: 29990,
+    price_clp: 24990,
     category: 'module',
     ai_calls_bonus: 150,
     sort_order: 5,
@@ -204,7 +204,7 @@ export const DEFAULT_ADDONS: SubscriptionAddon[] = [
     name: 'Analítica P&L & Exportación Excel Contable',
     description:
       'Dashboards de rentabilidad mensual, distribución de costos y descarga de libro Excel.',
-    price_clp: 18990,
+    price_clp: 16990,
     category: 'module',
     ai_calls_bonus: 0,
     sort_order: 6,
@@ -215,7 +215,7 @@ export const DEFAULT_ADDONS: SubscriptionAddon[] = [
     name: 'Equipo Multi-Usuario & Marca Blanca',
     description:
       'Habilita hasta 8 usuarios en tu organización, códigos de invitación y personalización de marca en documentos.',
-    price_clp: 24990,
+    price_clp: 22990,
     category: 'module',
     ai_calls_bonus: 0,
     sort_order: 7,
@@ -228,7 +228,7 @@ export function calculateCustomPriceClp(
   addons: SubscriptionAddon[] = DEFAULT_ADDONS
 ): number {
   const baseAddon = addons.find((a) => a.id === 'base_custom');
-  const basePrice = baseAddon?.price_clp ?? 11990;
+  const basePrice = baseAddon?.price_clp ?? 19990;
   const uniqueModules = Array.from(new Set(selectedModules));
   const modulesTotal = uniqueModules.reduce((sum, modId) => {
     const addon = addons.find((a) => a.id === modId && a.is_active);

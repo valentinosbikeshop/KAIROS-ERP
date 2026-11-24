@@ -169,7 +169,7 @@ export function RegisterForm() {
             className={cn(
               'flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-medium transition-all tactile-press',
               mode === 'owner'
-                ? 'bg-[#171715] text-[#F7F5F0] shadow-sm'
+                ? 'bg-[#0D1829] text-white shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
@@ -185,7 +185,7 @@ export function RegisterForm() {
             className={cn(
               'flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-medium transition-all tactile-press',
               mode === 'invite'
-                ? 'bg-[#171715] text-[#F7F5F0] shadow-sm'
+                ? 'bg-[#0D1829] text-white shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
@@ -198,9 +198,9 @@ export function RegisterForm() {
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-3.5">
           {mode === 'owner' && (
-            <div className="p-3.5 rounded-2xl glass-luxury text-[#F7F5F0] text-xs flex items-center justify-between gap-2">
+            <div className="p-3.5 rounded-2xl glass-luxury text-slate-100 text-xs flex items-center justify-between gap-2">
               <div className="space-y-0.5">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#D7BE96] block">
+                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#38BDF8] block">
                   Plan Preseleccionado
                 </span>
                 <span className="font-semibold">
@@ -208,7 +208,7 @@ export function RegisterForm() {
                 </span>
               </div>
               <Link href="/welcome#planes">
-                <Badge className="bg-[#C9AD82] hover:bg-[#D7BE96] text-[#171715] border-0 cursor-pointer">
+                <Badge className="bg-[#2DD4BF] hover:bg-[#5EEAD4] text-[#080E1A] border-0 cursor-pointer">
                   {urlPlan ? 'Cambiar' : 'Ver Planes'}
                 </Badge>
               </Link>
@@ -312,8 +312,8 @@ export function RegisterForm() {
           </div>
 
           {mode === 'owner' && (
-            <div className="p-2.5 rounded-xl bg-[#9A7B4F]/10 border border-[#9A7B4F]/25 text-[11px] text-[#6B5434] flex items-center gap-2">
-              <Sparkles className="h-3.5 w-3.5 text-[#9A7B4F] shrink-0" />
+            <div className="p-2.5 rounded-xl bg-[#1261E0]/[0.07] border border-[#1261E0]/20 text-[11px] text-[#0F4FB8] flex items-center gap-2">
+              <Sparkles className="h-3.5 w-3.5 text-[#1261E0] shrink-0" />
               <span>
                 Luego confirmarás tu rubro, personalización visual y activación con Khipu (o plan gratuito).
               </span>

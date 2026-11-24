@@ -1,25 +1,26 @@
-<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="kairosBg" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#0F172A" />
-      <stop offset="100%" stop-color="#1E1B4B" />
+    <linearGradient id="kairosAbyss" x1="2" y1="2" x2="42" y2="42" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0D1829" />
+      <stop offset="100%" stop-color="#070C15" />
     </linearGradient>
-    <linearGradient id="kairosPrism" x1="16" y1="10" x2="31" y2="30" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#F59E0B" />
-      <stop offset="100%" stop-color="#FBBF24" />
+    <linearGradient id="kairosCobalt" x1="16" y1="11" x2="31" y2="33" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#60A5FA" />
+      <stop offset="50%" stop-color="#2563EB" />
+      <stop offset="100%" stop-color="#2DD4BF" />
     </linearGradient>
-    <linearGradient id="kairosWing" x1="17" y1="20" x2="30" y2="30" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#818CF8" />
-      <stop offset="100%" stop-color="#4F46E5" />
+    <linearGradient id="kairosRim" x1="2" y1="2" x2="42" y2="42" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#93C5FD" stop-opacity="0.55" />
+      <stop offset="50%" stop-color="#2DD4BF" stop-opacity="0.22" />
+      <stop offset="100%" stop-color="#60A5FA" stop-opacity="0.55" />
     </linearGradient>
   </defs>
-  <rect x="1" y="1" width="38" height="38" rx="10" fill="url(#kairosBg)" stroke="#334155" stroke-width="1.2" />
-  <!-- Pillar (Precision Axis) -->
-  <rect x="11" y="9.5" width="3.8" height="21" rx="1.9" fill="#F8FAFC" />
-  <!-- Upper Kairos Temporal Vector (Gold Apex) -->
-  <path d="M16.5 19.6L25.8 10.2C26.4 9.6 27.3 9.5 28.0 9.9C28.8 10.4 28.9 11.5 28.2 12.2L19.8 20.6L16.5 19.6Z" fill="url(#kairosPrism)" />
-  <!-- Lower Momentum Vector (Indigo) -->
-  <path d="M19.8 20.1L28.4 28.0C29.1 28.7 29.0 29.8 28.2 30.3C27.5 30.7 26.5 30.6 25.9 30.0L16.6 21.1L19.8 20.1Z" fill="url(#kairosWing)" />
-  <!-- Moment Focal Node -->
-  <circle cx="17.8" cy="20.4" r="1.9" fill="#FBBF24" />
+  <rect x="2" y="2" width="40" height="40" rx="12" fill="url(#kairosAbyss)" stroke="url(#kairosRim)" stroke-width="1" />
+  <circle cx="22" cy="22" r="15.5" stroke="#60A5FA" stroke-opacity="0.26" stroke-width="0.75" stroke-dasharray="2 3.5" />
+  <circle cx="22" cy="6.5" r="1" fill="#38BDF8" fill-opacity="0.85" />
+  <circle cx="22" cy="37.5" r="0.9" fill="#2DD4BF" fill-opacity="0.65" />
+  <path d="M15.25 13V31" stroke="#F8FAFC" stroke-width="2.15" stroke-linecap="round" />
+  <path d="M28.5 13.5L17.6 22.1" stroke="url(#kairosCobalt)" stroke-width="2.2" stroke-linecap="round" />
+  <path d="M20.2 20.4L28.8 30.5" stroke="#E2E8F0" stroke-opacity="0.92" stroke-width="1.95" stroke-linecap="round" />
+  <circle cx="17.6" cy="22.1" r="1.85" fill="#2DD4BF" />
 </svg>

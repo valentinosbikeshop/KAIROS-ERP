@@ -88,6 +88,19 @@ const config: Config = {
           '0%': { transform: 'translateX(-120%) skewX(-18deg)' },
           '100%': { transform: 'translateX(220%) skewX(-18deg)' },
         },
+        'modal-in': {
+          from: { opacity: '0', transform: 'scale(0.96) translateY(8px)', filter: 'blur(4px)' },
+          to: { opacity: '1', transform: 'scale(1) translateY(0)', filter: 'blur(0)' },
+        },
+        'float-slow': {
+          '0%, 100%': { transform: 'translate3d(0, 0, 0)' },
+          '50%': { transform: 'translate3d(0, -6px, 0)' },
+        },
+        'pulse-ring': {
+          '0%': { transform: 'scale(0.95)', opacity: '0.75' },
+          '70%': { transform: 'scale(1.15)', opacity: '0' },
+          '100%': { transform: 'scale(1.15)', opacity: '0' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
@@ -96,6 +109,9 @@ const config: Config = {
         'reveal-up': 'reveal-up 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         'ambient-drift': 'ambient-drift 20s ease-in-out infinite',
         'hairline-sweep': 'hairline-sweep 1.2s cubic-bezier(0.16, 1, 0.3, 1)',
+        'modal-in': 'modal-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'float-slow': 'float-slow 5s ease-in-out infinite',
+        'pulse-ring': 'pulse-ring 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite',
       },
     },
   },
