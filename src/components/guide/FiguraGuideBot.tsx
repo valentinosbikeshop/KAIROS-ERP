@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import Link from 'next/link';
@@ -165,6 +166,8 @@ function computePopoverPosition(
 
 export function FiguraGuideBot() {
   const { isDemo } = useUser();
+  const pathname = usePathname();
+  const hasFloatingAiBot = pathname.startsWith('/events/');
   const {
     isActive,
     currentStepIndex,
@@ -247,7 +250,9 @@ export function FiguraGuideBot() {
       <button
         type="button"
         onClick={restartTour}
-        className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-[#0B0E15] text-[#EEF1F6] px-4 py-2.5 text-xs font-semibold shadow-lg border border-[#D8C39E]/35 hover:border-[#D8C39E]/70 transition-colors tactile-press"
+        className={`fixed right-5 z-40 inline-flex items-center gap-2 rounded-full bg-[#0B0E15] text-[#EEF1F6] px-4 py-2.5 text-xs font-semibold shadow-lg border border-[#D8C39E]/35 hover:border-[#D8C39E]/70 transition-all tactile-press ${
+          hasFloatingAiBot ? 'bottom-24' : 'bottom-5'
+        }`}
       >
         <Compass className="h-4 w-4 text-[#D8C39E]" />
         Bot Guía Demo · {sectionLabel}

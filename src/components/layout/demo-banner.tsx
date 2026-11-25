@@ -95,10 +95,6 @@ export function DemoBanner({
 
   const handleExitDemo = async () => {
     disableLocalDemoMode();
-    if (onSignOut) {
-      await onSignOut();
-      return;
-    }
     window.location.href = '/welcome';
   };
 

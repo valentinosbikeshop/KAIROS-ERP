@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { useUser } from '@/hooks/use-user';
 import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
 import { createClient } from '@/lib/supabase/client';
+import { disableLocalDemoMode } from '@/lib/supabase/local-demo-client';
 import { DUO_ORG_SLUG } from '@/lib/constants';
 import { Loader2, Eye, ArrowLeft, Shield } from 'lucide-react';
 
@@ -33,6 +34,11 @@ export default function DashboardLayout({
   const { isDuoExempt, entitlements, terms } = useWorkspaceConfig();
 
   const handleSignOut = async () => {
+    if (isDemo) {
+      disableLocalDemoMode();
+      window.location.href = '/welcome';
+      return;
+    }
     try {
       if (isSuperAdmin && organization && organization.slug !== DUO_ORG_SLUG) {
         await fetch('/api/admin/switch-company', {

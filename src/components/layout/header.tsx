@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useUser } from '@/hooks/use-user';
 import { createClient } from '@/lib/supabase/client';
+import { disableLocalDemoMode } from '@/lib/supabase/local-demo-client';
 import { DUO_ORG_SLUG } from '@/lib/constants';
 import Link from 'next/link';
 import { Menu, LogOut, User, ShieldCheck, Loader2, HelpCircle } from 'lucide-react';
@@ -32,6 +33,11 @@ export function Header({ onToggleSidebar, onSignOut }: HeaderProps) {
     if (signingOut) return;
     setSigningOut(true);
     try {
+      if (isDemo) {
+        disableLocalDemoMode();
+        window.location.href = '/welcome';
+        return;
+      }
       if (onSignOut) {
         await onSignOut();
         return;
@@ -63,17 +69,19 @@ export function Header({ onToggleSidebar, onSignOut }: HeaderProps) {
       <div className="hidden lg:block"></div>
 
       <div className="flex items-center gap-2 sm:gap-3">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={restartTour}
-          className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-          title="Iniciar guía interactiva"
-        >
-          <HelpCircle className="h-3.5 w-3.5 text-amber-500" />
-          <span className="hidden sm:inline">Guía Interactiva</span>
-        </Button>
+        {!isDemo && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={restartTour}
+            className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            title="Iniciar guía interactiva"
+          >
+            <HelpCircle className="h-3.5 w-3.5 text-amber-500" />
+            <span className="hidden sm:inline">Guía Interactiva</span>
+          </Button>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger>
             <Button variant="ghost" className="flex items-center gap-2">
@@ -111,23 +119,25 @@ export function Header({ onToggleSidebar, onSignOut }: HeaderProps) {
             )}
             <DropdownMenuItem onClick={handleSignOut} className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer">
               <LogOut className="mr-2 h-4 w-4" />
-              <span>{signingOut ? 'Cerrando...' : 'Cerrar Sesión'}</span>
+              <span>{signingOut ? 'Saliendo...' : isDemo ? 'Salir al Inicio' : 'Cerrar Sesión'}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={signingOut}
-          onClick={handleSignOut}
-          className="h-8 gap-1.5 text-xs font-medium text-muted-foreground border-border/80 hover:bg-[#B9382C]/8 hover:text-[#B9382C] hover:border-[#B9382C]/25"
-          title="Cerrar sesión actual"
-        >
-          {signingOut ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
-          <span className="hidden sm:inline">Cerrar Sesión</span>
-        </Button>
+        {!isDemo && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={signingOut}
+            onClick={handleSignOut}
+            className="h-8 gap-1.5 text-xs font-medium text-muted-foreground border-border/80 hover:bg-[#B9382C]/8 hover:text-[#B9382C] hover:border-[#B9382C]/25"
+            title="Cerrar sesión actual"
+          >
+            {signingOut ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
+            <span className="hidden sm:inline">Cerrar Sesión</span>
+          </Button>
+        )}
       </div>
     </header>
   );

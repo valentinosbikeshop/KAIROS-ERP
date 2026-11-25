@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { EventItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { FileUpload } from '@/components/events/file-upload';
+import { FormattedChatText } from '@/components/ui/formatted-chat-text';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -205,13 +206,17 @@ export function FloatingDraftAssistant({ draftItems, onApplyActions }: FloatingD
               >
                 <div 
                   className={cn(
-                    "px-4 py-2.5 rounded-2xl shadow-sm whitespace-pre-wrap",
+                    "px-4 py-2.5 rounded-2xl shadow-sm",
                     msg.role === 'user' 
-                      ? "bg-violet-600 text-white rounded-tr-sm" 
+                      ? "bg-violet-600 text-white rounded-tr-sm whitespace-pre-wrap" 
                       : "bg-muted/60 border border-border/50 text-foreground rounded-tl-sm backdrop-blur-md"
                   )}
                 >
-                  {msg.content}
+                  {msg.role === 'assistant' ? (
+                    <FormattedChatText content={msg.content} />
+                  ) : (
+                    msg.content
+                  )}
                 </div>
               </div>
             ))}

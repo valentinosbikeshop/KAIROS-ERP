@@ -57,7 +57,7 @@ export const AI_ENGINE_PROFILES: Record<AiTaskKey, AiEngineProfile> = {
   draft_edit: {
     models: ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-4-hydrogen'],
     thinkingLevel: ThinkingLevel.LOW,
-    maxOutputTokens: 3072,
+    maxOutputTokens: 1400,
     temperature: 0.15,
   },
   draft_document: {
@@ -80,13 +80,13 @@ export const AI_ENGINE_PROFILES: Record<AiTaskKey, AiEngineProfile> = {
   financial_advisor: {
     models: ['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-3.5-flash-lite'],
     thinkingLevel: ThinkingLevel.LOW,
-    maxOutputTokens: 2560,
+    maxOutputTokens: 1200,
   },
   demo_sandbox: {
     models: ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.8-flash'],
     thinkingLevel: ThinkingLevel.MINIMAL,
     mediaResolution: MediaResolution.MEDIA_RESOLUTION_MEDIUM,
-    maxOutputTokens: 2560,
+    maxOutputTokens: 1000,
     temperature: 0.2,
   },
 };
