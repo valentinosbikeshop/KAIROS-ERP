@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useKairosTour, TourPlacement } from './KairosTourProvider';
-import { SpotlightOverlay, SpotlightRect } from './SpotlightOverlay';
+import { SpotlightOverlay, SpotlightRect, getRootZoom } from './SpotlightOverlay';
 import { useUser } from '@/hooks/use-user';
 
 type MascotMood = 'greeting' | 'explaining' | 'celebrating';
@@ -90,7 +90,7 @@ function KairosMascot({ mood }: { mood: MascotMood }) {
 
 const POPOVER_WIDTH = 368;
 const VIEWPORT_MARGIN = 16;
-const GAP = 16;
+const GAP = 14;
 
 function computePopoverPosition(
   rect: SpotlightRect | null,
@@ -101,8 +101,9 @@ function computePopoverPosition(
     return { top: 120, left: 24, placement: 'bottom' };
   }
 
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
+  const z = getRootZoom();
+  const vw = rect?.vw ?? window.innerWidth / z;
+  const vh = rect?.vh ?? window.innerHeight / z;
   const cardWidth = Math.min(POPOVER_WIDTH, vw - VIEWPORT_MARGIN * 2);
 
   if (!rect || !rect.isInViewport) {
@@ -113,15 +114,32 @@ function computePopoverPosition(
     };
   }
 
+  const spaceBottom = vh - (rect.top + rect.height + GAP) - VIEWPORT_MARGIN;
+  const spaceTop = rect.top - GAP - VIEWPORT_MARGIN;
+  const spaceRight = vw - (rect.left + rect.width + GAP) - VIEWPORT_MARGIN;
+  const spaceLeft = rect.left - GAP - VIEWPORT_MARGIN;
+
   const fits: Record<TourPlacement, boolean> = {
-    bottom: rect.top + rect.height + GAP + cardHeight <= vh - VIEWPORT_MARGIN,
-    top: rect.top - GAP - cardHeight >= VIEWPORT_MARGIN,
-    right: rect.left + rect.width + GAP + cardWidth <= vw - VIEWPORT_MARGIN,
-    left: rect.left - GAP - cardWidth >= VIEWPORT_MARGIN,
+    bottom: spaceBottom >= cardHeight,
+    top: spaceTop >= cardHeight,
+    right: spaceRight >= cardWidth,
+    left: spaceLeft >= cardWidth,
   };
 
-  const order: TourPlacement[] = [preferred, 'bottom', 'top', 'right', 'left'];
-  const chosen = order.find((p) => fits[p]) ?? 'bottom';
+  const order: TourPlacement[] = [preferred, 'bottom', 'top', 'left', 'right'];
+  let chosen = order.find((p) => fits[p]);
+
+  // If no side fits completely (e.g. tall chart or wide section), pick the side with the most free space
+  if (!chosen) {
+    const candidates: Array<{ p: TourPlacement; ratio: number }> = [
+      { p: 'bottom', ratio: spaceBottom / Math.max(1, cardHeight) },
+      { p: 'top', ratio: spaceTop / Math.max(1, cardHeight) },
+      { p: 'left', ratio: spaceLeft / Math.max(1, cardWidth) },
+      { p: 'right', ratio: spaceRight / Math.max(1, cardWidth) },
+    ];
+    candidates.sort((a, b) => b.ratio - a.ratio);
+    chosen = candidates[0].p;
+  }
 
   let top = VIEWPORT_MARGIN;
   let left = VIEWPORT_MARGIN;
@@ -168,7 +186,7 @@ export function KairosGuideBot() {
   const shouldReduceMotion = useReducedMotion();
   const [spotlightRect, setSpotlightRect] = useState<SpotlightRect | null>(null);
   const cardRef = useRef<HTMLElement | null>(null);
-  const [cardHeight, setCardHeight] = useState(250);
+  const [cardHeight, setCardHeight] = useState(240);
 
   const handleRectChange = useCallback((rect: SpotlightRect | null) => {
     setSpotlightRect(rect);
@@ -179,7 +197,7 @@ export function KairosGuideBot() {
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
         if (entry.contentRect.height > 0) {
-          setCardHeight(entry.contentRect.height + 32);
+          setCardHeight(entry.contentRect.height + 34);
         }
       }
     });

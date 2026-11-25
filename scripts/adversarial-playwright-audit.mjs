@@ -216,16 +216,34 @@ async function runAudit() {
       const dashCharts = await page.locator('.recharts-wrapper > svg.recharts-surface').count();
       assert(dashCharts >= 1, 'Expected RevenueChart on /dashboard');
 
-      // Test Guide Bot after scroll
+      // Test Guide Bot after scroll + verify exact geometric alignment (compensating html zoom: 0.85)
       await page.evaluate(() => window.scrollBy(0, 320));
-      await page.waitForTimeout(200);
+      await page.waitForTimeout(250);
       const guideLauncher = page.getByRole('button', { name: /Guía Interactiva|Bot Guía Demo/i }).first();
       await guideLauncher.click();
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(550);
       const guideDialog = page.getByRole('dialog');
       assert((await guideDialog.count()) > 0, 'Guide Bot dialog did not open');
       const box = await guideDialog.first().boundingBox();
       assert(box && box.y >= 0 && box.y + box.height <= 905, 'Guide Bot dialog clipped outside viewport');
+
+      const alignment = await page.evaluate(() => {
+        const el = document.querySelector('[data-tour-id="kpi-ebitda"]');
+        const ov = document.querySelector('div.fixed.border-2');
+        if (!el || !ov) return null;
+        const er = el.getBoundingClientRect();
+        const or = ov.getBoundingClientRect();
+        return {
+          dx: Math.abs(or.left - (er.left - 8 * 0.85)),
+          dy: Math.abs(or.top - (er.top - 8 * 0.85)),
+          dw: Math.abs(or.width - (er.width + 16 * 0.85)),
+          dh: Math.abs(or.height - (er.height + 16 * 0.85)),
+        };
+      });
+      assert(
+        alignment && alignment.dx <= 6 && alignment.dy <= 6 && alignment.dw <= 6 && alignment.dh <= 6,
+        `Spotlight misaligned with target element: ${JSON.stringify(alignment)}`
+      );
 
       await page.screenshot({
         path: path.join(SCREENSHOT_DIR, 'pw-demo-dashboard-construccion.png'),

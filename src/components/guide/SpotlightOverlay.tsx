@@ -3,11 +3,22 @@
 import React, { useEffect, useId, useState } from 'react';
 
 export interface SpotlightRect {
+  /** Viewport-space CSS coordinates (compensated for root html zoom) */
   top: number;
   left: number;
   width: number;
   height: number;
+  /** Viewport dimensions in the same CSS coordinate space */
+  vw: number;
+  vh: number;
   isInViewport: boolean;
+}
+
+export function getRootZoom(): number {
+  if (typeof window === 'undefined') return 1;
+  const raw = window.getComputedStyle(document.documentElement).zoom;
+  const parsed = parseFloat(raw || '1');
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 }
 
 interface SpotlightOverlayProps {
@@ -21,7 +32,7 @@ interface SpotlightOverlayProps {
 export function SpotlightOverlay({
   targetSelector,
   isActive,
-  padding = 10,
+  padding = 8,
   borderRadius = 14,
   onRectChange,
 }: SpotlightOverlayProps) {
@@ -46,20 +57,23 @@ export function SpotlightOverlay({
         return;
       }
 
+      const z = getRootZoom();
       const domRect = el.getBoundingClientRect();
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
+      const rawVw = window.innerWidth;
+      const rawVh = window.innerHeight;
       const isInViewport =
         domRect.bottom > 0 &&
-        domRect.top < vh &&
+        domRect.top < rawVh &&
         domRect.right > 0 &&
-        domRect.left < vw;
+        domRect.left < rawVw;
 
       const nextRect: SpotlightRect = {
-        top: domRect.top - padding,
-        left: domRect.left - padding,
-        width: domRect.width + padding * 2,
-        height: domRect.height + padding * 2,
+        top: domRect.top / z - padding,
+        left: domRect.left / z - padding,
+        width: domRect.width / z + padding * 2,
+        height: domRect.height / z + padding * 2,
+        vw: rawVw / z,
+        vh: rawVh / z,
         isInViewport,
       };
 
@@ -74,8 +88,8 @@ export function SpotlightOverlay({
 
     updateRect();
     const t1 = window.setTimeout(updateRect, 120);
-    const t2 = window.setTimeout(updateRect, 400);
-    const t3 = window.setTimeout(updateRect, 750);
+    const t2 = window.setTimeout(updateRect, 380);
+    const t3 = window.setTimeout(updateRect, 720);
 
     const targetEl = document.querySelector<HTMLElement>(targetSelector);
     if (targetEl && typeof ResizeObserver !== 'undefined') {
