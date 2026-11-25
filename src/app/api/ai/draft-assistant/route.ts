@@ -14,9 +14,12 @@ export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   try {
-    const ctx = await getAuthenticatedContext(req);
-    if (!ctx || !ctx.profile?.organization_id) {
+    const ctx = await getAuthenticatedContext(req, { allowLocalDemo: true });
+    if (!ctx || !ctx.profile?.organization_id || !ctx.organization) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+    if (ctx.profile.status !== 'active' || ctx.organization.is_active === false) {
+      return NextResponse.json({ error: 'Cuenta o empresa inactiva.' }, { status: 403 });
     }
 
     const guard = await guardAiEndpoint(ctx, extractClientIp(req.headers));
@@ -33,7 +36,7 @@ export async function POST(req: NextRequest) {
 
     if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json(
-        { error: 'Falta configurar GEMINI_API_KEY en el servidor.' },
+        { error: 'El motor de IA no está disponible temporalmente. Contacta a soporte.' },
         { status: 500 }
       );
     }

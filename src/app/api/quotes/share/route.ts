@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
     const projectMargin = totalCostoNeto > 0 ? (totalGanancia / totalCostoNeto) * 100 : 100;
     const minMarginFloor = org.min_margin_pct ?? 15;
     const isAdminUser =
-      ctx.profile.role === 'admin' || Boolean(ctx.profile.is_super_admin) || isDuoProducciones(org);
+      ctx.profile.role === 'admin' || Boolean(ctx.profile.is_super_admin);
 
     if (
       !isAdminUser &&
@@ -133,10 +133,11 @@ export async function POST(req: NextRequest) {
         errMsg.includes('quote_token') ||
         errMsg.includes('quote_status')
       ) {
+        console.error('Missing migration 20261126_competitive_erp_features.sql:', updateErr.message);
         return NextResponse.json(
           {
             error:
-              'Falta ejecutar la migración SQL 20261126_competitive_erp_features.sql en Supabase para habilitar links públicos.',
+              'El portal público de cotizaciones aún no está habilitado en la base de datos. Contacta a soporte.',
             migrationRequired: true,
           },
           { status: 503 }
@@ -154,7 +155,7 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error('Error POST /api/quotes/share:', err);
     return NextResponse.json(
-      { error: err?.message || 'No se pudo generar el enlace de cotización.' },
+      { error: 'No se pudo generar el enlace de cotización.' },
       { status: 500 }
     );
   }

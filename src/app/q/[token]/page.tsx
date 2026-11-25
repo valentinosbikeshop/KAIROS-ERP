@@ -9,7 +9,6 @@ import {
   Check,
   CheckCircle2,
   Copy,
-  CreditCard,
   FileCheck2,
   Landmark,
   Loader2,
@@ -101,7 +100,6 @@ export default function PublicQuotePortalPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<PublicQuoteData | null>(null);
-  const [paymentBanner, setPaymentBanner] = useState<'success' | 'cancelled' | null>(null);
 
   // Acceptance form state
   const [signerName, setSignerName] = useState('');
@@ -111,18 +109,6 @@ export default function PublicQuotePortalPage() {
   const [submittingDecision, setSubmittingDecision] = useState<'accepted' | 'rejected' | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [copiedBank, setCopiedBank] = useState(false);
-  const [payingKhipu, setPayingKhipu] = useState(false);
-  const [paymentFeedback, setPaymentFeedback] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const sp = new URLSearchParams(window.location.search);
-      const p = sp.get('payment');
-      if (p === 'success' || p === 'cancelled') {
-        setPaymentBanner(p);
-      }
-    }
-  }, []);
 
   useEffect(() => {
     if (!token) return;
@@ -387,32 +373,6 @@ export default function PublicQuotePortalPage() {
     setTimeout(() => setCopiedBank(false), 2400);
   };
 
-  const handleKhipuDeposit = async () => {
-    if (!data || data.isDemoLocal) return;
-    setPayingKhipu(true);
-    setPaymentFeedback(null);
-    try {
-      const res = await fetch(`/api/quotes/public/${encodeURIComponent(token)}/pay-deposit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          depositPercent: 50,
-          payerEmail: signerEmail.trim() || undefined,
-        }),
-      });
-      const json = await res.json();
-      if (json.paymentUrl) {
-        window.location.href = json.paymentUrl;
-        return;
-      }
-      setPaymentFeedback(json.message || json.error || 'Realiza el abono vía transferencia bancaria.');
-    } catch {
-      setPaymentFeedback('No se pudo conectar con la pasarela de pago.');
-    } finally {
-      setPayingKhipu(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-3 p-6">
@@ -457,20 +417,6 @@ export default function PublicQuotePortalPage() {
             <Badge variant="outline" className="border-amber-400 text-amber-900 shrink-0">
               DEMO PORTAL
             </Badge>
-          </div>
-        )}
-
-        {paymentBanner === 'success' && (
-          <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 flex items-center gap-2.5">
-            <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-            <span>Pago iniciado / procesado en Khipu. Nuestro equipo confirmará el abono en tu proyecto.</span>
-          </div>
-        )}
-
-        {paymentBanner === 'cancelled' && (
-          <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex items-center gap-2.5">
-            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
-            <span>El pago en línea fue cancelado. Puedes reintentar o transferir usando los datos bancarios abajo.</span>
           </div>
         )}
 
@@ -867,26 +813,6 @@ export default function PublicQuotePortalPage() {
                     )}
                   </Button>
                 </div>
-              )}
-
-              {data.khipuAvailable && !data.isDemoLocal && (
-                <Button
-                  type="button"
-                  onClick={handleKhipuDeposit}
-                  disabled={payingKhipu || totals.suggestedDepositClp < 500}
-                  className="w-full gap-2"
-                >
-                  {payingKhipu ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <CreditCard className="h-4 w-4" />
-                  )}
-                  Pagar Abono 50% en Línea con Khipu
-                </Button>
-              )}
-
-              {paymentFeedback && (
-                <p className="text-xs text-muted-foreground text-center">{paymentFeedback}</p>
               )}
             </CardContent>
           </Card>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { isKhipuConfigured } from '@/lib/khipu';
+import { checkSlidingWindowLimit, extractClientIp } from '@/lib/ai-optimizer';
 import type { Event, EventItem, Organization } from '@/types/database';
 
 export const runtime = 'nodejs';
@@ -18,6 +18,15 @@ export async function GET(
 
     if (token.startsWith('demo-')) {
       return NextResponse.json({ isDemoToken: true }, { status: 200 });
+    }
+
+    const clientIp = extractClientIp(_req.headers);
+    const allowed = checkSlidingWindowLimit(`quote_pub:${clientIp}:${token}`, 25, 60_000);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Demasiadas consultas en pocos segundos. Intenta nuevamente.' },
+        { status: 429 }
+      );
     }
 
     const admin = createAdminClient();
@@ -141,7 +150,7 @@ export async function GET(
         valorTotal: totalVenta,
         suggestedDepositClp: Math.round(totalVenta * 0.5),
       },
-      khipuAvailable: isKhipuConfigured(),
+      khipuAvailable: false,
     });
   } catch (err: any) {
     console.error('Error GET /api/quotes/public/[token]:', err);

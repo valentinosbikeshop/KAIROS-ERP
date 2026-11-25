@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
       .order('created_at', { ascending: false });
 
     if (!flags.isSuperAdmin && flags.orgId) {
-      query = query.eq('organization_id', flags.orgId);
+      query = query.eq('organization_id', flags.orgId).eq('is_super_admin', false);
     }
 
     const { data, error } = await query;
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ users: data || [] });
   } catch (err: any) {
     console.error('Error GET /api/admin/users:', err);
-    return NextResponse.json({ error: err.message || 'Error al obtener usuarios' }, { status: 500 });
+    return NextResponse.json({ error: 'Error al obtener usuarios.' }, { status: 500 });
   }
 }
 
@@ -152,7 +152,8 @@ export async function PATCH(req: NextRequest) {
               .from('profiles')
               .select('id', { count: 'exact', head: true })
               .eq('organization_id', finalOrgId)
-              .eq('status', 'active');
+              .eq('status', 'active')
+              .eq('is_super_admin', false);
 
             if ((activeCount || 0) >= entitlements.maxUsers) {
               return NextResponse.json(
@@ -180,7 +181,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ user: updated });
   } catch (err: any) {
     console.error('Error PATCH /api/admin/users:', err);
-    return NextResponse.json({ error: err.message || 'Error al actualizar usuario' }, { status: 500 });
+    return NextResponse.json({ error: 'Error al actualizar usuario.' }, { status: 500 });
   }
 }
 

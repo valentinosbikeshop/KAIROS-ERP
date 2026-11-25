@@ -606,7 +606,7 @@ export default function EventDetailPage() {
                   {copiedLink ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
                   {copiedLink ? 'Copiado' : 'Copiar URL'}
                 </Button>
-                <Link href={sharedUrl} target="_blank" data-testid="open-quote-portal-link">
+                <Link href={sharedUrl} target="_blank" rel="noopener noreferrer" data-testid="open-quote-portal-link">
                   <Button type="button" size="sm" className="h-7 text-xs gap-1">
                     Abrir Portal
                     <ExternalLink className="h-3 w-3" />

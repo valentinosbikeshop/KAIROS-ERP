@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createAdminClient, getAuthenticatedContext } from '@/lib/supabase/admin';
@@ -20,6 +21,20 @@ const BankInfoSchema = z.object({
   email: z.string().trim().max(150).optional(),
 });
 
+const SafeLogoUrlSchema = z
+  .string()
+  .trim()
+  .max(500000)
+  .refine(
+    (val) =>
+      val === '' ||
+      /^data:image\/(png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=]+$/i.test(val) ||
+      /^https:\/\/[a-z0-9.-]+\.supabase\.co\/storage\/v1\/object\/public\//i.test(val),
+    'El logo debe ser PNG, JPEG o WEBP válido (no se permite SVG ni esquemas externos).'
+  )
+  .optional()
+  .nullable();
+
 const CreateCompanySchema = z.object({
   name: z.string().trim().min(2, 'El nombre de la empresa es obligatorio').max(100),
   legal_name: z.string().trim().max(150).optional().nullable(),
@@ -28,7 +43,7 @@ const CreateCompanySchema = z.object({
   location: z.string().trim().max(120).optional().nullable(),
   contact_email: z.string().trim().email('Email de contacto inválido').optional().or(z.literal('')).nullable(),
   contact_phone: z.string().trim().max(40).optional().nullable(),
-  logo_url: z.string().trim().max(500000).optional().nullable(),
+  logo_url: SafeLogoUrlSchema,
   bank_info: BankInfoSchema.optional(),
   invite_code: z.string().trim().min(4).max(32).optional(),
   seedStarterCatalog: z.boolean().optional().default(true),
@@ -46,7 +61,7 @@ const UpdateCompanySchema = z.object({
   location: z.string().trim().max(120).optional().nullable(),
   contact_email: z.string().trim().optional().nullable(),
   contact_phone: z.string().trim().optional().nullable(),
-  logo_url: z.string().trim().max(500000).optional().nullable(),
+  logo_url: SafeLogoUrlSchema,
   bank_info: BankInfoSchema.optional(),
   invite_code: z.string().trim().min(4).max(32).optional(),
   min_margin_pct: z.coerce.number().min(0).max(95).optional(),
@@ -76,7 +91,7 @@ function generateInviteCode(name: string) {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^A-Z0-9]/g, '')
     .slice(0, 6) || 'EMP';
-  const suffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+  const suffix = crypto.randomBytes(3).toString('hex').toUpperCase();
   return `${prefix}-${suffix}`;
 }
 
@@ -425,6 +440,6 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ company: hydrateOrganizationSaas(updatedCompany) });
   } catch (err: any) {
     console.error('Error PATCH /api/admin/companies:', err);
-    return NextResponse.json({ error: err.message || 'Error al actualizar empresa' }, { status: 500 });
+    return NextResponse.json({ error: 'Error al actualizar la empresa.' }, { status: 500 });
   }
 }

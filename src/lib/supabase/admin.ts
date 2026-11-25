@@ -36,7 +36,10 @@ export interface AuthenticatedContext {
  * Extracts and validates the authenticated user, their profile, and their organization
  * from an incoming NextRequest without trusting any client-supplied tenant IDs.
  */
-export async function getAuthenticatedContext(req: NextRequest): Promise<AuthenticatedContext | null> {
+export async function getAuthenticatedContext(
+  req: NextRequest,
+  options: { allowLocalDemo?: boolean } = {}
+): Promise<AuthenticatedContext | null> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
@@ -58,8 +61,10 @@ export async function getAuthenticatedContext(req: NextRequest): Promise<Authent
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      // Soporte para Modo Demo en Caché Local (permite que los asistentes IA funcionen sin guardar nada en Supabase)
-      const isLocalDemo = req.cookies.get('kairos_local_demo_mode')?.value === '1';
+      // Soporte para Modo Demo en Caché Local (opt-in exclusivo en endpoints de IA/OCR con mínimo privilegio)
+      const isLocalDemo =
+        Boolean(options.allowLocalDemo) &&
+        req.cookies.get('kairos_local_demo_mode')?.value === '1';
       if (isLocalDemo) {
         const demoOrgId = 'd0000000-0000-4000-8000-000000000000';
         const demoUserId = 'd0000000-0000-4000-8000-000000000099';
@@ -69,7 +74,7 @@ export async function getAuthenticatedContext(req: NextRequest): Promise<Authent
           profile: {
             id: demoUserId,
             email: 'visitante@kairos-sandbox.cl',
-            role: 'admin',
+            role: 'member',
             status: 'active',
             organization_id: demoOrgId,
             is_super_admin: false,

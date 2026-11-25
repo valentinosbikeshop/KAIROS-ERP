@@ -8,8 +8,16 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
     const ctx = await getAuthenticatedContext(req);
-    if (!ctx || !ctx.profile?.organization_id) {
+    if (!ctx || !ctx.profile?.organization_id || !ctx.organization) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    if (ctx.profile.status !== 'active' || ctx.organization.is_active === false) {
+      return NextResponse.json({ error: 'Cuenta o empresa inactiva.' }, { status: 403 });
+    }
+
+    if (ctx.profile.role !== 'admin' && !ctx.profile.is_super_admin) {
+      return NextResponse.json({ error: 'Acceso restringido a administradores.' }, { status: 403 });
     }
 
     const admin = createAdminClient();

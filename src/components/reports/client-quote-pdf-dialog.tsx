@@ -5,6 +5,7 @@ import { jsPDF } from 'jspdf';
 import { EventItem, Event } from '@/types';
 import { useUser } from '@/hooks/use-user';
 import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
+import { isFounderOrg } from '@/lib/entitlements';
 import { formatCLP, formatCurrencyAmount, formatDateCL } from '@/lib/utils';
 import { tryAddOrgLogoToPdf } from '@/lib/pdf-logo';
 import { Button } from '@/components/ui/button';
@@ -73,6 +74,7 @@ const DEFAULT_VIDEO_PRESETS: VideoPreset[] = [
 export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuotePdfDialogProps) {
   const { organization, isAdmin, isSuperAdmin } = useUser();
   const { isDuoExempt, industry } = useWorkspaceConfig();
+  const isFounder = isFounderOrg(organization);
   const orgName = organization?.name || 'KAIROS ERP';
   const orgLegalName = organization?.legal_name || orgName;
   const orgSubtitle =
@@ -85,14 +87,14 @@ export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuot
   const [isOpen, setIsOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
 
-  const isEventosMusic = isDuoExempt || industry.id === 'eventos_banqueteria';
+  const isEventosMusic = isFounder || industry.id === 'eventos_banqueteria';
 
   // Form states
   const [clientName, setClientName] = useState(event.client_company || event.name || '');
   const [clientRut, setClientRut] = useState('');
   const [clientEmail, setClientEmail] = useState('');
   const [eventLocation, setEventLocation] = useState(
-    event.location || (isDuoExempt ? 'Rancagua / Machalí' : orgLocation)
+    event.location || (isFounder ? 'Rancagua / Machalí' : orgLocation)
   );
   const [eventDate, setEventDate] = useState(event.event_date ? formatDateCL(event.event_date) : '');
   const [eventDuration, setEventDuration] = useState(
@@ -130,7 +132,6 @@ export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuot
     totalCostoNetoMargen > 0 ? (totalGananciaMargen / totalCostoNetoMargen) * 100 : 100;
   const minMarginFloor = organization?.min_margin_pct ?? 15;
   const isMarginBlocked =
-    !isDuoExempt &&
     !isAdmin &&
     !isSuperAdmin &&
     topLevelApproved.length > 0 &&
@@ -329,7 +330,7 @@ export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuot
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(70, 85, 105);
-      const technicalBullets = isDuoExempt
+      const technicalBullets = isFounder
         ? [
             "• Personal y Músicos: Intérpretes profesionales egresados de conservatorio y staff técnico capacitado.",
             "• Equipamiento de Sonido: Amplificación profesional propia e inalámbrica según la acústica del recinto.",
@@ -500,7 +501,7 @@ export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuot
 
       // 8. SECCIÓN OPCIONAL DE VIDEOS DEMOSTRATIVOS
       if (includeVideos) {
-        const activePresets = isDuoExempt
+        const activePresets = isFounder
           ? DEFAULT_VIDEO_PRESETS.filter(vp => selectedVideoIds.includes(vp.id))
           : [];
         const allVideosToInclude = [
@@ -546,7 +547,7 @@ export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuot
 
       // Guardar PDF
       const sanitizedName = (clientName || 'Cliente').replace(/[^a-zA-Z0-9_-]/g, '_');
-      const orgPrefix = (orgName || 'DUO').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 16);
+      const orgPrefix = (orgName || 'KAIROS').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 16);
       doc.save(`Cotizacion_${orgPrefix}_${sanitizedName}_${new Date().toISOString().slice(0, 10)}.pdf`);
       setIsOpen(false);
     } catch (err: any) {
@@ -773,7 +774,7 @@ export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuot
 
             {includeVideos && (
               <div className="pt-2 space-y-3 animate-in fade-in-50">
-                {isDuoExempt && (
+                {isFounder && (
                   <div className="space-y-1.5">
                     <span className="text-[11px] font-medium text-foreground">Muestras del catálogo institucional:</span>
                     {DEFAULT_VIDEO_PRESETS.map((preset) => (

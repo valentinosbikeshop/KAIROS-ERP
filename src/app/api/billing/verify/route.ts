@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getAuthenticatedContext } from '@/lib/supabase/admin';
 import { getKhipuPaymentStatus, isKhipuConfigured } from '@/lib/khipu';
 import { claimAndActivateBillingPayment, findBillingPayment } from '@/lib/saas-storage';
@@ -6,17 +7,36 @@ import { claimAndActivateBillingPayment, findBillingPayment } from '@/lib/saas-s
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const VerifyBillingSchema = z.object({
+  transactionId: z.string().trim().min(1).max(128).optional(),
+  paymentId: z.string().trim().min(1).max(128).optional(),
+});
+
 export async function POST(req: NextRequest) {
   try {
     const ctx = await getAuthenticatedContext(req);
-    if (!ctx || !ctx.profile?.organization_id) {
+    if (!ctx || !ctx.profile?.organization_id || !ctx.organization) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const { transactionId, paymentId } = await req.json();
-    if (!transactionId && !paymentId) {
-      return NextResponse.json({ error: 'Falta transactionId o paymentId' }, { status: 400 });
+    if (ctx.profile.status !== 'active' || ctx.organization.is_active === false) {
+      return NextResponse.json({ error: 'Cuenta o empresa inactiva.' }, { status: 403 });
     }
+
+    if (ctx.profile.role !== 'admin' && !ctx.profile.is_super_admin) {
+      return NextResponse.json(
+        { error: 'Solo el administrador de la empresa puede verificar pagos.' },
+        { status: 403 }
+      );
+    }
+
+    const rawBody = await req.json();
+    const parsed = VerifyBillingSchema.safeParse(rawBody);
+    if (!parsed.success || (!parsed.data.transactionId && !parsed.data.paymentId)) {
+      return NextResponse.json({ error: 'Parámetros de verificación inválidos.' }, { status: 400 });
+    }
+
+    const { transactionId, paymentId } = parsed.data;
 
     const paymentRow = await findBillingPayment({
       paymentId,
@@ -69,6 +89,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: any) {
     console.error('Error POST /api/billing/verify:', err);
-    return NextResponse.json({ error: err.message || 'Error verificando pago.' }, { status: 500 });
+    return NextResponse.json({ error: 'Error verificando el estado del pago.' }, { status: 500 });
   }
 }

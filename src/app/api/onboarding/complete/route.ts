@@ -52,6 +52,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
+    if (ctx.profile.status !== 'active' || ctx.organization.is_active === false) {
+      return NextResponse.json({ error: 'Cuenta o empresa inactiva.' }, { status: 403 });
+    }
+
+    if (ctx.organization.is_demo) {
+      return NextResponse.json({ error: 'No disponible en entorno demo.' }, { status: 403 });
+    }
+
+    if (ctx.profile.role !== 'admin' && !ctx.profile.is_super_admin) {
+      return NextResponse.json(
+        { error: 'Solo el administrador de la empresa puede completar esta configuración.' },
+        { status: 403 }
+      );
+    }
+
     if (isDuoProducciones(ctx.organization)) {
       return NextResponse.json({
         exempt: true,

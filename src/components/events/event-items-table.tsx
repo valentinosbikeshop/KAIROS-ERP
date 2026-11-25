@@ -968,11 +968,11 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
         <TableCell className={`p-2 text-center text-xs font-semibold ${isChild ? 'text-muted-foreground/60' : 'text-muted-foreground'}`}>{formatPercentage(item.margen)}</TableCell>
         <TableCell className="p-2 text-center">
           {item.tipo_doc_costo === 'factura' && (
-            item.factura_url ? (
+            item.factura_url && /^https:\/\//i.test(item.factura_url.trim()) ? (
               <a 
-                href={item.factura_url} 
+                href={item.factura_url.trim()} 
                 target="_blank" 
-                rel="noreferrer" 
+                rel="noopener noreferrer" 
                 className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-muted text-blue-600 border border-blue-100 bg-blue-50"
                 title={isChild ? "Ver Factura de la compra vinculada" : "Ver Factura"}
               >

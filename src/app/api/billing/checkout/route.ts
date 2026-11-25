@@ -40,6 +40,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
+    if (ctx.profile.status !== 'active' || ctx.organization.is_active === false) {
+      return NextResponse.json({ error: 'Cuenta o empresa inactiva.' }, { status: 403 });
+    }
+
     if (ctx.profile.role !== 'admin' && !ctx.profile.is_super_admin) {
       return NextResponse.json(
         { error: 'Solo el administrador de la empresa puede gestionar la suscripción.' },
@@ -110,7 +114,8 @@ export async function POST(req: NextRequest) {
         : plans.find((p) => p.id === tier)?.name || tier;
 
     const transactionId = `KAIROS-${ctx.organization.id.slice(0, 8).toUpperCase()}-${Date.now()}`;
-    const origin = req.nextUrl.origin;
+    const origin =
+      process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || req.nextUrl.origin;
     const returnUrl = `${origin}/billing?payment=success&tx=${encodeURIComponent(transactionId)}`;
     const cancelUrl = `${origin}/billing?payment=canceled&tx=${encodeURIComponent(transactionId)}`;
     const notifyUrl = `${origin}/api/webhooks/khipu`;
@@ -161,8 +166,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           khipuConfigured: false,
-          error:
-            'La pasarela Khipu aún no tiene configurada la variable KHIPU_API_KEY en el servidor. Configura KHIPU_API_KEY y KHIPU_WEBHOOK_SECRET en Vercel para habilitar cobros reales.',
+          error: isSuperAdmin
+            ? 'La pasarela Khipu aún no tiene configurada la variable KHIPU_API_KEY en el servidor. Configura KHIPU_API_KEY y KHIPU_WEBHOOK_SECRET en Vercel.'
+            : 'Los pagos en línea están temporalmente en mantenimiento. Contacta a soporte para activar tu plan.',
           amountClp,
           planName,
         },
@@ -208,7 +214,7 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error('Error POST /api/billing/checkout:', err);
     return NextResponse.json(
-      { error: err.message || 'No se pudo iniciar el checkout con Khipu.' },
+      { error: 'No se pudo iniciar el proceso de pago en línea.' },
       { status: 500 }
     );
   }

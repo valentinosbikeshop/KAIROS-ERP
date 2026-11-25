@@ -110,7 +110,7 @@ interface RateBucket {
 const RATE_LIMIT_BUCKETS = new Map<string, RateBucket>();
 const DEMO_LOCAL_ORG_ID = 'd0000000-0000-4000-8000-000000000000';
 
-function checkSlidingWindowLimit(key: string, maxRequests: number, windowMs: number): boolean {
+export function checkSlidingWindowLimit(key: string, maxRequests: number, windowMs: number): boolean {
   const now = Date.now();
   const bucket = RATE_LIMIT_BUCKETS.get(key) || { timestamps: [] };
   const active = bucket.timestamps.filter((ts) => now - ts < windowMs);
@@ -130,8 +130,12 @@ function checkSlidingWindowLimit(key: string, maxRequests: number, windowMs: num
 }
 
 export function extractClientIp(headers: Headers): string {
-  const fwd = headers.get('x-forwarded-for') || headers.get('x-real-ip') || 'local';
-  return fwd.split(',')[0].trim().slice(0, 64) || 'local';
+  const ip =
+    headers.get('x-real-ip') ||
+    headers.get('x-vercel-forwarded-for')?.split(',').pop()?.trim() ||
+    headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    'local';
+  return ip.slice(0, 64) || 'local';
 }
 
 export function buildAiCacheKey(orgId: string, route: string, payload: unknown): string {

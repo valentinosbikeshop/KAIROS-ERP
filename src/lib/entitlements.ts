@@ -263,6 +263,11 @@ export function buildModulesRecord(enabled: ModuleKey[]): Record<ModuleKey, bool
   };
 }
 
+export function isFounderOrg(org?: Pick<Organization, 'slug'> | Partial<Organization> | null): boolean {
+  if (!org) return false;
+  return org.slug === DUO_ORG_SLUG;
+}
+
 export function isDuoProducciones(org?: Partial<Organization> | null): boolean {
   if (!org) return false;
   return org.slug === DUO_ORG_SLUG || Boolean(org.is_exempt) || Boolean(org.bank_info?.__saas_config?.is_exempt);

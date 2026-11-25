@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { checkSlidingWindowLimit, extractClientIp } from '@/lib/ai-optimizer';
 import { formatRutCL, validateRutCL } from '@/lib/utils';
 import type { Event } from '@/types/database';
 
@@ -23,6 +24,14 @@ export async function POST(
     const { token } = await context.params;
     if (!token || token.length < 6 || token.length > 100) {
       return NextResponse.json({ error: 'Token inválido.' }, { status: 400 });
+    }
+
+    const clientIp = extractClientIp(req.headers);
+    if (!checkSlidingWindowLimit(`quote_accept:${clientIp}:${token}`, 5, 10 * 60_000)) {
+      return NextResponse.json(
+        { error: 'Demasiados intentos en pocos minutos. Espera un momento e inténtalo nuevamente.' },
+        { status: 429 }
+      );
     }
 
     const rawBody = await req.json();

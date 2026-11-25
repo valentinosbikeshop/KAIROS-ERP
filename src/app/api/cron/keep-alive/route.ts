@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -8,10 +9,18 @@ export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
   try {
-    // Si Vercel envía CRON_SECRET, validarlo de forma opcional
-    const authHeader = req.headers.get('authorization');
-    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    const expected = process.env.CRON_SECRET?.trim();
+    if (process.env.NODE_ENV === 'production' && !expected) {
+      return NextResponse.json({ error: 'CRON_SECRET no configurado' }, { status: 500 });
+    }
+    if (expected) {
+      const authHeader = req.headers.get('authorization') || '';
+      const expectedHeader = `Bearer ${expected}`;
+      const a = Buffer.from(authHeader);
+      const b = Buffer.from(expectedHeader);
+      if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+      }
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -34,7 +43,7 @@ export async function GET(req: Request) {
 
     if (error) {
       console.error('Error en keep-alive Supabase ping:', error);
-      return NextResponse.json({ status: 'error', message: error.message }, { status: 500 });
+      return NextResponse.json({ status: 'error', message: 'Error de conexión con base de datos.' }, { status: 500 });
     }
 
     // Limpieza automática de datos de prueba antiguos (>24h) si service role está disponible
@@ -79,6 +88,6 @@ export async function GET(req: Request) {
     });
   } catch (err: any) {
     console.error('Excepción en keep-alive:', err);
-    return NextResponse.json({ status: 'error', message: err.message }, { status: 500 });
+    return NextResponse.json({ status: 'error', message: 'Error interno en tarea programada.' }, { status: 500 });
   }
 }

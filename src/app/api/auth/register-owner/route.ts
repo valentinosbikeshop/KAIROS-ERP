@@ -1,6 +1,8 @@
+import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { checkSlidingWindowLimit, extractClientIp } from '@/lib/ai-optimizer';
 import { updateOrganizationSaasConfig } from '@/lib/saas-storage';
 
 export const runtime = 'nodejs';
@@ -9,7 +11,7 @@ export const dynamic = 'force-dynamic';
 const RegisterOwnerSchema = z.object({
   companyName: z.string().trim().min(2, 'El nombre de tu empresa es obligatorio').max(100),
   email: z.string().trim().email('Correo electrónico inválido'),
-  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
+  password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres').max(128),
   fullName: z.string().trim().max(100).optional(),
 });
 
@@ -33,12 +35,21 @@ function generateInviteCode(name: string) {
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^A-Z0-9]/g, '')
       .slice(0, 6) || 'EMP';
-  const suffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+  const suffix = crypto.randomBytes(3).toString('hex').toUpperCase();
   return `${prefix}-${suffix}`;
 }
 
 export async function POST(req: NextRequest) {
   try {
+    const clientIp = extractClientIp(req.headers);
+    const allowed = checkSlidingWindowLimit(`register_owner:${clientIp}`, 5, 60 * 60_000);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Demasiados intentos de registro desde esta red. Intenta más tarde.' },
+        { status: 429 }
+      );
+    }
+
     const rawBody = await req.json();
     const parsed = RegisterOwnerSchema.safeParse(rawBody);
     if (!parsed.success) {
@@ -121,7 +132,7 @@ export async function POST(req: NextRequest) {
     if (authError || !authData.user) {
       await admin.from('organizations').delete().eq('id', newOrg.id);
       return NextResponse.json(
-        { error: authError?.message || 'No se pudo crear la cuenta de usuario.' },
+        { error: 'No se pudo crear la cuenta de usuario. Verifica tus datos.' },
         { status: 400 }
       );
     }
@@ -154,7 +165,7 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error('Error POST /api/auth/register-owner:', err);
     return NextResponse.json(
-      { error: err.message || 'Error interno al crear tu empresa.' },
+      { error: 'Error interno al crear tu empresa.' },
       { status: 500 }
     );
   }
