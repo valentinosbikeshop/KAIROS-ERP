@@ -1189,8 +1189,8 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
                   />
                 )}
               </TableHead>
-              <TableHead className="min-w-[200px] text-xs font-bold uppercase tracking-wider">Servicio</TableHead>
-              <TableHead className="min-w-[150px] text-xs font-bold uppercase tracking-wider">Detalle</TableHead>
+              <TableHead className="min-w-[260px] text-xs font-bold uppercase tracking-wider">Servicio</TableHead>
+              <TableHead className="min-w-[190px] text-xs font-bold uppercase tracking-wider">Detalle</TableHead>
               <TableHead className="w-[85px] text-xs font-bold uppercase tracking-wider text-center">Tipo</TableHead>
               <TableHead className="w-[90px] text-xs font-bold uppercase tracking-wider text-center border-r">Cant.</TableHead>
               

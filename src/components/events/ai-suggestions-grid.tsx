@@ -343,14 +343,22 @@ export function AiSuggestionsGrid({
 
   const handleBlur = (id: string, e?: React.FocusEvent<HTMLInputElement>) => {
     if (e && e.target.type === 'number') {
-      e.target.value = Number(e.target.value).toString();
+      e.target.value = e.target.value === '' ? '' : Number(e.target.value).toString();
     }
     if (id === 'manual') {
-      setManualItem(prev => ({ ...prev }));
+      if (!manualItem.cantidad || manualItem.cantidad < 1) {
+        setManualItem(prev => ({ ...prev, cantidad: 1 }));
+      } else {
+        setManualItem(prev => ({ ...prev }));
+      }
       return;
     }
     const item = editableSuggestions.find(s => s.id === id);
     if (item) {
+      if (!item.cantidad || item.cantidad < 1) {
+        handleInputChange(id, 'cantidad', 1, true);
+        return;
+      }
       if (focusedItemState && JSON.stringify(focusedItemState) !== JSON.stringify(item)) {
         pushUndoAction({ type: 'UPDATE', oldItem: focusedItemState, newItem: { ...item } });
       }
@@ -1793,13 +1801,32 @@ export function AiSuggestionsGrid({
   const cashInmediato = totalVentaCliente - costoTotalGlobal;
 
   const ivaDebitoTotal = totalesFacturables.iva;
-  const ivaCreditoTotal = facturables.reduce((acc, item) => {
-    const fin = calculateFinancials(item.costo, item.ganancia, item.tipo_doc_costo || 'factura', item.iva_incluido ?? true);
-    return acc + (fin.ivaCredito * item.cantidad);
-  }, 0) + insumos.reduce((acc, item) => {
-    const fin = calculateFinancials(item.costo, 0, item.tipo_doc_costo || 'factura', item.iva_incluido ?? true, true);
-    return acc + (fin.ivaCredito * item.cantidad);
-  }, 0);
+  const computeItemIvaCredito = (item: EventItem): number => {
+    const children = editableSuggestions.filter(c => c.parent_id === item.id);
+    if (children.length > 0) {
+      return children.reduce((sum, child) => {
+        const cFin = calculateFinancials(
+          child.costo,
+          0,
+          (child.tipo_doc_costo || 'factura') as 'factura' | 'boleta',
+          child.iva_incluido ?? true,
+          true
+        );
+        return sum + (cFin.ivaCredito * (child.cantidad || 1));
+      }, 0);
+    }
+    const fin = calculateFinancials(
+      item.costo,
+      item.ganancia,
+      (item.tipo_doc_costo || 'factura') as 'factura' | 'boleta',
+      item.iva_incluido ?? true,
+      item.es_insumo ?? false
+    );
+    return fin.ivaCredito * (item.cantidad || 1);
+  };
+  const ivaCreditoTotal =
+    facturables.reduce((acc, item) => acc + computeItemIvaCredito(item), 0) +
+    insumos.reduce((acc, item) => acc + computeItemIvaCredito(item), 0);
 
   const provisionIvaSII = Math.max(0, ivaDebitoTotal - ivaCreditoTotal);
   const remanenteIvaFavor = Math.max(0, ivaCreditoTotal - ivaDebitoTotal);
@@ -1895,39 +1922,17 @@ export function AiSuggestionsGrid({
           <TableCell className="w-[10px]"></TableCell>
         )}
         
-        <TableCell className="p-2">
+        <TableCell className="p-2 min-w-[280px]">
           <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 mr-2 border-r pr-2 border-border/60">
-            <Button
-              size="icon"
-              variant="outline"
-              className="h-8 w-8 text-muted-foreground shadow-xs"
-              disabled={undoStack.length === 0}
-              onClick={handleUndo}
-              title="Deshacer (Ctrl+Z)"
-            >
-              <Undo2 className="h-4 w-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant="outline"
-              className="h-8 w-8 text-muted-foreground shadow-xs"
-              disabled={redoStack.length === 0}
-              onClick={handleRedo}
-              title="Rehacer (Ctrl+Y)"
-            >
-              <Redo2 className="h-4 w-4" />
-            </Button>
-          </div>
             {!isChild && hasChildren && (
               <button onClick={() => toggleExpand(item.id!)} className="p-0.5 hover:bg-muted rounded text-muted-foreground flex-shrink-0">
                 {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               </button>
             )}
-            {!hasChildren && !isChild && <span className="w-5 flex-shrink-0" />}
+            {!hasChildren && !isChild && <span className="w-4 flex-shrink-0" />}
             {isChild && <div className="w-4 h-px bg-border ml-2 mr-1 flex-shrink-0"></div>}
             
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 min-w-0 flex flex-col">
               <div className="flex items-center gap-2">
                 <Input
                   value={item.servicio}
@@ -1959,7 +1964,7 @@ export function AiSuggestionsGrid({
             </div>
           </div>
         </TableCell>
-        <TableCell className="p-2">
+        <TableCell className="p-2 min-w-[200px]">
           <Input
             value={item.detalle || ''}
             onChange={(e) => handleInputChange(item.id!, 'detalle', e.target.value)}
@@ -1988,7 +1993,8 @@ export function AiSuggestionsGrid({
             <div className="relative">
               <Input
                 type="number"
-                value={item.cantidad}
+                value={item.cantidad || ''}
+                placeholder="1"
                 onChange={(e) => handleInputChange(item.id!, 'cantidad', e.target.value)}
                 onFocus={() => handleFocus(item.id!)}
                 onBlur={(e) => handleBlur(item.id!, e)}
@@ -2022,7 +2028,8 @@ export function AiSuggestionsGrid({
           <div className="flex flex-col gap-1 w-full">
             <Input
               type="number"
-              value={Number(item.costo.toFixed(0))}
+              placeholder="0"
+              value={item.costo ? Math.round(item.costo) : ''}
               onChange={(e) => handleInputChange(item.id!, "costo", e.target.value)}
               onFocus={() => handleFocus(item.id!)}
               onBlur={(e) => handleBlur(item.id!, e)}
@@ -2052,7 +2059,8 @@ export function AiSuggestionsGrid({
           ) : (
             <Input
               type="number"
-              value={Number((item.costo * (item.cantidad || 1)).toFixed(0))}
+              placeholder="0"
+              value={item.costo ? Math.round(item.costo * (item.cantidad || 1)) : ''}
               onChange={(e) => handleInputChange(item.id!, "costo_total", e.target.value)}
               onFocus={() => handleFocus(item.id!)}
               onBlur={(e) => handleBlur(item.id!, e)}
@@ -2075,7 +2083,8 @@ export function AiSuggestionsGrid({
               <div className="flex flex-col gap-1 w-full">
                 <Input
                   type="number"
-                  value={item.ganancia}
+                  placeholder="0"
+                  value={item.ganancia || ''}
                   onChange={(e) => handleInputChange(item.id!, "ganancia", e.target.value)}
                   onFocus={() => handleFocus(item.id!)}
                   onBlur={(e) => handleBlur(item.id!, e)}
@@ -2135,7 +2144,8 @@ export function AiSuggestionsGrid({
               <div className="flex items-center justify-center gap-1">
                 <Input
                   type="number"
-                  value={item.margen !== undefined && item.margen !== null ? Number(item.margen.toFixed(1)) : 0}
+                  placeholder="0"
+                  value={item.margen ? Number(item.margen.toFixed(1)) : ''}
                   onChange={(e) => handleInputChange(item.id!, 'margen', e.target.value)}
                   onFocus={() => handleFocus(item.id!)}
                   onBlur={(e) => handleBlur(item.id!, e)}
@@ -2357,6 +2367,28 @@ export function AiSuggestionsGrid({
                   </div>
                 )}
               </div>
+              <div className="flex items-center gap-1 border-r pr-2 border-border/60">
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-8 w-8 text-muted-foreground shadow-2xs"
+                  disabled={undoStack.length === 0}
+                  onClick={handleUndo}
+                  title="Deshacer (Ctrl+Z)"
+                >
+                  <Undo2 className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-8 w-8 text-muted-foreground shadow-2xs"
+                  disabled={redoStack.length === 0}
+                  onClick={handleRedo}
+                  title="Rehacer (Ctrl+Y)"
+                >
+                  <Redo2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
               <Button
                 size="sm"
                 variant="outline"
@@ -2506,7 +2538,7 @@ export function AiSuggestionsGrid({
 
       {/* Table Container */}
       <div className="border rounded-xl overflow-x-auto shadow-xs bg-card custom-scrollbar">
-        <Table className="min-w-[1350px]">
+        <Table className="min-w-[1440px]">
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40 border-b-0 text-[11px]">
               <TableHead colSpan={5} className="text-center font-bold text-muted-foreground border-r">INFORMACIÓN DEL SERVICIO</TableHead>
@@ -2516,8 +2548,8 @@ export function AiSuggestionsGrid({
             </TableRow>
             <TableRow className="bg-muted/40 hover:bg-muted/40 text-[11px]">
               <TableHead className="w-[45px]"></TableHead>
-              <TableHead className="min-w-[200px] text-xs font-bold uppercase tracking-wider">Servicio / Insumo</TableHead>
-              <TableHead className="min-w-[150px] text-xs font-bold uppercase tracking-wider">Detalle</TableHead>
+              <TableHead className="min-w-[280px] text-xs font-bold uppercase tracking-wider">Servicio / Insumo</TableHead>
+              <TableHead className="min-w-[200px] text-xs font-bold uppercase tracking-wider">Detalle</TableHead>
               <TableHead className="w-[85px] text-xs font-bold uppercase tracking-wider text-center">Tipo</TableHead>
               <TableHead className="w-[90px] text-xs font-bold uppercase tracking-wider text-center border-r">Cant.</TableHead>
               

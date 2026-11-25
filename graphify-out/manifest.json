@@ -204,9 +204,9 @@
     "semantic_hash": ""
   },
   "src/components/events/ai-suggestions-grid.tsx": {
-    "mtime": 1795545940.8463237,
-    "seen": 1795546305.48106,
-    "ast_hash": "f0a495437cdce7cfa53a95371255be83",
+    "mtime": 1795635284.6755838,
+    "seen": 1795635436.2117028,
+    "ast_hash": "ec1a094e5ede8e43414fc2601c10c2f3",
     "semantic_hash": ""
   },
   "src/components/events/consolidate-dialog.tsx": {
@@ -240,9 +240,9 @@
     "semantic_hash": ""
   },
   "src/components/events/event-items-table.tsx": {
-    "mtime": 1795627195.5454497,
-    "seen": 1795627577.431188,
-    "ast_hash": "272af78aa02c93f0d47391f310479ef2",
+    "mtime": 1795635286.1290927,
+    "seen": 1795635436.2117028,
+    "ast_hash": "4b2d292691d3005beb1df2a35b9c45a4",
     "semantic_hash": ""
   },
   "src/components/events/file-upload.tsx": {
