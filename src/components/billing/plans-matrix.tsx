@@ -13,6 +13,8 @@ import {
   Sliders,
   Eye,
   Lock,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -88,7 +90,31 @@ export function PlansMatrix({
 }: PlansMatrixProps) {
   const [selectedModules, setSelectedModules] = useState<ModuleKey[]>(currentModules);
   const [detailPlan, setDetailPlan] = useState<SubscriptionPlan | null>(null);
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(3);
   const isObsidian = surface === 'obsidian';
+
+  useEffect(() => {
+    const updateVisible = () => {
+      if (typeof window === 'undefined') return;
+      const w = window.innerWidth;
+      if (w < 768) setVisibleCount(1);
+      else if (w < 1024) setVisibleCount(2);
+      else setVisibleCount(3);
+    };
+    updateVisible();
+    window.addEventListener('resize', updateVisible);
+    return () => window.removeEventListener('resize', updateVisible);
+  }, []);
+
+  const maxCarouselIndex = Math.max(0, plans.length - visibleCount);
+  const clampedIndex = Math.min(carouselIndex, maxCarouselIndex);
+
+  useEffect(() => {
+    if (carouselIndex > maxCarouselIndex) {
+      setCarouselIndex(maxCarouselIndex);
+    }
+  }, [carouselIndex, maxCarouselIndex]);
 
   const currentModulesKey = currentModules.join(',');
   useEffect(() => {
@@ -137,28 +163,118 @@ export function PlansMatrix({
 
   return (
     <div className="space-y-10">
-      {/* Grid de 4 Planes */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 items-stretch">
-        {plans.map((plan) => {
-          const isCurrent = currentTier === plan.id;
-          const isRec = Boolean(plan.is_recommended);
-          const isBusy = loadingTier === plan.id;
-
-          return (
-            <div
-              key={plan.id}
-              onClick={() => setDetailPlan(plan)}
+      {/* Carrusel de Planes (3 visibles por defecto en desktop con transición suave) */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-3 px-1">
+          <div className="flex items-center gap-2">
+            <span
               className={cn(
-                'group relative rounded-3xl p-6 flex flex-col justify-between transition-all duration-300 cursor-pointer text-left',
-                isObsidian
-                  ? isRec
-                    ? 'obsidian-glass-luxury obsidian-shimmer text-[#EEF1F6] xl:-translate-y-1.5'
-                    : 'obsidian-glass obsidian-spotlight text-[#EEF1F6] hover:-translate-y-1'
-                  : isRec
-                  ? 'glass-luxury hairline-shimmer text-foreground ring-1 ring-[#4A607A]/35 xl:-translate-y-1.5'
-                  : 'glass-card spotlight-card text-foreground hover:-translate-y-1'
+                'text-xs font-medium tabular-nums',
+                isObsidian ? 'text-[#96A1B5]' : 'text-slate-600'
               )}
             >
+              Mostrando{' '}
+              <strong className={isObsidian ? 'text-[#EEF1F6]' : 'text-slate-900'}>
+                {clampedIndex + 1}–{Math.min(plans.length, clampedIndex + visibleCount)}
+              </strong>{' '}
+              de {plans.length} planes
+            </span>
+            {maxCarouselIndex > 0 && (
+              <div className="hidden sm:flex items-center gap-1.5 ml-2">
+                {Array.from({ length: maxCarouselIndex + 1 }).map((_, dotIdx) => {
+                  const activeDot = dotIdx === clampedIndex;
+                  return (
+                    <button
+                      key={dotIdx}
+                      type="button"
+                      aria-label={`Ver vista ${dotIdx + 1} de planes`}
+                      onClick={() => setCarouselIndex(dotIdx)}
+                      className={cn(
+                        'h-1.5 rounded-full transition-all duration-300',
+                        activeDot
+                          ? isObsidian
+                            ? 'w-6 bg-[#D8C39E]'
+                            : 'w-6 bg-[#0F172A]'
+                          : isObsidian
+                          ? 'w-1.5 bg-white/20 hover:bg-white/40'
+                          : 'w-1.5 bg-slate-300 hover:bg-slate-400'
+                      )}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {maxCarouselIndex > 0 && (
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Planes anteriores"
+                disabled={clampedIndex === 0}
+                onClick={() => setCarouselIndex((prev) => Math.max(0, prev - 1))}
+                className={cn(
+                  'h-9 w-9 rounded-full tactile-press transition-all',
+                  isObsidian
+                    ? 'border-white/15 bg-white/[0.05] text-[#EEF1F6] hover:bg-white/[0.12] hover:border-[#D8C39E]/45 disabled:opacity-30'
+                    : 'border-slate-300/90 bg-white/85 text-slate-800 hover:bg-white hover:border-[#8C7148]/50 disabled:opacity-35'
+                )}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Siguientes planes"
+                disabled={clampedIndex >= maxCarouselIndex}
+                onClick={() => setCarouselIndex((prev) => Math.min(maxCarouselIndex, prev + 1))}
+                className={cn(
+                  'h-9 w-9 rounded-full tactile-press transition-all',
+                  isObsidian
+                    ? 'border-[#D8C39E]/35 bg-[#D8C39E]/12 text-[#EDE0C8] hover:bg-[#D8C39E] hover:text-[#06070A] disabled:opacity-30'
+                    : 'border-[#0F172A]/20 bg-[#0F172A] text-[#EDE0C8] hover:bg-[#1E293B] disabled:opacity-35'
+                )}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <div className="overflow-hidden py-3 px-1 -mx-1">
+          <div
+            className="flex gap-5 transition-transform duration-500 will-change-transform"
+            style={{
+              transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
+              transform: `translate3d(calc(-${clampedIndex} * (${100 / visibleCount}% + ${20 / visibleCount}px)), 0, 0)`,
+            }}
+          >
+            {plans.map((plan) => {
+              const isCurrent = currentTier === plan.id;
+              const isRec = Boolean(plan.is_recommended);
+              const isBusy = loadingTier === plan.id;
+
+              return (
+                <div
+                  key={plan.id}
+                  onClick={() => setDetailPlan(plan)}
+                  style={{
+                    flex: `0 0 calc((100% - ${(visibleCount - 1) * 20}px) / ${visibleCount})`,
+                  }}
+                  className={cn(
+                    'group relative rounded-3xl p-6 flex flex-col justify-between transition-all duration-300 cursor-pointer text-left',
+                    isObsidian
+                      ? isRec
+                        ? 'obsidian-glass-luxury obsidian-shimmer text-[#EEF1F6]'
+                        : 'obsidian-glass obsidian-spotlight text-[#EEF1F6] hover:-translate-y-1'
+                      : isRec
+                      ? 'glass-luxury hairline-shimmer text-foreground ring-1 ring-[#8C7148]/35'
+                      : 'glass-card spotlight-card text-foreground hover:-translate-y-1'
+                  )}
+                >
               <div>
                 {plan.badge_text && (
                   <div className="flex items-center justify-between gap-2 mb-4">
@@ -364,6 +480,8 @@ export function PlansMatrix({
             </div>
           );
         })}
+          </div>
+        </div>
       </div>
 
       {/* Configurador Modular "Paga lo que usas" */}
