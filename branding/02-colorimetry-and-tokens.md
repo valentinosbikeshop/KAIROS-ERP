@@ -1,8 +1,18 @@
 # 02 · Colorimetría, Superficies & Glassmorfismo — FIGURA
 
-## 1. Filosofía Cromática: *Obsidian & Champagne Glass*
+## 1. Filosofía Cromática Dual: *Alabaster Pearl (Default)* & *Obsidian Glass (Modo Oscuro)*
 
-La paleta de **FIGURA** abandona los azules genéricos de SaaS y los neones artificiales para adoptar materiales propios de la **arquitectura contemporánea y la alta relojería**: obsidiana mineral profunda, vidrio ahumado con refracción especular, latón champagne cepillado y acentos técnicos minerales de alta legibilidad.
+La paleta de **FIGURA** opera de forma **nativa y predeterminada en Modo Claro (*Alabaster Pearl*)** para máxima claridad ejecutiva diurna, ofreciendo un interruptor en el encabezado superior hacia **Modo Oscuro (*Obsidian & Champagne Glass*)**. Ambos modos comparten la misma disciplina arquitectónica: vidrio esmerilado multicapa, acentos en bronce/champagne cepillado y cero colores neón.
+
+### Modo Claro Predeterminado (*Alabaster Pearl*)
+
+| Token | HEX | Uso |
+| :--- | :--- | :--- |
+| `--alabaster-canvas` | `#F5F7FA` | Lienzo base diurno con grilla fina `0.036` |
+| `--pearl-glass` | `rgba(255,255,255,0.78)` | Superficie cristalina luminosa con borde especular blanco |
+| `--ink-primary` | `#0F172A` | Titulares, cifras tabulares CLP y botón primario |
+| `--bronze-champagne` | `#8C6F42` | Acento editorial `Instrument Serif` y micro-etiquetas (contraste > 4.6:1 sobre blanco) |
+| `--emerald-day` | `#2E6F5E` | Utilidad neta, IVA Crédito y métricas positivas |
 
 ---
 

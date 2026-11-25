@@ -3,7 +3,7 @@
   "1": "package.json",
   "2": "cn",
   "3": "ai-optimizer.ts",
-  "4": "getAuthenticatedContext",
+  "4": "createAdminClient",
   "5": "next",
   "6": "01 · Estrategia de Marca & Posicionamiento — FIGURA",
   "7": "compilerOptions",
@@ -17,7 +17,7 @@
   "15": "(auth)/layout.tsx",
   "16": "vercel.json",
   "17": "postcss.config.js",
-  "18": "createAdminClient",
+  "18": "admin/plans/route.ts",
   "19": "database.ts",
   "20": "devDependencies",
   "21": "pay-deposit/route.ts",
@@ -26,13 +26,12 @@
   "24": "scripts",
   "25": "Event",
   "26": "react",
-  "27": "companies/route.ts",
+  "27": "[id]/page.tsx",
   "28": "adversarial-playwright-audit.mjs",
   "29": "LocalQueryBuilder",
   "30": "constants.ts",
   "31": "local-demo-client.ts",
   "32": "tailwind.config.ts",
   "33": "industry-demo-datasets.ts",
-  "34": "cost-metadata.ts",
-  "35": "[token]/page.tsx"
+  "34": "client-quote-pdf-dialog.tsx"
 }

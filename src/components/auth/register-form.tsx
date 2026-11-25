@@ -149,17 +149,17 @@ export function RegisterForm() {
   };
 
   return (
-    <Card className="w-full obsidian-glass border-white/12 text-[#EEF1F6] shadow-2xl animate-reveal-up">
+    <Card className="w-full glass-card border-border/80 shadow-xl animate-reveal-up">
       <CardHeader className="space-y-3 text-center pb-4">
         <div className="flex justify-center">
-          <FiguraLogo size="lg" surface="obsidian" />
+          <FiguraLogo size="lg" surface="light" />
         </div>
         <CardTitle className="sr-only">FIGURA</CardTitle>
-        <CardDescription className="text-[#96A1B5] text-sm">
+        <CardDescription className="text-muted-foreground text-sm">
           Configura tu entorno de arquitectura financiera en menos de 2 minutos
         </CardDescription>
 
-        <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-white/[0.04] border border-white/10 mt-2">
+        <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-secondary/80 border border-border/80 mt-2">
           <button
             type="button"
             onClick={() => {
@@ -169,8 +169,8 @@ export function RegisterForm() {
             className={cn(
               'flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-medium transition-all tactile-press',
               mode === 'owner'
-                ? 'bg-[#D8C39E] text-[#06070A] font-semibold shadow-xs'
-                : 'text-[#96A1B5] hover:text-[#EEF1F6]'
+                ? 'bg-[#0F172A] text-[#EDE0C8] shadow-xs'
+                : 'text-muted-foreground hover:text-foreground'
             )}
           >
             <Building2 className="h-3.5 w-3.5" />
@@ -185,8 +185,8 @@ export function RegisterForm() {
             className={cn(
               'flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-medium transition-all tactile-press',
               mode === 'invite'
-                ? 'bg-[#D8C39E] text-[#06070A] font-semibold shadow-xs'
-                : 'text-[#96A1B5] hover:text-[#EEF1F6]'
+                ? 'bg-[#0F172A] text-[#EDE0C8] shadow-xs'
+                : 'text-muted-foreground hover:text-foreground'
             )}
           >
             <KeyRound className="h-3.5 w-3.5" />
@@ -198,9 +198,9 @@ export function RegisterForm() {
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-3.5">
           {mode === 'owner' && (
-            <div className="p-3.5 rounded-2xl obsidian-glass-luxury text-[#EEF1F6] text-xs flex items-center justify-between gap-2">
+            <div className="p-3.5 rounded-2xl glass-luxury text-foreground text-xs flex items-center justify-between gap-2">
               <div className="space-y-0.5">
-                <span className="text-[10px] uppercase tracking-[0.14em] text-[#D8C39E] font-semibold block">
+                <span className="text-[10px] uppercase tracking-[0.14em] text-[#8C6F42] font-semibold block">
                   Plan Preseleccionado
                 </span>
                 <span className="font-semibold">
@@ -208,7 +208,7 @@ export function RegisterForm() {
                 </span>
               </div>
               <Link href="/welcome#planes">
-                <Badge className="bg-[#4FA88B]/15 hover:bg-[#4FA88B]/25 text-[#7FD3B6] border border-[#4FA88B]/30 cursor-pointer">
+                <Badge className="bg-[#467366]/15 hover:bg-[#467366]/25 text-[#2E5248] border border-[#467366]/30 cursor-pointer">
                   {urlPlan ? 'Cambiar' : 'Ver Planes'}
                 </Badge>
               </Link>
@@ -216,12 +216,12 @@ export function RegisterForm() {
           )}
 
           {error && (
-            <div className="p-3 text-xs font-medium text-rose-200 bg-rose-500/15 rounded-lg border border-rose-400/30">
+            <div className="p-3 text-xs font-medium text-red-700 bg-red-50 rounded-lg border border-red-200">
               {error}
             </div>
           )}
           {successMessage && (
-            <div className="p-3 text-xs font-medium text-emerald-200 bg-emerald-500/15 rounded-lg border border-emerald-400/30">
+            <div className="p-3 text-xs font-medium text-emerald-800 bg-emerald-50 rounded-lg border border-emerald-200">
               {successMessage}
             </div>
           )}
@@ -229,7 +229,7 @@ export function RegisterForm() {
           {mode === 'owner' && (
             <>
               <div className="space-y-1.5">
-                <Label htmlFor="companyName" className="text-[#EEF1F6]">Nombre de tu Empresa / Negocio *</Label>
+                <Label htmlFor="companyName">Nombre de tu Empresa / Negocio *</Label>
                 <Input
                   id="companyName"
                   type="text"
@@ -238,11 +238,10 @@ export function RegisterForm() {
                   onChange={(e) => setCompanyName(e.target.value)}
                   required
                   disabled={loading}
-                  className="bg-white/[0.05] border-white/15 text-[#EEF1F6] placeholder:text-[#646F84] focus-visible:ring-[#D8C39E]"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="fullName" className="text-[#EEF1F6]">Tu Nombre (Opcional)</Label>
+                <Label htmlFor="fullName">Tu Nombre (Opcional)</Label>
                 <Input
                   id="fullName"
                   type="text"
@@ -250,14 +249,13 @@ export function RegisterForm() {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   disabled={loading}
-                  className="bg-white/[0.05] border-white/15 text-[#EEF1F6] placeholder:text-[#646F84] focus-visible:ring-[#D8C39E]"
                 />
               </div>
             </>
           )}
 
           <div className="space-y-1.5">
-            <Label htmlFor="email" className="text-[#EEF1F6]">Correo electrónico *</Label>
+            <Label htmlFor="email">Correo electrónico *</Label>
             <Input
               id="email"
               type="email"
@@ -266,13 +264,12 @@ export function RegisterForm() {
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={loading}
-              className="bg-white/[0.05] border-white/15 text-[#EEF1F6] placeholder:text-[#646F84] focus-visible:ring-[#D8C39E]"
             />
           </div>
 
           {mode === 'invite' && (
             <div className="space-y-1.5">
-              <Label htmlFor="inviteCode" className="text-[#EEF1F6]">Código de Empresa *</Label>
+              <Label htmlFor="inviteCode">Código de Empresa *</Label>
               <Input
                 id="inviteCode"
                 type="text"
@@ -281,9 +278,9 @@ export function RegisterForm() {
                 onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                 required
                 disabled={loading}
-                className="uppercase font-mono bg-white/[0.05] border-white/15 text-[#EEF1F6] placeholder:text-[#646F84] focus-visible:ring-[#D8C39E]"
+                className="uppercase font-mono"
               />
-              <p className="text-[11px] text-[#96A1B5]">
+              <p className="text-[11px] text-slate-500">
                 Solicita este código al administrador de tu organización.
               </p>
             </div>
@@ -291,7 +288,7 @@ export function RegisterForm() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="password" className="text-[#EEF1F6]">Contraseña *</Label>
+              <Label htmlFor="password">Contraseña *</Label>
               <Input
                 id="password"
                 type="password"
@@ -299,11 +296,10 @@ export function RegisterForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
-                className="bg-white/[0.05] border-white/15 text-[#EEF1F6] focus-visible:ring-[#D8C39E]"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="confirmPassword" className="text-[#EEF1F6]">Confirmar *</Label>
+              <Label htmlFor="confirmPassword">Confirmar *</Label>
               <Input
                 id="confirmPassword"
                 type="password"
@@ -311,14 +307,13 @@ export function RegisterForm() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 disabled={loading}
-                className="bg-white/[0.05] border-white/15 text-[#EEF1F6] focus-visible:ring-[#D8C39E]"
               />
             </div>
           </div>
 
           {mode === 'owner' && (
-            <div className="p-2.5 rounded-xl bg-[#D8C39E]/[0.08] border border-[#D8C39E]/25 text-[11px] text-[#EDE0C8] flex items-center gap-2">
-              <Sparkles className="h-3.5 w-3.5 text-[#D8C39E] shrink-0" />
+            <div className="p-2.5 rounded-xl bg-[#8C7148]/[0.08] border border-[#8C7148]/25 text-[11px] text-[#6F5835] flex items-center gap-2">
+              <Sparkles className="h-3.5 w-3.5 text-[#8C6F42] shrink-0" />
               <span>
                 Luego confirmarás tu rubro, personalización visual y activación con Khipu (o plan gratuito).
               </span>
@@ -329,7 +324,7 @@ export function RegisterForm() {
         <CardFooter className="flex flex-col space-y-3 pt-2">
           <Button
             type="submit"
-            className="w-full tactile-press font-semibold bg-[#D8C39E] text-[#06070A] hover:bg-[#EDE0C8]"
+            className="w-full tactile-press font-semibold bg-[#0F172A] text-[#EDE0C8] hover:bg-[#1E293B]"
             disabled={loading}
           >
             {loading
@@ -338,12 +333,12 @@ export function RegisterForm() {
               ? 'Crear Cuenta y Personalizar ERP'
               : 'Enviar Solicitud de Acceso'}
           </Button>
-          <div className="flex items-center justify-between w-full text-xs text-[#96A1B5]">
-            <Link href="/welcome" className="inline-flex items-center gap-1 hover:text-[#EDE0C8] transition-colors">
+          <div className="flex items-center justify-between w-full text-xs text-slate-500">
+            <Link href="/welcome" className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors">
               <ArrowLeft className="h-3 w-3" />
               Volver a Landing
             </Link>
-            <Link href="/login" className="font-medium hover:text-[#EDE0C8] transition-colors hover:underline">
+            <Link href="/login" className="font-medium hover:text-slate-900 transition-colors hover:underline">
               ¿Ya tienes cuenta? Inicia sesión
             </Link>
           </div>

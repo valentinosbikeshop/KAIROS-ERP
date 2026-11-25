@@ -145,8 +145,25 @@
 }
 
 /* =====================================================================
-   FIGURA — Obsidian & Champagne Architectural Glass System
+   FIGURA — Alabaster Pearl (Light Default) & Obsidian (Dark Mode)
    ===================================================================== */
+
+.alabaster-canvas {
+  background-color: #F5F7FA;
+  color: #0F172A;
+  background-image:
+    radial-gradient(ellipse 75% 50% at 12% -5%, rgba(181, 150, 102, 0.11) 0%, transparent 64%),
+    radial-gradient(ellipse 65% 45% at 88% 12%, rgba(74, 96, 122, 0.09) 0%, transparent 62%),
+    radial-gradient(ellipse 60% 45% at 50% 105%, rgba(70, 115, 102, 0.07) 0%, transparent 60%);
+  background-attachment: fixed;
+}
+
+.alabaster-grid {
+  background-size: 40px 40px;
+  background-image:
+    linear-gradient(to right, rgba(15, 23, 42, 0.036) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 42, 0.036) 1px, transparent 1px);
+}
 
 .obsidian-canvas {
   background-color: #06070A;

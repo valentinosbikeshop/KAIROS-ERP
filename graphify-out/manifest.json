@@ -30,9 +30,9 @@
     "semantic_hash": ""
   },
   "src/app/(auth)/layout.tsx": {
-    "mtime": 1795632061.5849144,
-    "seen": 1795632385.1216123,
-    "ast_hash": "83412fc73fd0c7060c716a07fa789ee5",
+    "mtime": 1795633241.0967815,
+    "seen": 1795633397.0502012,
+    "ast_hash": "3fc9ce17322e382d3f640dc6e48b6acb",
     "semantic_hash": ""
   },
   "src/app/(auth)/login/page.tsx": {
@@ -42,9 +42,9 @@
     "semantic_hash": ""
   },
   "src/app/(auth)/pending/page.tsx": {
-    "mtime": 1795632069.5584297,
-    "seen": 1795632385.1216123,
-    "ast_hash": "3c1de09fc780caf308a4c52a588ac32d",
+    "mtime": 1795633247.1395085,
+    "seen": 1795633397.0502012,
+    "ast_hash": "647414899052e708e7b9f937933f0168",
     "semantic_hash": ""
   },
   "src/app/(auth)/register/page.tsx": {
@@ -168,15 +168,15 @@
     "semantic_hash": ""
   },
   "src/components/auth/login-form.tsx": {
-    "mtime": 1795632063.8586476,
-    "seen": 1795632385.1318567,
-    "ast_hash": "50911e16e3944b725b6fba4de27246fc",
+    "mtime": 1795633242.8230104,
+    "seen": 1795633397.0514476,
+    "ast_hash": "f923d2a50750a167b7423c153ce28c75",
     "semantic_hash": ""
   },
   "src/components/auth/register-form.tsx": {
-    "mtime": 1795632065.6949873,
-    "seen": 1795632385.1318567,
-    "ast_hash": "163fb36c163fb7dcf81c77e39c3be07c",
+    "mtime": 1795633244.3941634,
+    "seen": 1795633397.0514476,
+    "ast_hash": "52ef4bfc56041502e4ea412f52d95d9a",
     "semantic_hash": ""
   },
   "src/components/costs/columns.tsx": {
@@ -546,9 +546,9 @@
     "semantic_hash": ""
   },
   "src/app/(auth)/mfa-challenge/page.tsx": {
-    "mtime": 1795632067.7238994,
-    "seen": 1795632385.1216123,
-    "ast_hash": "e11c5476cf9a453efd28ddfcd4b98a13",
+    "mtime": 1795633245.7818742,
+    "seen": 1795633397.0502012,
+    "ast_hash": "783655908fd71409f35350e71dcc24b6",
     "semantic_hash": ""
   },
   "src/app/(dashboard)/security/page.tsx": {
@@ -738,15 +738,15 @@
     "semantic_hash": ""
   },
   "src/app/demo/page.tsx": {
-    "mtime": 1795632071.4040198,
-    "seen": 1795632385.1318567,
-    "ast_hash": "85355c78506b1ab84b10b05c171e06af",
+    "mtime": 1795633248.642335,
+    "seen": 1795633397.0514476,
+    "ast_hash": "1ff55865e24b28db0528846630f2fe92",
     "semantic_hash": ""
   },
   "src/app/welcome/page.tsx": {
-    "mtime": 1795632359.293883,
-    "seen": 1795632385.1318567,
-    "ast_hash": "006e5ea6a8bf5a9812eb364f160e225f",
+    "mtime": 1795633239.416095,
+    "seen": 1795633397.0514476,
+    "ast_hash": "fce27ac900208dacf305d6132d1a8f00",
     "semantic_hash": ""
   },
   "src/components/billing/plan-detail-modal.tsx": {
@@ -876,9 +876,9 @@
     "semantic_hash": ""
   },
   "branding/02-colorimetry-and-tokens.md": {
-    "mtime": 1795631568.2654455,
-    "seen": 1795632385.185581,
-    "ast_hash": "45abad30d282eddd2d046d3bca55c34f",
+    "mtime": 1795633266.9570303,
+    "seen": 1795633397.0684378,
+    "ast_hash": "1cede467a59bda4ae096bb2bb8dc14ad",
     "semantic_hash": ""
   },
   "branding/03-typography-and-grid.md": {

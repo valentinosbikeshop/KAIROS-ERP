@@ -134,13 +134,13 @@ export function LoginForm() {
 
   return (
     <div className="space-y-4 w-full animate-reveal-up">
-      <Card className="w-full obsidian-glass border-white/12 text-[#EEF1F6] shadow-2xl">
+      <Card className="w-full glass-card border-border/80 shadow-xl">
         <CardHeader className="space-y-3 text-center">
           <div className="flex justify-center">
-            <FiguraLogo size="lg" surface="obsidian" />
+            <FiguraLogo size="lg" surface="light" />
           </div>
           <CardTitle className="sr-only">FIGURA</CardTitle>
-          <CardDescription className="text-[#96A1B5]">
+          <CardDescription className="text-muted-foreground">
             Acceso privado multiempresa para arquitectura financiera, cotizaciones y control tributario
           </CardDescription>
         </CardHeader>
@@ -148,18 +148,18 @@ export function LoginForm() {
           <form onSubmit={handleVerifyMfa}>
             <CardContent className="space-y-4">
               {error && (
-                <div className="p-3 text-sm font-medium text-rose-200 bg-rose-500/15 rounded-lg border border-rose-400/30">
+                <div className="p-3 text-sm font-medium text-red-600 bg-red-50 rounded-md border border-red-100">
                   {error}
                 </div>
               )}
-              <div className="p-3.5 rounded-xl bg-[#5E89E8]/12 border border-[#5E89E8]/30 text-xs text-[#C7D8FC] flex items-start gap-2.5">
-                <KeyRound className="h-4 w-4 text-[#8FB0F7] shrink-0 mt-0.5" />
+              <div className="p-3.5 rounded-lg bg-slate-100 border border-slate-200 text-xs text-slate-800 flex items-start gap-2.5">
+                <KeyRound className="h-4 w-4 text-[#8C6F42] shrink-0 mt-0.5" />
                 <span>
                   Cuenta protegida con Verificación en Dos Pasos (2FA). Ingresa el código de 6 dígitos de tu app autenticadora para <strong>{email}</strong>.
                 </span>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="mfaCode" className="text-[#EEF1F6]">Código 2FA (6 dígitos)</Label>
+                <Label htmlFor="mfaCode">Código 2FA (6 dígitos)</Label>
                 <Input
                   id="mfaCode"
                   type="text"
@@ -172,16 +172,12 @@ export function LoginForm() {
                   onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   required
                   disabled={busy}
-                  className="text-center font-mono text-xl tracking-[0.45em] bg-white/[0.05] border-white/15 text-[#EEF1F6] placeholder:text-[#646F84] focus-visible:ring-[#D8C39E]"
+                  className="text-center font-mono text-xl tracking-[0.45em] focus-visible:ring-primary"
                 />
               </div>
             </CardContent>
             <CardFooter className="flex flex-col space-y-3">
-              <Button
-                type="submit"
-                className="w-full bg-[#D8C39E] text-[#06070A] hover:bg-[#EDE0C8] font-semibold"
-                disabled={busy}
-              >
+              <Button type="submit" className="w-full bg-[#0F172A] text-[#EDE0C8] hover:bg-[#1E293B]" disabled={busy}>
                 {loading ? 'Verificando...' : 'Confirmar Acceso'}
               </Button>
               <Button
@@ -190,7 +186,7 @@ export function LoginForm() {
                 size="sm"
                 onClick={handleCancelMfa}
                 disabled={busy}
-                className="w-full text-[#96A1B5] hover:text-[#EEF1F6] hover:bg-white/5 gap-1.5"
+                className="w-full text-slate-500 gap-1.5"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 Volver e iniciar con otra cuenta
@@ -201,12 +197,12 @@ export function LoginForm() {
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             {error && (
-              <div className="p-3 text-sm font-medium text-rose-200 bg-rose-500/15 rounded-lg border border-rose-400/30">
+              <div className="p-3 text-sm font-medium text-red-600 bg-red-50 rounded-md border border-red-100">
                 {error}
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-[#EEF1F6]">Correo electrónico</Label>
+              <Label htmlFor="email">Correo electrónico</Label>
               <Input
                 id="email"
                 type="email"
@@ -215,16 +211,16 @@ export function LoginForm() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={busy}
-                className="bg-white/[0.05] border-white/15 text-[#EEF1F6] placeholder:text-[#646F84] focus-visible:ring-[#D8C39E]"
+                className="focus-visible:ring-primary"
               />
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-[#EEF1F6]">Contraseña</Label>
+                <Label htmlFor="password">Contraseña</Label>
                 <Button
                   type="button"
                   variant="link"
-                  className="px-0 h-auto text-xs text-[#D8C39E] hover:text-[#EDE0C8]"
+                  className="px-0 h-auto text-xs"
                   onClick={handleResetPassword}
                   disabled={busy}
                 >
@@ -238,20 +234,20 @@ export function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={busy}
-                className="bg-white/[0.05] border-white/15 text-[#EEF1F6] focus-visible:ring-[#D8C39E]"
+                className="focus-visible:ring-primary"
               />
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <Button
-              type="submit"
-              className="w-full bg-[#D8C39E] text-[#06070A] hover:bg-[#EDE0C8] font-semibold"
-              disabled={busy}
-            >
+            <Button type="submit" className="w-full bg-[#0F172A] text-[#EDE0C8] hover:bg-[#1E293B]" disabled={busy}>
               {loading ? 'Cargando...' : 'Iniciar sesión'}
             </Button>
-            <div className="text-sm text-center text-[#96A1B5]">
-              <Link href="/register" className="font-medium hover:text-[#EDE0C8] transition-colors hover:underline">
+            <div className="flex items-center justify-between w-full text-xs text-slate-500">
+              <Link href="/welcome" className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors">
+                <ArrowLeft className="h-3 w-3" />
+                Volver a Landing
+              </Link>
+              <Link href="/register" className="font-medium hover:text-slate-900 transition-colors hover:underline">
                 ¿No tienes cuenta? Regístrate
               </Link>
             </div>
@@ -261,22 +257,22 @@ export function LoginForm() {
       </Card>
 
       {/* Interactive Demo Sandbox Entry Card */}
-      <Card className="w-full obsidian-glass-luxury obsidian-shimmer text-[#EEF1F6]">
+      <Card className="w-full glass-luxury hairline-shimmer text-foreground">
         <CardContent className="p-5 space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1">
-              <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#D8C39E]">
+              <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8C6F42]">
                 <Sparkles className="h-3.5 w-3.5" />
                 Evaluación para Clientes Externos
               </div>
-              <h3 className="text-base font-semibold tracking-tight text-[#EEF1F6]">
+              <h3 className="text-base font-semibold tracking-tight text-foreground">
                 Explorar Sesión de Prueba Interactiva
               </h3>
-              <p className="text-xs text-[#96A1B5] leading-relaxed">
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 Prueba FIGURA completo adaptado a cualquiera de los 9 rubros directamente en tu navegador, sin registro ni tarjeta.
               </p>
             </div>
-            <div className="p-2.5 rounded-xl bg-[#D8C39E]/12 border border-[#D8C39E]/30 text-[#EDE0C8] shrink-0">
+            <div className="p-2.5 rounded-xl bg-[#8C7148]/12 border border-[#8C7148]/25 text-[#6F5835] shrink-0">
               <FlaskConical className="h-5 w-5" />
             </div>
           </div>
@@ -285,8 +281,7 @@ export function LoginForm() {
             type="button"
             onClick={handleEnterDemo}
             disabled={busy}
-            variant="outline"
-            className="w-full font-semibold gap-2 transition-all border-[#D8C39E]/35 bg-white/[0.05] text-[#EDE0C8] hover:bg-[#D8C39E] hover:text-[#06070A]"
+            className="w-full font-semibold gap-2 transition-all"
           >
             {demoLoading ? (
               <>
@@ -301,8 +296,8 @@ export function LoginForm() {
             )}
           </Button>
 
-          <p className="text-[11px] text-[#96A1B5] flex items-center justify-center gap-1.5">
-            <ShieldCheck className="h-3.5 w-3.5 text-[#4FA88B] shrink-0" />
+          <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5 text-[#2E6F5E] shrink-0" />
             Entorno sandbox 100% aislado de empresas privadas.
           </p>
         </CardContent>
