@@ -373,7 +373,7 @@ export default function TreasuryPage() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumenRows), 'Resumen_F29');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cxcRows), 'Cuentas_Por_Cobrar');
-    XLSX.writeFile(wb, `KAIROS_Tesoreria_F29_${periodLabel}.xlsx`);
+    XLSX.writeFile(wb, `FIGURA_Tesoreria_F29_${periodLabel}.xlsx`);
   };
 
   const yearOptions = useMemo(() => {

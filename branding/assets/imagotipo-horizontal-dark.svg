@@ -1,0 +1,28 @@
+<svg width="380" height="84" viewBox="0 0 380 84" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgD" x1="12" y1="14" x2="68" y2="70" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#151B28" />
+      <stop offset="100%" stop-color="#06070A" />
+    </linearGradient>
+    <linearGradient id="rimD" x1="12" y1="14" x2="68" y2="70" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#EDE0C8" stop-opacity="0.58" />
+      <stop offset="50%" stop-color="#FFFFFF" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#D8C39E" stop-opacity="0.36" />
+    </linearGradient>
+    <linearGradient id="chD" x1="28" y1="27" x2="48" y2="27" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#EDE0C8" />
+      <stop offset="100%" stop-color="#C7AB7B" />
+    </linearGradient>
+  </defs>
+  <g transform="translate(10,14) scale(1.2727)">
+    <rect x="2" y="2" width="40" height="40" rx="11" fill="url(#bgD)" stroke="url(#rimD)" stroke-width="1" />
+    <path d="M22.5 31.5H30.5V25.5" stroke="#D8C39E" stroke-opacity="0.42" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M15 12.5V31.5" stroke="#EEF1F6" stroke-width="2.6" stroke-linecap="round" />
+    <path d="M15 12.5H29.5" stroke="url(#chD)" stroke-width="2.6" stroke-linecap="round" />
+    <path d="M15 21.5H25" stroke="#EEF1F6" stroke-width="2.4" stroke-linecap="round" />
+    <circle cx="25.5" cy="21.5" r="2.1" fill="#D8C39E" />
+    <circle cx="25.5" cy="21.5" r="0.75" fill="#0B0E15" />
+  </g>
+  <text x="86" y="42" fill="#EEF1F6" font-family="'Plus Jakarta Sans', 'Inter', system-ui, sans-serif" font-size="25" font-weight="600" letter-spacing="0.24em">FIGURA</text>
+  <text x="87" y="61" fill="#96A1B5" font-family="'Plus Jakarta Sans', 'Inter', system-ui, sans-serif" font-size="10" font-weight="500" letter-spacing="0.24em">ARQUITECTURA FINANCIERA</text>
+</svg>

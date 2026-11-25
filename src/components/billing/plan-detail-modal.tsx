@@ -26,6 +26,7 @@ interface PlanDetailModalProps {
   industryName?: string;
   isCurrent?: boolean;
   loadingTier?: string | null;
+  surface?: 'light' | 'obsidian';
   onClose: () => void;
   onSelectPlan: (tier: SubscriptionTier) => void;
   onSwitchToRecommended?: () => void;
@@ -111,6 +112,7 @@ export function PlanDetailModal({
   industryName,
   isCurrent = false,
   loadingTier = null,
+  surface = 'light',
   onClose,
   onSelectPlan,
   onSwitchToRecommended,
@@ -134,6 +136,7 @@ export function PlanDetailModal({
   if (!plan) return null;
 
   const isRec = Boolean(plan.is_recommended);
+  const isObsidian = surface === 'obsidian';
   const includedSet = new Set(plan.included_modules || []);
   const includedModules = ALL_MODULES_ORDER.filter((m) => includedSet.has(m));
   const missingModules = ALL_MODULES_ORDER.filter((m) => !includedSet.has(m));
@@ -141,7 +144,10 @@ export function PlanDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/25 backdrop-blur-md"
+      className={cn(
+        'fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 backdrop-blur-md',
+        isObsidian ? 'bg-black/70' : 'bg-slate-900/25'
+      )}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -150,18 +156,30 @@ export function PlanDetailModal({
       <div
         onClick={(e) => e.stopPropagation()}
         className={cn(
-          'relative w-full max-w-3xl max-h-[88vh] flex flex-col rounded-3xl overflow-hidden animate-modal-in glass-luxury text-foreground'
+          'relative w-full max-w-3xl max-h-[88vh] flex flex-col rounded-3xl overflow-hidden animate-modal-in',
+          isObsidian
+            ? 'obsidian-glass-luxury text-[#EEF1F6]'
+            : 'glass-luxury text-foreground'
         )}
       >
         {/* Header */}
-        <div className="px-6 sm:px-8 py-5 border-b border-slate-200/80 flex items-start justify-between gap-4 shrink-0">
+        <div
+          className={cn(
+            'px-6 sm:px-8 py-5 border-b flex items-start justify-between gap-4 shrink-0',
+            isObsidian ? 'border-white/10' : 'border-slate-200/80'
+          )}
+        >
           <div className="space-y-1.5">
             <div className="flex flex-wrap items-center gap-2">
               {plan.badge_text && (
                 <Badge
                   className={cn(
                     'text-[10px] tracking-[0.14em] uppercase',
-                    isRec
+                    isObsidian
+                      ? isRec
+                        ? 'bg-[#D8C39E]/15 text-[#EDE0C8] border border-[#D8C39E]/35'
+                        : 'bg-white/8 text-[#96A1B5] border border-white/12'
+                      : isRec
                       ? 'bg-[#467366]/15 text-[#2E5248] border border-[#467366]/30'
                       : 'bg-[#4A607A]/12 text-[#3B4F66] border border-[#4A607A]/25'
                   )}
@@ -171,7 +189,12 @@ export function PlanDetailModal({
                 </Badge>
               )}
               {industryName && (
-                <span className="text-[11px] font-medium text-[#4A607A]">
+                <span
+                  className={cn(
+                    'text-[11px] font-medium',
+                    isObsidian ? 'text-[#D8C39E]' : 'text-[#4A607A]'
+                  )}
+                >
                   Configurado para {industryName}
                 </span>
               )}
@@ -179,17 +202,17 @@ export function PlanDetailModal({
             <h2 id="plan-detail-title" className="text-2xl sm:text-3xl font-semibold tracking-tight">
               {plan.name}
             </h2>
-            <p className="text-xs sm:text-sm text-muted-foreground">
+            <p className={cn('text-xs sm:text-sm', isObsidian ? 'text-[#96A1B5]' : 'text-muted-foreground')}>
               {pitch.headline}
             </p>
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
             <div className="text-right hidden sm:block">
-              <div className="text-2xl font-semibold tabular-nums text-foreground">
+              <div className="text-2xl font-semibold tabular-nums">
                 {plan.price_clp === 0 ? '$0' : formatCLP(plan.price_clp)}
               </div>
-              <div className="text-[11px] text-muted-foreground">
+              <div className={cn('text-[11px]', isObsidian ? 'text-[#96A1B5]' : 'text-muted-foreground')}>
                 {plan.price_clp === 0 ? '/ mes' : '/ mes · IVA incl.'}
               </div>
             </div>
@@ -197,7 +220,12 @@ export function PlanDetailModal({
               type="button"
               onClick={onClose}
               aria-label="Cerrar detalle del plan"
-              className="h-9 w-9 rounded-full flex items-center justify-center border border-slate-200 bg-white/70 hover:bg-white text-muted-foreground transition-colors"
+              className={cn(
+                'h-9 w-9 rounded-full flex items-center justify-center border transition-colors',
+                isObsidian
+                  ? 'border-white/12 bg-white/5 hover:bg-white/12 text-[#96A1B5] hover:text-[#EEF1F6]'
+                  : 'border-slate-200 bg-white/70 hover:bg-white text-muted-foreground'
+              )}
             >
               <X className="h-4 w-4" />
             </button>
@@ -206,69 +234,58 @@ export function PlanDetailModal({
 
         {/* Scrollable Body */}
         <div className="flex-1 overflow-y-auto overscroll-contain px-6 sm:px-8 py-6 space-y-6 custom-scrollbar">
-          {/* Capacidades cuantitativas */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-3.5 rounded-2xl bg-white/75 border border-slate-200/80">
-              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                <FolderKanban className="h-3.5 w-3.5 text-[#4A607A]" />
-                Proyectos
-              </div>
-              <div className="text-base font-semibold mt-1 tabular-nums">
-                {plan.max_projects === null ? 'Ilimitados' : `${plan.max_projects} / mes`}
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-white/75 border border-slate-200/80">
-              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                <Layers className="h-3.5 w-3.5 text-[#467366]" />
-                Tarifas
-              </div>
-              <div className="text-base font-semibold mt-1 tabular-nums">
-                {plan.max_costs === null ? 'Ilimitadas' : `${plan.max_costs} ítems`}
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-white/75 border border-slate-200/80">
-              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                <Users className="h-3.5 w-3.5 text-[#4A607A]" />
-                Equipo
-              </div>
-              <div className="text-base font-semibold mt-1 tabular-nums">
-                {plan.max_users === null ? 'Ilimitados' : `${plan.max_users} usuario${plan.max_users > 1 ? 's' : ''}`}
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-white/75 border border-slate-200/80">
-              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                <Cpu className="h-3.5 w-3.5 text-[#467366]" />
-                Consultas IA
-              </div>
-              <div className="text-base font-semibold mt-1 tabular-nums">
-                {plan.ai_calls_limit === 0 ? 'Sin IA' : `${plan.ai_calls_limit} / mes`}
-              </div>
-            </div>
+            {[
+              { icon: FolderKanban, label: 'Proyectos', val: plan.max_projects === null ? 'Ilimitados' : `${plan.max_projects} / mes`, cls: isObsidian ? 'text-[#D8C39E]' : 'text-[#4A607A]' },
+              { icon: Layers, label: 'Tarifas', val: plan.max_costs === null ? 'Ilimitadas' : `${plan.max_costs} ítems`, cls: isObsidian ? 'text-[#4FA88B]' : 'text-[#467366]' },
+              { icon: Users, label: 'Equipo', val: plan.max_users === null ? 'Ilimitados' : `${plan.max_users} usuario${plan.max_users > 1 ? 's' : ''}`, cls: isObsidian ? 'text-[#D8C39E]' : 'text-[#4A607A]' },
+              { icon: Cpu, label: 'Consultas IA', val: plan.ai_calls_limit === 0 ? 'Sin IA' : `${plan.ai_calls_limit} / mes`, cls: isObsidian ? 'text-[#5E89E8]' : 'text-[#467366]' },
+            ].map((stat) => {
+              const Icon = stat.icon;
+              return (
+                <div
+                  key={stat.label}
+                  className={cn(
+                    'p-3.5 rounded-2xl border',
+                    isObsidian ? 'bg-white/[0.04] border-white/10' : 'bg-white/75 border-slate-200/80'
+                  )}
+                >
+                  <div className={cn('flex items-center gap-1.5 text-[10px] uppercase tracking-wider', isObsidian ? 'text-[#96A1B5]' : 'text-muted-foreground')}>
+                    <Icon className={cn('h-3.5 w-3.5', stat.cls)} />
+                    {stat.label}
+                  </div>
+                  <div className="text-base font-semibold mt-1 tabular-nums">{stat.val}</div>
+                </div>
+              );
+            })}
           </div>
 
-          {/* Pitch de valor */}
-          <div className="p-4 rounded-2xl border bg-white/75 border-slate-200/80 space-y-1.5 text-xs sm:text-sm leading-relaxed">
-            <p className="font-medium text-foreground">{pitch.audience}</p>
-            <p className="text-xs text-[#467366]">
+          <div
+            className={cn(
+              'p-4 rounded-2xl border space-y-1.5 text-xs sm:text-sm leading-relaxed',
+              isObsidian ? 'bg-white/[0.04] border-white/10' : 'bg-white/75 border-slate-200/80'
+            )}
+          >
+            <p className="font-medium">{pitch.audience}</p>
+            <p className={cn('text-xs', isObsidian ? 'text-[#4FA88B]' : 'text-[#467366]')}>
               <strong>Impacto financiero:</strong> {pitch.roiNote}
             </p>
           </div>
 
-          {/* Lo que incluye */}
           <div className="space-y-3">
-            <h3 className="text-[11px] uppercase tracking-[0.14em] text-[#467366] font-semibold">
+            <h3 className={cn('text-[11px] uppercase tracking-[0.14em] font-semibold', isObsidian ? 'text-[#4FA88B]' : 'text-[#467366]')}>
               Lo que incluye este plan
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {(plan.features || []).map((f, i) => (
                 <div
                   key={i}
-                  className="p-3 rounded-xl border bg-white/75 border-slate-200/80 flex items-start gap-2.5 text-xs"
+                  className={cn(
+                    'p-3 rounded-xl border flex items-start gap-2.5 text-xs',
+                    isObsidian ? 'bg-white/[0.04] border-white/10' : 'bg-white/75 border-slate-200/80'
+                  )}
                 >
-                  <Check className="h-4 w-4 text-[#467366] shrink-0 mt-0.5" />
+                  <Check className={cn('h-4 w-4 shrink-0 mt-0.5', isObsidian ? 'text-[#4FA88B]' : 'text-[#467366]')} />
                   <span>{f}</span>
                 </div>
               ))}
@@ -277,12 +294,15 @@ export function PlanDetailModal({
                 return (
                   <div
                     key={modKey}
-                    className="p-3 rounded-xl border bg-white/75 border-slate-200/80 flex items-start gap-2.5 text-xs"
+                    className={cn(
+                      'p-3 rounded-xl border flex items-start gap-2.5 text-xs',
+                      isObsidian ? 'bg-white/[0.04] border-white/10' : 'bg-white/75 border-slate-200/80'
+                    )}
                   >
-                    <Check className="h-4 w-4 text-[#467366] shrink-0 mt-0.5" />
+                    <Check className={cn('h-4 w-4 shrink-0 mt-0.5', isObsidian ? 'text-[#4FA88B]' : 'text-[#467366]')} />
                     <div>
                       <div className="font-semibold">{info.title}</div>
-                      <div className="text-[11px] mt-0.5 text-muted-foreground">
+                      <div className={cn('text-[11px] mt-0.5', isObsidian ? 'text-[#96A1B5]' : 'text-muted-foreground')}>
                         {info.benefit}
                       </div>
                     </div>
@@ -292,24 +312,30 @@ export function PlanDetailModal({
               {industry?.planSpecialtyFeatures?.[plan.id]?.map((specFeat, sIdx) => (
                 <div
                   key={`modal-spec-${sIdx}`}
-                  className="p-3 rounded-xl border bg-[#1261E0]/[0.06] border-[#1261E0]/20 flex items-start gap-2.5 text-xs sm:col-span-2"
+                  className={cn(
+                    'p-3 rounded-xl border flex items-start gap-2.5 text-xs sm:col-span-2',
+                    isObsidian
+                      ? 'bg-[#D8C39E]/[0.08] border-[#D8C39E]/25'
+                      : 'bg-[#1261E0]/[0.06] border-[#1261E0]/20'
+                  )}
                 >
-                  <Sparkles className="h-4 w-4 text-[#1261E0] shrink-0 mt-0.5" />
+                  <Sparkles className={cn('h-4 w-4 shrink-0 mt-0.5', isObsidian ? 'text-[#D8C39E]' : 'text-[#1261E0]')} />
                   <div>
-                    <div className="font-semibold text-[#0F4FB8]">
+                    <div className={cn('font-semibold', isObsidian ? 'text-[#EDE0C8]' : 'text-[#0F4FB8]')}>
                       Especializado para {industry.shortName}
                     </div>
-                    <div className="text-[11px] mt-0.5 text-foreground/85">{specFeat}</div>
+                    <div className={cn('text-[11px] mt-0.5', isObsidian ? 'text-[#EEF1F6]/85' : 'text-foreground/85')}>
+                      {specFeat}
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Lo que le falta */}
           {missingModules.length > 0 && (
             <div className="space-y-3">
-              <h3 className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">
+              <h3 className={cn('text-[11px] uppercase tracking-[0.14em] font-semibold', isObsidian ? 'text-[#96A1B5]' : 'text-muted-foreground')}>
                 Lo que no incluye (disponible en planes superiores)
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -318,7 +344,12 @@ export function PlanDetailModal({
                   return (
                     <div
                       key={modKey}
-                      className="p-3 rounded-xl border bg-slate-100/60 border-slate-200/70 text-muted-foreground flex items-start gap-2.5 text-xs opacity-85"
+                      className={cn(
+                        'p-3 rounded-xl border flex items-start gap-2.5 text-xs opacity-85',
+                        isObsidian
+                          ? 'bg-white/[0.02] border-white/8 text-[#96A1B5]'
+                          : 'bg-slate-100/60 border-slate-200/70 text-muted-foreground'
+                      )}
                     >
                       <Lock className="h-3.5 w-3.5 shrink-0 mt-0.5 opacity-70" />
                       <div>
@@ -334,9 +365,14 @@ export function PlanDetailModal({
         </div>
 
         {/* Footer CTA */}
-        <div className="px-6 sm:px-8 py-4 border-t border-slate-200/80 bg-white/60 flex flex-wrap items-center justify-between gap-3 shrink-0">
-          <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-            <ShieldCheck className="h-4 w-4 text-[#467366]" />
+        <div
+          className={cn(
+            'px-6 sm:px-8 py-4 border-t flex flex-wrap items-center justify-between gap-3 shrink-0',
+            isObsidian ? 'border-white/10 bg-black/30' : 'border-slate-200/80 bg-white/60'
+          )}
+        >
+          <span className={cn('text-xs flex items-center gap-1.5', isObsidian ? 'text-[#96A1B5]' : 'text-muted-foreground')}>
+            <ShieldCheck className={cn('h-4 w-4', isObsidian ? 'text-[#4FA88B]' : 'text-[#467366]')} />
             Tus datos históricos nunca se eliminan si cambias o pausas tu plan.
           </span>
 
@@ -347,9 +383,12 @@ export function PlanDetailModal({
                 variant="outline"
                 size="sm"
                 onClick={onSwitchToRecommended}
-                className="text-xs gap-1.5"
+                className={cn(
+                  'text-xs gap-1.5',
+                  isObsidian && 'border-[#D8C39E]/30 bg-white/5 text-[#EDE0C8] hover:bg-white/10 hover:text-white'
+                )}
               >
-                <Sparkles className="h-3.5 w-3.5 text-[#4A607A]" />
+                <Sparkles className={cn('h-3.5 w-3.5', isObsidian ? 'text-[#D8C39E]' : 'text-[#4A607A]')} />
                 Ver Recomendado ($59.990)
               </Button>
             )}
@@ -357,7 +396,10 @@ export function PlanDetailModal({
               type="button"
               disabled={Boolean(loadingTier)}
               onClick={() => onSelectPlan(plan.id)}
-              className="font-semibold gap-2 tactile-press"
+              className={cn(
+                'font-semibold gap-2 tactile-press',
+                isObsidian && 'bg-[#D8C39E] text-[#06070A] hover:bg-[#EDE0C8]'
+              )}
             >
               {plan.price_clp === 0 ? <ArrowRight className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
               {isCurrent && plan.price_clp > 0

@@ -63,6 +63,7 @@ interface PlansMatrixProps {
   khipuReady?: boolean;
   isSuperAdmin?: boolean;
   isOnboarding?: boolean;
+  surface?: 'light' | 'obsidian';
   onSelectCheckout: (
     tier: SubscriptionTier,
     selectedModules: ModuleKey[],
@@ -81,11 +82,13 @@ export function PlansMatrix({
   khipuReady = false,
   isSuperAdmin = false,
   isOnboarding = false,
+  surface = 'light',
   onSelectCheckout,
   loadingTier = null,
 }: PlansMatrixProps) {
   const [selectedModules, setSelectedModules] = useState<ModuleKey[]>(currentModules);
   const [detailPlan, setDetailPlan] = useState<SubscriptionPlan | null>(null);
+  const isObsidian = surface === 'obsidian';
 
   const currentModulesKey = currentModules.join(',');
   useEffect(() => {
@@ -134,7 +137,7 @@ export function PlansMatrix({
 
   return (
     <div className="space-y-10">
-      {/* Grid de 4 Planes (Gratis + 3 Suscripciones Mensuales) - 100% Glassmorfismo Luminoso */}
+      {/* Grid de 4 Planes */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 items-stretch">
         {plans.map((plan) => {
           const isCurrent = currentTier === plan.id;
@@ -146,10 +149,14 @@ export function PlansMatrix({
               key={plan.id}
               onClick={() => setDetailPlan(plan)}
               className={cn(
-                'group relative rounded-3xl p-6 flex flex-col justify-between transition-all duration-300 cursor-pointer text-left text-foreground',
-                isRec
-                  ? 'glass-luxury hairline-shimmer ring-1 ring-[#4A607A]/35 xl:-translate-y-1.5'
-                  : 'glass-card spotlight-card hover:-translate-y-1'
+                'group relative rounded-3xl p-6 flex flex-col justify-between transition-all duration-300 cursor-pointer text-left',
+                isObsidian
+                  ? isRec
+                    ? 'obsidian-glass-luxury obsidian-shimmer text-[#EEF1F6] xl:-translate-y-1.5'
+                    : 'obsidian-glass obsidian-spotlight text-[#EEF1F6] hover:-translate-y-1'
+                  : isRec
+                  ? 'glass-luxury hairline-shimmer text-foreground ring-1 ring-[#4A607A]/35 xl:-translate-y-1.5'
+                  : 'glass-card spotlight-card text-foreground hover:-translate-y-1'
               )}
             >
               <div>
@@ -158,7 +165,13 @@ export function PlansMatrix({
                     <Badge
                       className={cn(
                         'text-[10px] font-semibold tracking-[0.12em] uppercase px-2.5 py-0.5',
-                        isRec
+                        isObsidian
+                          ? isRec
+                            ? 'bg-[#D8C39E]/15 text-[#EDE0C8] border border-[#D8C39E]/35'
+                            : plan.id === 'free'
+                            ? 'bg-white/8 text-[#96A1B5] border border-white/12'
+                            : 'bg-[#5E89E8]/12 text-[#A7C0F7] border border-[#5E89E8]/25'
+                          : isRec
                           ? 'bg-[#467366]/15 text-[#2E5248] border border-[#467366]/30'
                           : plan.id === 'free'
                           ? 'bg-slate-200/70 text-slate-700 border border-slate-300/70'
@@ -171,7 +184,12 @@ export function PlansMatrix({
                     {isCurrent && (
                       <Badge
                         variant="outline"
-                        className="text-[10px] border-[#467366]/35 text-[#34594E] bg-[#467366]/10"
+                        className={cn(
+                          'text-[10px]',
+                          isObsidian
+                            ? 'border-[#4FA88B]/40 text-[#4FA88B] bg-[#4FA88B]/10'
+                            : 'border-[#467366]/35 text-[#34594E] bg-[#467366]/10'
+                        )}
                       >
                         Plan Actual
                       </Badge>
@@ -181,29 +199,35 @@ export function PlansMatrix({
 
                 <div className="space-y-3">
                   <div>
-                    <h3 className="text-xl font-semibold tracking-tight text-foreground">
+                    <h3 className={cn('text-xl font-semibold tracking-tight', isObsidian ? 'text-[#EEF1F6]' : 'text-foreground')}>
                       {plan.name}
                     </h3>
-                    <p className="text-xs mt-1 leading-relaxed text-muted-foreground">
+                    <p className={cn('text-xs mt-1 leading-relaxed', isObsidian ? 'text-[#96A1B5]' : 'text-muted-foreground')}>
                       {plan.tagline}
                     </p>
                   </div>
 
-                  <div className="pt-2 pb-3 border-b border-slate-200/80">
+                  <div className={cn('pt-2 pb-3 border-b', isObsidian ? 'border-white/10' : 'border-slate-200/80')}>
                     <div className="flex items-baseline gap-1.5">
                       <span
                         className={cn(
                           'text-3xl font-semibold tabular-nums tracking-tight',
-                          isRec ? 'text-[#3B4F66]' : 'text-foreground'
+                          isObsidian
+                            ? isRec
+                              ? 'text-[#EDE0C8]'
+                              : 'text-[#EEF1F6]'
+                            : isRec
+                            ? 'text-[#3B4F66]'
+                            : 'text-foreground'
                         )}
                       >
                         {plan.price_clp === 0 ? '$0' : formatCLP(plan.price_clp)}
                       </span>
-                      <span className="text-xs font-medium text-muted-foreground">
+                      <span className={cn('text-xs font-medium', isObsidian ? 'text-[#96A1B5]' : 'text-muted-foreground')}>
                         {plan.price_clp === 0 ? '/ mes' : '/ mes · IVA incl.'}
                       </span>
                     </div>
-                    <p className="text-[11px] mt-2 leading-relaxed text-muted-foreground">
+                    <p className={cn('text-[11px] mt-2 leading-relaxed', isObsidian ? 'text-[#96A1B5]' : 'text-muted-foreground')}>
                       {plan.description}
                     </p>
                   </div>
@@ -211,17 +235,22 @@ export function PlansMatrix({
                   <ul className="space-y-2 pt-1 text-xs">
                     {(plan.features || []).map((feat, idx) => (
                       <li key={idx} className="flex items-start gap-2">
-                        <Check className="h-4 w-4 shrink-0 mt-0.5 text-[#467366]" />
-                        <span className="text-foreground/85">{feat}</span>
+                        <Check className={cn('h-4 w-4 shrink-0 mt-0.5', isObsidian ? 'text-[#4FA88B]' : 'text-[#467366]')} />
+                        <span className={isObsidian ? 'text-[#EEF1F6]/88' : 'text-foreground/85'}>{feat}</span>
                       </li>
                     ))}
                     {industry?.planSpecialtyFeatures?.[plan.id]?.map((specFeat, sIdx) => (
                       <li
                         key={`spec-${sIdx}`}
-                        className="flex items-start gap-2 rounded-lg bg-[#1261E0]/[0.06] border border-[#1261E0]/15 px-2 py-1.5"
+                        className={cn(
+                          'flex items-start gap-2 rounded-lg border px-2 py-1.5',
+                          isObsidian
+                            ? 'bg-[#D8C39E]/[0.08] border-[#D8C39E]/25'
+                            : 'bg-[#1261E0]/[0.06] border-[#1261E0]/15'
+                        )}
                       >
-                        <Sparkles className="h-3.5 w-3.5 shrink-0 mt-0.5 text-[#1261E0]" />
-                        <span className="text-[#0F4FB8] font-medium leading-snug">
+                        <Sparkles className={cn('h-3.5 w-3.5 shrink-0 mt-0.5', isObsidian ? 'text-[#D8C39E]' : 'text-[#1261E0]')} />
+                        <span className={cn('font-medium leading-snug', isObsidian ? 'text-[#EDE0C8]' : 'text-[#0F4FB8]')}>
                           <span className="text-[10px] uppercase tracking-wider font-bold block">
                             Para {industry.shortName}:
                           </span>
@@ -232,14 +261,14 @@ export function PlansMatrix({
                   </ul>
 
                   {(PLAN_MISSING_HIGHLIGHTS[plan.id] || []).length > 0 && (
-                    <div className="pt-2 border-t border-slate-200/70 space-y-1.5">
-                      <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground block">
+                    <div className={cn('pt-2 border-t space-y-1.5', isObsidian ? 'border-white/10' : 'border-slate-200/70')}>
+                      <span className={cn('text-[10px] uppercase tracking-wider font-semibold block', isObsidian ? 'text-[#96A1B5]' : 'text-muted-foreground')}>
                         Qué le falta en este nivel
                       </span>
-                      <ul className="space-y-1 text-[11px] text-muted-foreground">
+                      <ul className={cn('space-y-1 text-[11px]', isObsidian ? 'text-[#96A1B5]' : 'text-muted-foreground')}>
                         {PLAN_MISSING_HIGHLIGHTS[plan.id].map((missing, mIdx) => (
                           <li key={mIdx} className="flex items-start gap-1.5">
-                            <Lock className="h-3 w-3 shrink-0 mt-0.5 text-slate-400" />
+                            <Lock className={cn('h-3 w-3 shrink-0 mt-0.5', isObsidian ? 'text-[#646F84]' : 'text-slate-400')} />
                             <span>{missing}</span>
                           </li>
                         ))}
@@ -248,7 +277,14 @@ export function PlansMatrix({
                   )}
 
                   {PLAN_ROI_NUDGE[plan.id] && (
-                    <div className="p-2.5 rounded-xl bg-slate-100/75 border border-slate-200/80 text-[11px] text-slate-700 leading-snug">
+                    <div
+                      className={cn(
+                        'p-2.5 rounded-xl border text-[11px] leading-snug',
+                        isObsidian
+                          ? 'bg-white/[0.04] border-white/10 text-[#96A1B5]'
+                          : 'bg-slate-100/75 border-slate-200/80 text-slate-700'
+                      )}
+                    >
                       {PLAN_ROI_NUDGE[plan.id]}
                     </div>
                   )}
@@ -256,13 +292,18 @@ export function PlansMatrix({
               </div>
 
               <div
-                className="pt-5 mt-6 border-t border-slate-200/80 space-y-2"
+                className={cn('pt-5 mt-6 border-t space-y-2', isObsidian ? 'border-white/10' : 'border-slate-200/80')}
                 onClick={(e) => e.stopPropagation()}
               >
                 <button
                   type="button"
                   onClick={() => setDetailPlan(plan)}
-                  className="w-full flex items-center justify-center gap-1.5 text-[11px] font-medium py-1.5 rounded-lg transition-colors text-[#4A607A] hover:bg-[#4A607A]/10"
+                  className={cn(
+                    'w-full flex items-center justify-center gap-1.5 text-[11px] font-medium py-1.5 rounded-lg transition-colors',
+                    isObsidian
+                      ? 'text-[#D8C39E] hover:bg-white/6'
+                      : 'text-[#4A607A] hover:bg-[#4A607A]/10'
+                  )}
                 >
                   <Eye className="h-3.5 w-3.5" />
                   Ver detalle completo y qué incluye
@@ -275,7 +316,13 @@ export function PlansMatrix({
                   variant={plan.id === 'free' ? 'outline' : 'default'}
                   className={cn(
                     'w-full tactile-press font-semibold gap-2',
-                    isRec && 'bg-[#467366] hover:bg-[#3A6155] text-white'
+                    isObsidian
+                      ? isRec
+                        ? 'bg-[#D8C39E] hover:bg-[#EDE0C8] text-[#06070A] shadow-[0_10px_28px_-10px_rgba(216,195,158,0.5)]'
+                        : plan.id === 'free'
+                        ? 'border-white/15 bg-white/5 text-[#EEF1F6] hover:bg-white/10 hover:text-white'
+                        : 'bg-white/12 hover:bg-white/20 text-[#EEF1F6] border border-white/15 shadow-none'
+                      : isRec && 'bg-[#467366] hover:bg-[#3A6155] text-white'
                   )}
                 >
                   {isBusy ? (
@@ -303,7 +350,12 @@ export function PlansMatrix({
                     variant="ghost"
                     disabled={Boolean(loadingTier)}
                     onClick={() => onSelectCheckout(plan.id, [], true)}
-                    className="w-full text-[11px] h-7 text-[#4A607A] hover:bg-[#4A607A]/10"
+                    className={cn(
+                      'w-full text-[11px] h-7',
+                      isObsidian
+                        ? 'text-[#D8C39E] hover:bg-white/6'
+                        : 'text-[#4A607A] hover:bg-[#4A607A]/10'
+                    )}
                   >
                     Simular Activación (SuperAdmin)
                   </Button>
@@ -314,40 +366,74 @@ export function PlansMatrix({
         })}
       </div>
 
-      {/* Configurador Modular "Paga lo que usas" - Glassmorfismo Luminoso */}
-      <div className="rounded-3xl glass-card p-6 sm:p-8 space-y-6">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200/80 pb-6">
+      {/* Configurador Modular "Paga lo que usas" */}
+      <div
+        className={cn(
+          'rounded-3xl p-6 sm:p-8 space-y-6',
+          isObsidian ? 'obsidian-glass text-[#EEF1F6]' : 'glass-card text-foreground'
+        )}
+      >
+        <div
+          className={cn(
+            'flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b pb-6',
+            isObsidian ? 'border-white/10' : 'border-slate-200/80'
+          )}
+        >
           <div className="space-y-1.5">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#4A607A]/12 text-[#3B4F66] border border-[#4A607A]/25 text-[10px] font-semibold tracking-[0.12em] uppercase">
-              <Sliders className="h-3.5 w-3.5 text-[#4A607A]" />
+            <div
+              className={cn(
+                'inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-semibold tracking-[0.12em] uppercase',
+                isObsidian
+                  ? 'bg-[#D8C39E]/10 text-[#EDE0C8] border-[#D8C39E]/25'
+                  : 'bg-[#4A607A]/12 text-[#3B4F66] border-[#4A607A]/25'
+              )}
+            >
+              <Sliders className={cn('h-3.5 w-3.5', isObsidian ? 'text-[#D8C39E]' : 'text-[#4A607A]')} />
               Modalidad Flexible · Paga lo que usas
             </div>
-            <h3 className="text-2xl font-semibold tracking-tight text-foreground">
-              Arma tu propio ERP <span className="editorial-italic text-[#4A607A]">a medida</span>
+            <h3 className="text-2xl font-semibold tracking-tight">
+              Arma tu propio ERP{' '}
+              <span className={cn('editorial-italic', isObsidian ? 'text-[#D8C39E]' : 'text-[#4A607A]')}>
+                a medida
+              </span>
             </h3>
-            <p className="text-sm text-muted-foreground max-w-2xl">
-              Parte con la <strong>{baseAddon?.name || 'Plataforma Activa Base'}</strong> (
-              <span className="font-semibold text-foreground tabular-nums">
+            <p className={cn('text-sm max-w-2xl', isObsidian ? 'text-[#96A1B5]' : 'text-muted-foreground')}>
+              Parte con la <strong className={isObsidian ? 'text-[#EEF1F6]' : ''}>{baseAddon?.name || 'Plataforma Activa Base'}</strong> (
+              <span className={cn('font-semibold tabular-nums', isObsidian ? 'text-[#EDE0C8]' : 'text-foreground')}>
                 {formatCLP(baseAddon?.price_clp ?? 19990)}
               </span>
               /mes) y enciende exclusivamente los módulos que tu operación necesita hoy. Si armas un paquete grande, te avisamos cuando te conviene más un plan cerrado.
             </p>
           </div>
 
-          <div className="rounded-2xl glass-luxury p-5 min-w-[280px] max-w-sm space-y-3">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <div
+            className={cn(
+              'rounded-2xl p-5 min-w-[280px] max-w-sm space-y-3',
+              isObsidian ? 'obsidian-glass-luxury' : 'glass-luxury'
+            )}
+          >
+            <div className={cn('flex items-center justify-between text-xs', isObsidian ? 'text-[#96A1B5]' : 'text-muted-foreground')}>
               <span>Tu inversión mensual</span>
               <span className="tabular-nums font-medium">{selectedModules.length} módulos</span>
             </div>
-            <div className="text-3xl font-semibold tabular-nums text-[#3B4F66]">
+            <div className={cn('text-3xl font-semibold tabular-nums', isObsidian ? 'text-[#EDE0C8]' : 'text-[#3B4F66]')}>
               <AnimatedNumber value={customTotalClp} format="clp" duration={360} />
-              <span className="text-xs font-normal text-muted-foreground ml-1.5">/ mes</span>
+              <span className={cn('text-xs font-normal ml-1.5', isObsidian ? 'text-[#96A1B5]' : 'text-muted-foreground')}>
+                / mes
+              </span>
             </div>
 
             {customExceedsScale && scalePlan && (
-              <div className="p-3 rounded-xl bg-[#467366]/12 border border-[#467366]/30 text-[11px] text-[#2E5248] leading-snug space-y-1">
+              <div
+                className={cn(
+                  'p-3 rounded-xl border text-[11px] leading-snug space-y-1',
+                  isObsidian
+                    ? 'bg-[#4FA88B]/12 border-[#4FA88B]/30 text-[#A9E0CD]'
+                    : 'bg-[#467366]/12 border-[#467366]/30 text-[#2E5248]'
+                )}
+              >
                 <div>
-                  <Zap className="h-3.5 w-3.5 inline mr-1 text-[#467366]" />
+                  <Zap className="h-3.5 w-3.5 inline mr-1 text-[#4FA88B]" />
                   <strong>¡Te conviene Enterprise!</strong> Por{' '}
                   <strong>{formatCLP(scalePlan.price_clp)}/mes</strong> tienes TODO incluido, usuarios ilimitados y {scalePlan.ai_calls_limit} IA/mes. Ahorras{' '}
                   <strong>{formatCLP(customTotalClp - scalePlan.price_clp)}/mes</strong>.
@@ -355,7 +441,7 @@ export function PlansMatrix({
                 <button
                   type="button"
                   onClick={() => setDetailPlan(scalePlan)}
-                  className="underline font-semibold text-[#2E5248] hover:text-[#1F3A32]"
+                  className="underline font-semibold"
                 >
                   Comparar con {scalePlan.name} →
                 </button>
@@ -363,9 +449,16 @@ export function PlansMatrix({
             )}
 
             {customExceedsRecommended && recommendedPlan && (
-              <div className="p-3 rounded-xl bg-[#4A607A]/12 border border-[#4A607A]/25 text-[11px] text-[#3B4F66] leading-snug space-y-1">
+              <div
+                className={cn(
+                  'p-3 rounded-xl border text-[11px] leading-snug space-y-1',
+                  isObsidian
+                    ? 'bg-[#D8C39E]/12 border-[#D8C39E]/30 text-[#EDE0C8]'
+                    : 'bg-[#4A607A]/12 border-[#4A607A]/25 text-[#3B4F66]'
+                )}
+              >
                 <div>
-                  <Zap className="h-3.5 w-3.5 inline mr-1 text-[#4A607A]" />
+                  <Zap className="h-3.5 w-3.5 inline mr-1" />
                   Por <strong>{formatCLP(recommendedPlan.price_clp)}/mes</strong> obtienes{' '}
                   <strong>{recommendedPlan.name}</strong> con casi todo incluido y ahorras{' '}
                   <strong>{formatCLP(Math.max(0, customTotalClp - recommendedPlan.price_clp))}/mes</strong>.
@@ -373,7 +466,7 @@ export function PlansMatrix({
                 <button
                   type="button"
                   onClick={() => setDetailPlan(recommendedPlan)}
-                  className="underline font-semibold text-[#3B4F66] hover:text-foreground"
+                  className="underline font-semibold"
                 >
                   Ver qué incluye {recommendedPlan.name} →
                 </button>
@@ -384,7 +477,10 @@ export function PlansMatrix({
               type="button"
               disabled={Boolean(loadingTier)}
               onClick={() => onSelectCheckout('custom', selectedModules)}
-              className="w-full font-semibold gap-2 tactile-press"
+              className={cn(
+                'w-full font-semibold gap-2 tactile-press',
+                isObsidian && 'bg-[#D8C39E] text-[#06070A] hover:bg-[#EDE0C8]'
+              )}
             >
               {loadingTier === 'custom' ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -401,7 +497,10 @@ export function PlansMatrix({
                 variant="ghost"
                 disabled={Boolean(loadingTier)}
                 onClick={() => onSelectCheckout('custom', selectedModules, true)}
-                className="w-full text-[11px] h-7 text-[#4A607A] hover:bg-[#4A607A]/10"
+                className={cn(
+                  'w-full text-[11px] h-7',
+                  isObsidian ? 'text-[#D8C39E] hover:bg-white/6' : 'text-[#4A607A] hover:bg-[#4A607A]/10'
+                )}
               >
                 Simular Custom (SuperAdmin)
               </Button>
@@ -422,7 +521,11 @@ export function PlansMatrix({
                 onClick={() => toggleModule(modId)}
                 className={cn(
                   'text-left rounded-2xl p-4 border transition-all duration-200 tactile-press flex flex-col justify-between gap-3 backdrop-blur-md',
-                  active
+                  isObsidian
+                    ? active
+                      ? 'bg-[#D8C39E]/[0.11] text-[#EEF1F6] border-[#D8C39E]/45 shadow-sm'
+                      : 'bg-white/[0.03] hover:bg-white/[0.06] text-[#EEF1F6] border-white/10 hover:border-white/20'
+                    : active
                     ? 'bg-white/95 text-foreground border-[#4A607A]/50 shadow-sm ring-1 ring-[#4A607A]/20'
                     : 'bg-white/55 hover:bg-white/80 text-foreground border-slate-200/80 hover:border-slate-300'
                 )}
@@ -433,19 +536,29 @@ export function PlansMatrix({
                       <Layers
                         className={cn(
                           'h-4 w-4 shrink-0',
-                          active ? 'text-[#4A607A]' : 'text-muted-foreground'
+                          isObsidian
+                            ? active
+                              ? 'text-[#D8C39E]'
+                              : 'text-[#96A1B5]'
+                            : active
+                            ? 'text-[#4A607A]'
+                            : 'text-muted-foreground'
                         )}
                       />
                       <span className="font-semibold text-sm leading-tight">{addon.name}</span>
                     </div>
-                    <p className="text-xs leading-relaxed text-muted-foreground">
+                    <p className={cn('text-xs leading-relaxed', isObsidian ? 'text-[#96A1B5]' : 'text-muted-foreground')}>
                       {addon.description}
                     </p>
                   </div>
                   <div
                     className={cn(
                       'h-5 w-5 rounded-md border flex items-center justify-center shrink-0 mt-0.5',
-                      active
+                      isObsidian
+                        ? active
+                          ? 'bg-[#D8C39E] border-[#D8C39E] text-[#06070A]'
+                          : 'border-white/20 bg-white/5'
+                        : active
                         ? 'bg-[#467366] border-[#467366] text-white'
                         : 'border-slate-300 bg-white/80'
                     )}
@@ -454,14 +567,25 @@ export function PlansMatrix({
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-slate-200/70 text-xs">
-                  <span className="text-muted-foreground">
+                <div
+                  className={cn(
+                    'flex items-center justify-between pt-2 border-t text-xs',
+                    isObsidian ? 'border-white/10' : 'border-slate-200/70'
+                  )}
+                >
+                  <span className={isObsidian ? 'text-[#96A1B5]' : 'text-muted-foreground'}>
                     Cargo mensual adicional
                   </span>
                   <span
                     className={cn(
                       'font-semibold tabular-nums',
-                      active ? 'text-[#4A607A]' : 'text-foreground'
+                      isObsidian
+                        ? active
+                          ? 'text-[#EDE0C8]'
+                          : 'text-[#EEF1F6]'
+                        : active
+                        ? 'text-[#4A607A]'
+                        : 'text-foreground'
                     )}
                   >
                     +{formatCLP(addon.price_clp)}
@@ -472,10 +596,10 @@ export function PlansMatrix({
           })}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs text-muted-foreground">
+        <div className={cn('flex flex-wrap items-center justify-between gap-3 pt-2 text-xs', isObsidian ? 'text-[#96A1B5]' : 'text-muted-foreground')}>
           <span className="inline-flex items-center gap-1.5">
-            <ShieldCheck className="h-4 w-4 text-[#467366]" />
-            Pagos procesados mediante transferencia bancaria certificada por <strong>Khipu</strong>.
+            <ShieldCheck className={cn('h-4 w-4', isObsidian ? 'text-[#4FA88B]' : 'text-[#467366]')} />
+            Pagos procesados mediante transferencia bancaria certificada por <strong className={isObsidian ? 'text-[#EEF1F6]' : ''}>Khipu</strong>.
           </span>
           <span>
             Si decides pausar tu pago, tus datos históricos nunca se eliminan (solo se restringen módulos premium).
@@ -490,6 +614,7 @@ export function PlansMatrix({
         industryName={industryName}
         isCurrent={Boolean(detailPlan && currentTier === detailPlan.id)}
         loadingTier={loadingTier}
+        surface={surface}
         onClose={() => setDetailPlan(null)}
         onSelectPlan={(tier) => {
           setDetailPlan(null);

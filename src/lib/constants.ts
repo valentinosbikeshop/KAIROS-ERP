@@ -1,4 +1,5 @@
-export const PLATFORM_NAME = 'KAIROS ERP';
+export const PLATFORM_NAME = 'FIGURA';
+export const PLATFORM_FULL_NAME = 'FIGURA · Arquitectura Financiera';
 export const SUPER_ADMIN_EMAIL = 'valentinosbikeshop@gmail.com';
 export const DUO_ORG_SLUG = 'duo-producciones';
 export const DEMO_ORG_SLUG = 'demo-sandbox';

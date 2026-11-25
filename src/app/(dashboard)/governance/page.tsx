@@ -25,7 +25,7 @@ import {
 import { PlansAdminTab } from '@/components/governance/plans-admin-tab';
 import { useUser } from '@/hooks/use-user';
 import { Organization, Profile } from '@/types';
-import { CompanyLogoMark } from '@/components/ui/kairos-logo';
+import { CompanyLogoMark } from '@/components/ui/figura-logo';
 import { CompanyBrandingDialog, LogoUploadField } from '@/components/governance/company-branding-dialog';
 import { MfaSettingsCard } from '@/components/auth/mfa-settings-card';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';

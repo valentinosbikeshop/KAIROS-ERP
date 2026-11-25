@@ -58,11 +58,11 @@ export function useUser() {
     const handleOrgUpdated = () => {
       fetchProfile();
     };
-    window.addEventListener('kairos:org-updated', handleOrgUpdated);
+    window.addEventListener('figura:org-updated', handleOrgUpdated);
 
     return () => {
       subscription.unsubscribe();
-      window.removeEventListener('kairos:org-updated', handleOrgUpdated);
+      window.removeEventListener('figura:org-updated', handleOrgUpdated);
     };
   }, [supabase]);
 

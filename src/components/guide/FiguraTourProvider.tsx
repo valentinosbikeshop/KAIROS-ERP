@@ -29,9 +29,9 @@ export interface NextSectionLink {
   label: string;
 }
 
-export const KAIROS_TOUR_STORAGE_KEY = 'kairos_tour_completed';
+export const FIGURA_TOUR_STORAGE_KEY = 'figura_tour_completed';
 
-interface KairosTourContextValue {
+interface FiguraTourContextValue {
   isActive: boolean;
   currentStepIndex: number;
   steps: TourStep[];
@@ -49,9 +49,9 @@ interface KairosTourContextValue {
   centerCurrentTarget: () => void;
 }
 
-const KairosTourContext = createContext<KairosTourContextValue | null>(null);
+const FiguraTourContext = createContext<FiguraTourContextValue | null>(null);
 
-export function KairosTourProvider({
+export function FiguraTourProvider({
   children,
 }: {
   children: React.ReactNode;
@@ -99,7 +99,7 @@ export function KairosTourProvider({
             id: 'costs-table',
             targetSelector: '[data-tour-id="costs-table"]',
             title: 'Edición de Márgenes en Tiempo Real',
-            message: 'Edite cualquier tarifa: KAIROS recalcula automáticamente el valor neto, IVA 19% y utilidad neta antes de que usted envíe una cotización.',
+            message: 'Edite cualquier tarifa: FIGURA recalcula automáticamente el valor neto, IVA 19% y utilidad neta antes de que usted envíe una cotización.',
             placement: 'top',
           },
         ],
@@ -197,7 +197,7 @@ export function KairosTourProvider({
         {
           id: 'welcome-ebitda',
           targetSelector: '[data-tour-id="kpi-ebitda"]',
-          title: `Bienvenido a KAIROS · ${indName}`,
+          title: `Bienvenido a FIGURA · ${indName}`,
           message: `Aquí monitorea ingresos cerrados, utilidad neta y margen real de su empresa de ${indName} en tiempo real, sin sorpresas de IVA a fin de mes.`,
           placement: 'bottom',
         },
@@ -219,7 +219,7 @@ export function KairosTourProvider({
           id: 'demo-industry-switcher',
           targetSelector: '[data-tour-id="demo-industry-switcher"]',
           title: 'Adapte el ERP a su Rubro en Vivo',
-          message: 'Puede cambiar de rubro aquí en cualquier momento para ver cómo KAIROS transforma terminología, tarifas y proyectos al instante.',
+          message: 'Puede cambiar de rubro aquí en cualquier momento para ver cómo FIGURA transforma terminología, tarifas y proyectos al instante.',
           placement: 'bottom',
         },
       ],
@@ -229,7 +229,7 @@ export function KairosTourProvider({
   // Hydrate completion state from localStorage on client mount
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const stored = window.localStorage.getItem(KAIROS_TOUR_STORAGE_KEY) === 'true';
+    const stored = window.localStorage.getItem(FIGURA_TOUR_STORAGE_KEY) === 'true';
     setIsCompleted(stored);
 
     if (!stored && !hasAutoStarted.current) {
@@ -245,7 +245,7 @@ export function KairosTourProvider({
   const markCompleted = useCallback(() => {
     setIsCompleted(true);
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem(KAIROS_TOUR_STORAGE_KEY, 'true');
+      window.localStorage.setItem(FIGURA_TOUR_STORAGE_KEY, 'true');
     }
   }, []);
 
@@ -289,22 +289,19 @@ export function KairosTourProvider({
     router.push(nextSection.href);
   }, [nextSection, router]);
 
-  // Reset step index when route changes while active
   useEffect(() => {
     setCurrentStepIndex(0);
     setIsCelebrating(false);
   }, [pathname]);
 
-  // Listen to DemoBanner or floating button 'kairos:open-guide'
   useEffect(() => {
     const handleOpenGuide = () => {
       restartTour();
     };
-    window.addEventListener('kairos:open-guide', handleOpenGuide);
-    return () => window.removeEventListener('kairos:open-guide', handleOpenGuide);
+    window.addEventListener('figura:open-guide', handleOpenGuide);
+    return () => window.removeEventListener('figura:open-guide', handleOpenGuide);
   }, [restartTour]);
 
-  // Close on Escape key
   useEffect(() => {
     if (!isActive) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -335,7 +332,6 @@ export function KairosTourProvider({
     });
   }, [currentStep]);
 
-  // Auto-scroll target into view when step changes
   useEffect(() => {
     if (!isActive || !currentStep || isCelebrating) return;
     const timer = window.setTimeout(() => {
@@ -359,7 +355,7 @@ export function KairosTourProvider({
     };
   }, [isActive, currentStep, isCelebrating, nextStep, centerCurrentTarget]);
 
-  const value = useMemo<KairosTourContextValue>(
+  const value = useMemo<FiguraTourContextValue>(
     () => ({
       isActive,
       currentStepIndex,
@@ -397,16 +393,16 @@ export function KairosTourProvider({
   );
 
   return (
-    <KairosTourContext.Provider value={value}>
+    <FiguraTourContext.Provider value={value}>
       {children}
-    </KairosTourContext.Provider>
+    </FiguraTourContext.Provider>
   );
 }
 
-export function useKairosTour(): KairosTourContextValue {
-  const ctx = useContext(KairosTourContext);
+export function useFiguraTour(): FiguraTourContextValue {
+  const ctx = useContext(FiguraTourContext);
   if (!ctx) {
-    throw new Error('useKairosTour debe utilizarse dentro de KairosTourProvider');
+    throw new Error('useFiguraTour debe utilizarse dentro de FiguraTourProvider');
   }
   return ctx;
 }

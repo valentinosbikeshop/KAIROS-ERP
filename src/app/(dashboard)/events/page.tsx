@@ -39,11 +39,11 @@ export default function EventsPage() {
   useEffect(() => {
     fetchEvents();
     const onRefresh = () => fetchEvents();
-    window.addEventListener('kairos:local-db-changed', onRefresh);
-    window.addEventListener('kairos:org-updated', onRefresh);
+    window.addEventListener('figura:local-db-changed', onRefresh);
+    window.addEventListener('figura:org-updated', onRefresh);
     return () => {
-      window.removeEventListener('kairos:local-db-changed', onRefresh);
-      window.removeEventListener('kairos:org-updated', onRefresh);
+      window.removeEventListener('figura:local-db-changed', onRefresh);
+      window.removeEventListener('figura:org-updated', onRefresh);
     };
   }, [fetchEvents, industry.id]);
 

@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       return guard.response;
     }
 
-    const orgName = guard.org.name || 'KAIROS ERP';
+    const orgName = guard.org.name || 'FIGURA';
     const { messages, draftItems, fileText } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {

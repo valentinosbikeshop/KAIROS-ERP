@@ -18,9 +18,15 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: 'KAIROS ERP | Arquitectura Financiera & Proyectos por Rubro con IA',
+  title: 'FIGURA | Arquitectura Financiera & ERP Multi-Rubro con IA',
   description:
-    'KAIROS ERP — Plataforma SaaS Multi-Empresa de gestión operativa, cotizaciones y planificación financiera con precisión arquitectónica',
+    'FIGURA — Plataforma SaaS Multi-Empresa de arquitectura financiera, cotizaciones inteligentes IA OCR y control tributario F29 con precisión ejecutiva.',
+  openGraph: {
+    title: 'FIGURA | Arquitectura Financiera & ERP Multi-Rubro',
+    description:
+      'Precisión en cada cifra. Control en cada margen. Cotizador IA OCR, IVA F29 en vivo, retenciones 15,25% y portal de aprobación digital.',
+    type: 'website',
+  },
 };
 
 export default function RootLayout({

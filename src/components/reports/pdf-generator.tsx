@@ -12,8 +12,8 @@ import { useState } from 'react';
 export function PdfGenerator({ event, items }: { event: Event; items: EventItem[] }) {
   const [loading, setLoading] = useState(false);
   const { organization } = useUser();
-  const orgTitle = (organization?.name || 'KAIROS ERP').toUpperCase();
-  const orgFooter = organization?.name || 'KAIROS ERP';
+  const orgTitle = (organization?.name || 'FIGURA').toUpperCase();
+  const orgFooter = organization?.name || 'FIGURA';
 
   const generatePDF = async () => {
     setLoading(true);

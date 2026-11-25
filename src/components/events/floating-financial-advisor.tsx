@@ -20,7 +20,7 @@ interface FloatingFinancialAdvisorProps {
 
 export function FloatingFinancialAdvisor({ event, items }: FloatingFinancialAdvisorProps) {
   const { organization } = useUser();
-  const orgName = organization?.name || 'KAIROS ERP';
+  const orgName = organization?.name || 'FIGURA';
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {

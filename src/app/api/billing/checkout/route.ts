@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
         ? `Plan A tu Medida (${uniqueModules.length} módulos)`
         : plans.find((p) => p.id === tier)?.name || tier;
 
-    const transactionId = `KAIROS-${ctx.organization.id.slice(0, 8).toUpperCase()}-${Date.now()}`;
+    const transactionId = `FIGURA-${ctx.organization.id.slice(0, 8).toUpperCase()}-${Date.now()}`;
     const origin =
       process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || req.nextUrl.origin;
     const returnUrl = `${origin}/billing?payment=success&tx=${encodeURIComponent(transactionId)}`;
@@ -179,7 +179,7 @@ export async function POST(req: NextRequest) {
     // 4. Crear orden de pago real en Khipu API v3 y registrar en ledger sin silenciar errores
     const khipuRes = await createKhipuPayment({
       amountClp,
-      subject: `KAIROS ERP — Suscripción Mensual: ${planName}`,
+      subject: `FIGURA — Suscripción Mensual: ${planName}`,
       body: `Renovación mensual (${ctx.organization.name}) · Plan ${planName}. Acceso inmediato tras confirmación bancaria Khipu.`,
       transactionId,
       returnUrl,

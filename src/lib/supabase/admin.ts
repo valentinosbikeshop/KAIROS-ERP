@@ -64,16 +64,16 @@ export async function getAuthenticatedContext(
       // Soporte para Modo Demo en Caché Local (opt-in exclusivo en endpoints de IA/OCR con mínimo privilegio)
       const isLocalDemo =
         Boolean(options.allowLocalDemo) &&
-        req.cookies.get('kairos_local_demo_mode')?.value === '1';
+        req.cookies.get('figura_local_demo_mode')?.value === '1';
       if (isLocalDemo) {
         const demoOrgId = 'd0000000-0000-4000-8000-000000000000';
         const demoUserId = 'd0000000-0000-4000-8000-000000000099';
         return {
           userId: demoUserId,
-          email: 'visitante@kairos-sandbox.cl',
+          email: 'visitante@figura-sandbox.cl',
           profile: {
             id: demoUserId,
-            email: 'visitante@kairos-sandbox.cl',
+            email: 'visitante@figura-sandbox.cl',
             role: 'member',
             status: 'active',
             organization_id: demoOrgId,
@@ -85,7 +85,7 @@ export async function getAuthenticatedContext(
             id: demoOrgId,
             name: 'Productora Horizonte (Demo)',
             slug: 'productora-horizonte-demo',
-            invite_code: 'KAIROS-DEMO-2026',
+            invite_code: 'FIGURA-DEMO-2026',
             legal_name: 'Productora Horizonte Eventos SpA',
             rut: '76.890.123-4',
             subtitle: 'SANDBOX LOCAL',

@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
     if (!isSuperAdmin) {
       return NextResponse.json(
-        { error: 'Solo el Super Administrador de KAIROS ERP puede cambiar entre empresas.' },
+        { error: 'Solo el Super Administrador de FIGURA puede cambiar entre empresas.' },
         { status: 403 }
       );
     }

@@ -26,7 +26,7 @@ import {
   validateRutCL,
 } from '@/lib/utils';
 import { LOCAL_DEMO_STORAGE_KEY } from '@/lib/supabase/local-demo-client';
-import { CompanyLogoMark } from '@/components/ui/kairos-logo';
+import { CompanyLogoMark } from '@/components/ui/figura-logo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -438,7 +438,7 @@ export default function PublicQuotePortalPage() {
                     {organization?.subtitle || 'Propuesta Comercial Oficial'}
                   </p>
                   <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
-                    {organization?.name || 'KAIROS ERP'}
+                    {organization?.name || 'FIGURA'}
                   </h1>
                   {(organization?.legal_name || organization?.rut) && (
                     <p className="text-xs text-muted-foreground">
@@ -819,7 +819,7 @@ export default function PublicQuotePortalPage() {
         </div>
 
         <footer className="text-center text-[11px] text-muted-foreground pb-6">
-          Documento emitido digitalmente vía KAIROS ERP · {organization?.contact_email || ''}
+          Documento emitido digitalmente vía FIGURA · {organization?.contact_email || ''}
         </footer>
       </div>
     </div>

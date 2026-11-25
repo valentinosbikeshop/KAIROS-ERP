@@ -84,11 +84,11 @@ export default function CostsPage() {
   useEffect(() => {
     fetchCosts()
     const onRefresh = () => fetchCosts()
-    window.addEventListener('kairos:local-db-changed', onRefresh)
-    window.addEventListener('kairos:org-updated', onRefresh)
+    window.addEventListener('figura:local-db-changed', onRefresh)
+    window.addEventListener('figura:org-updated', onRefresh)
     return () => {
-      window.removeEventListener('kairos:local-db-changed', onRefresh)
-      window.removeEventListener('kairos:org-updated', onRefresh)
+      window.removeEventListener('figura:local-db-changed', onRefresh)
+      window.removeEventListener('figura:org-updated', onRefresh)
     }
   }, [industry.id])
 

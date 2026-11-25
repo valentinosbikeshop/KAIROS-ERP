@@ -82,7 +82,7 @@ export function MfaSettingsCard() {
 
       const { data, error } = await supabase.auth.mfa.enroll({
         factorType: 'totp',
-        friendlyName: 'KAIROS ERP Authenticator',
+        friendlyName: 'FIGURA Authenticator',
       });
 
       if (error || !data?.totp) {

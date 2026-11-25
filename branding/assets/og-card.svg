@@ -1,0 +1,37 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="ogChampagne" cx="22%" cy="18%" r="55%">
+      <stop offset="0%" stop-color="#D8C39E" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#06070A" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="ogCobalt" cx="85%" cy="78%" r="50%">
+      <stop offset="0%" stop-color="#5E89E8" stop-opacity="0.14" />
+      <stop offset="100%" stop-color="#06070A" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#06070A" />
+  <rect width="1200" height="630" fill="url(#ogChampagne)" />
+  <rect width="1200" height="630" fill="url(#ogCobalt)" />
+  <rect x="48" y="48" width="1104" height="534" rx="32" fill="#0D1018" fill-opacity="0.72" stroke="#D8C39E" stroke-opacity="0.24" stroke-width="1.2" />
+
+  <g transform="translate(108,116) scale(2.1)">
+    <rect x="2" y="2" width="40" height="40" rx="11" fill="#111622" stroke="#D8C39E" stroke-opacity="0.45" stroke-width="1" />
+    <path d="M22.5 31.5H30.5V25.5" stroke="#D8C39E" stroke-opacity="0.45" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M15 12.5V31.5" stroke="#EEF1F6" stroke-width="2.6" stroke-linecap="round" />
+    <path d="M15 12.5H29.5" stroke="#D8C39E" stroke-width="2.6" stroke-linecap="round" />
+    <path d="M15 21.5H25" stroke="#EEF1F6" stroke-width="2.4" stroke-linecap="round" />
+    <circle cx="25.5" cy="21.5" r="2.1" fill="#D8C39E" />
+    <circle cx="25.5" cy="21.5" r="0.75" fill="#0B0E15" />
+  </g>
+
+  <text x="228" y="158" fill="#EEF1F6" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="36" font-weight="600" letter-spacing="0.24em">FIGURA</text>
+  <text x="230" y="190" fill="#D8C39E" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="13" font-weight="600" letter-spacing="0.26em">ARQUITECTURA FINANCIERA MULTI-RUBRO</text>
+
+  <text x="110" y="318" fill="#EEF1F6" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="54" font-weight="600" letter-spacing="-0.03em">Precisión en cada cifra.</text>
+  <text x="110" y="388" fill="#D8C39E" font-family="'Instrument Serif', Georgia, serif" font-style="italic" font-size="56">Control en cada margen.</text>
+
+  <text x="110" y="458" fill="#96A1B5" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="21">Cotizador IA OCR · Proyección IVA F29 en vivo · Retenciones 15,25% · Portal Cliente &amp; Khipu</text>
+
+  <rect x="110" y="502" width="210" height="36" rx="18" fill="#D8C39E" fill-opacity="0.12" stroke="#D8C39E" stroke-opacity="0.32" />
+  <text x="215" y="525" text-anchor="middle" fill="#EDE0C8" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="13" font-weight="600" letter-spacing="0.08em">9 VERTICALES EN CHILE</text>
+</svg>

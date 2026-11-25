@@ -23,7 +23,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { KairosLogo } from '@/components/ui/kairos-logo';
+import { FiguraLogo } from '@/components/ui/figura-logo';
 import { cn, formatCLP } from '@/lib/utils';
 import type {
   IndustryType,
@@ -67,7 +67,7 @@ export default function OnboardingStudioPage() {
       if (urlParams.get('preview') === '1' && isSuperAdmin) {
         setIsPreviewMode(true);
       }
-      const raw = sessionStorage.getItem('kairos_preselected_onboarding');
+      const raw = sessionStorage.getItem('figura_preselected_onboarding');
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed.industry && parsed.industry in INDUSTRY_BLUEPRINTS) {
@@ -191,7 +191,7 @@ export default function OnboardingStudioPage() {
         {/* Top Bar */}
         <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border/70 pb-5">
           <div className="flex items-center gap-4">
-            <KairosLogo size="md" subtitle="Estudio de Personalización" />
+            <FiguraLogo size="md" subtitle="Estudio de Personalización" />
           </div>
 
           <div className="flex items-center gap-2">

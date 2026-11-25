@@ -11,7 +11,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { KairosLogo } from '@/components/ui/kairos-logo';
+import { FiguraLogo } from '@/components/ui/figura-logo';
 import { createClient } from '@/lib/supabase/client';
 
 export default function PendingPage() {
@@ -29,25 +29,25 @@ export default function PendingPage() {
   };
 
   return (
-    <Card className="w-full shadow-lg border-slate-200 animate-in fade-in zoom-in duration-500">
+    <Card className="w-full obsidian-glass border-white/12 text-[#EEF1F6] shadow-2xl animate-reveal-up">
       <CardHeader className="space-y-4 text-center pb-6">
         <div className="flex justify-center">
-          <KairosLogo size="md" />
+          <FiguraLogo size="md" surface="obsidian" />
         </div>
         <div className="flex justify-center">
-          <div className="rounded-full bg-amber-100 p-4 shadow-sm border border-amber-200">
-            <Clock className="h-10 w-10 text-amber-600 animate-pulse" />
+          <div className="rounded-full bg-[#D8C39E]/12 p-4 shadow-sm border border-[#D8C39E]/30">
+            <Clock className="h-10 w-10 text-[#D8C39E] animate-pulse" />
           </div>
         </div>
-        <CardTitle className="text-2xl font-bold tracking-tight text-slate-900">
+        <CardTitle className="text-2xl font-bold tracking-tight text-[#EEF1F6]">
           Cuenta Pendiente de Aprobación
         </CardTitle>
-        <CardDescription className="text-base text-slate-600">
+        <CardDescription className="text-base text-[#96A1B5]">
           Tu registro ha sido recibido exitosamente. Un administrador revisará y aprobará tu cuenta pronto.
         </CardDescription>
       </CardHeader>
       <CardContent className="text-center pb-6">
-        <p className="text-sm text-slate-500 bg-slate-50 p-4 rounded-lg border border-slate-100">
+        <p className="text-sm text-[#96A1B5] bg-white/[0.04] p-4 rounded-xl border border-white/10">
           Recibirás acceso al sistema una vez que tu cuenta sea activada.
         </p>
       </CardContent>
@@ -57,7 +57,7 @@ export default function PendingPage() {
           variant="outline"
           disabled={signingOut}
           onClick={handleSignOut}
-          className="w-full font-medium hover:bg-slate-50 gap-2"
+          className="w-full font-medium border-white/15 bg-white/[0.04] text-[#EEF1F6] hover:bg-white/10 gap-2"
         >
           {signingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
           {signingOut ? 'Cerrando sesión...' : 'Cerrar sesión y volver al login'}

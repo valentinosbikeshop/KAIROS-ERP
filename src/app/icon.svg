@@ -1,26 +1,24 @@
 <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="kairosAbyss" x1="2" y1="2" x2="42" y2="42" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#0D1829" />
-      <stop offset="100%" stop-color="#070C15" />
+    <linearGradient id="figuraIconBg" x1="2" y1="2" x2="42" y2="42" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#141925" />
+      <stop offset="100%" stop-color="#06070A" />
     </linearGradient>
-    <linearGradient id="kairosCobalt" x1="16" y1="11" x2="31" y2="33" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#60A5FA" />
-      <stop offset="50%" stop-color="#2563EB" />
-      <stop offset="100%" stop-color="#2DD4BF" />
+    <linearGradient id="figuraIconRim" x1="2" y1="2" x2="42" y2="42" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#EDE0C8" stop-opacity="0.6" />
+      <stop offset="50%" stop-color="#FFFFFF" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#D8C39E" stop-opacity="0.4" />
     </linearGradient>
-    <linearGradient id="kairosRim" x1="2" y1="2" x2="42" y2="42" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#93C5FD" stop-opacity="0.55" />
-      <stop offset="50%" stop-color="#2DD4BF" stop-opacity="0.22" />
-      <stop offset="100%" stop-color="#60A5FA" stop-opacity="0.55" />
+    <linearGradient id="figuraIconGold" x1="15" y1="12.5" x2="29.5" y2="12.5" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#EDE0C8" />
+      <stop offset="100%" stop-color="#C7AB7B" />
     </linearGradient>
   </defs>
-  <rect x="2" y="2" width="40" height="40" rx="12" fill="url(#kairosAbyss)" stroke="url(#kairosRim)" stroke-width="1" />
-  <circle cx="22" cy="22" r="15.5" stroke="#60A5FA" stroke-opacity="0.26" stroke-width="0.75" stroke-dasharray="2 3.5" />
-  <circle cx="22" cy="6.5" r="1" fill="#38BDF8" fill-opacity="0.85" />
-  <circle cx="22" cy="37.5" r="0.9" fill="#2DD4BF" fill-opacity="0.65" />
-  <path d="M15.25 13V31" stroke="#F8FAFC" stroke-width="2.15" stroke-linecap="round" />
-  <path d="M28.5 13.5L17.6 22.1" stroke="url(#kairosCobalt)" stroke-width="2.2" stroke-linecap="round" />
-  <path d="M20.2 20.4L28.8 30.5" stroke="#E2E8F0" stroke-opacity="0.92" stroke-width="1.95" stroke-linecap="round" />
-  <circle cx="17.6" cy="22.1" r="1.85" fill="#2DD4BF" />
+  <rect x="2" y="2" width="40" height="40" rx="11" fill="url(#figuraIconBg)" stroke="url(#figuraIconRim)" stroke-width="1" />
+  <path d="M22.5 31.5H30.5V25.5" stroke="#D8C39E" stroke-opacity="0.45" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M15 12.5V31.5" stroke="#EEF1F6" stroke-width="2.6" stroke-linecap="round" />
+  <path d="M15 12.5H29.5" stroke="url(#figuraIconGold)" stroke-width="2.6" stroke-linecap="round" />
+  <path d="M15 21.5H25" stroke="#EEF1F6" stroke-width="2.4" stroke-linecap="round" />
+  <circle cx="25.5" cy="21.5" r="2.1" fill="#D8C39E" />
+  <circle cx="25.5" cy="21.5" r="0.75" fill="#0B0E15" />
 </svg>

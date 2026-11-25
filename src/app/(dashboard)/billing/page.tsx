@@ -102,7 +102,7 @@ function BillingPageContent() {
               type: 'success',
               message: '¡Pago confirmado con Khipu! Tu suscripción mensual ya está activa.',
             });
-            window.dispatchEvent(new Event('kairos:org-updated'));
+            window.dispatchEvent(new Event('figura:org-updated'));
             loadPayments();
           } else {
             setBanner({
@@ -149,7 +149,7 @@ function BillingPageContent() {
         type: 'success',
         message: data.message || 'Suscripción actualizada exitosamente.',
       });
-      window.dispatchEvent(new Event('kairos:org-updated'));
+      window.dispatchEvent(new Event('figura:org-updated'));
       loadPayments();
     } catch (err: any) {
       setBanner({ type: 'error', message: err.message || 'Error procesando suscripción.' });
@@ -193,7 +193,7 @@ function BillingPageContent() {
         type: 'success',
         message: 'Personalización del ERP actualizada. El vocabulario y estilo visual ya reflejan tu rubro.',
       });
-      window.dispatchEvent(new Event('kairos:org-updated'));
+      window.dispatchEvent(new Event('figura:org-updated'));
     } catch (err: any) {
       setBanner({ type: 'error', message: err.message });
     } finally {

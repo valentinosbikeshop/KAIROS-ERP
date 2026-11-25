@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { KairosLogo, CompanyLogoMark } from '@/components/ui/kairos-logo';
+import { FiguraLogo, CompanyLogoMark } from '@/components/ui/figura-logo';
 import { Button } from '@/components/ui/button';
 import { CreditCard, Lock, LogOut } from 'lucide-react';
 import { navLinks, adminLinks } from './nav-links';
@@ -28,7 +28,7 @@ export function Sidebar({
   isSuperAdmin = false,
   isDemo = false,
   isDuoExempt = false,
-  organizationName = 'KAIROS ERP',
+  organizationName = 'FIGURA',
   organizationLogoUrl,
   userEmail,
   terms,
@@ -213,9 +213,9 @@ export function Sidebar({
         {userEmail && (
           <p
             className="text-[11px] truncate px-1 text-muted-foreground"
-            title={isDemo ? 'visitante@kairos-sandbox.cl' : userEmail}
+            title={isDemo ? 'visitante@figura-sandbox.cl' : userEmail}
           >
-            {isDemo ? 'visitante@kairos-sandbox.cl' : userEmail}
+            {isDemo ? 'visitante@figura-sandbox.cl' : userEmail}
           </p>
         )}
         {onSignOut && (
@@ -231,7 +231,7 @@ export function Sidebar({
           </Button>
         )}
         <div className="flex items-center justify-center pt-1">
-          <KairosLogo size="sm" subtitle="Multi-Tenant Cloud" />
+          <FiguraLogo size="sm" subtitle="Arquitectura Financiera" />
         </div>
       </div>
     </aside>

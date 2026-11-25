@@ -75,7 +75,7 @@ export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuot
   const { organization, isAdmin, isSuperAdmin } = useUser();
   const { isDuoExempt, industry } = useWorkspaceConfig();
   const isFounder = isFounderOrg(organization);
-  const orgName = organization?.name || 'KAIROS ERP';
+  const orgName = organization?.name || 'FIGURA';
   const orgLegalName = organization?.legal_name || orgName;
   const orgSubtitle =
     organization?.subtitle || 'COTIZACIÓN COMERCIAL DE SERVICIOS';
@@ -547,7 +547,7 @@ export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuot
 
       // Guardar PDF
       const sanitizedName = (clientName || 'Cliente').replace(/[^a-zA-Z0-9_-]/g, '_');
-      const orgPrefix = (orgName || 'KAIROS').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 16);
+      const orgPrefix = (orgName || 'FIGURA').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 16);
       doc.save(`Cotizacion_${orgPrefix}_${sanitizedName}_${new Date().toISOString().slice(0, 10)}.pdf`);
       setIsOpen(false);
     } catch (err: any) {

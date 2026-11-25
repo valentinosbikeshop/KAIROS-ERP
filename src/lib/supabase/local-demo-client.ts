@@ -14,13 +14,13 @@ import type {
   ThemePreset,
 } from '@/types/database';
 
-export const LOCAL_DEMO_COOKIE = 'kairos_local_demo_mode';
-export const LOCAL_DEMO_STORAGE_KEY = 'kairos_real_erp_demo_v4';
-export const LOCAL_DEMO_CONSENT_KEY = 'kairos_demo_cache_consent';
+export const LOCAL_DEMO_COOKIE = 'figura_local_demo_mode';
+export const LOCAL_DEMO_STORAGE_KEY = 'figura_real_erp_demo_v4';
+export const LOCAL_DEMO_CONSENT_KEY = 'figura_demo_cache_consent';
 
 export const LOCAL_DEMO_ORG_ID = 'd0000000-0000-4000-8000-000000000000';
 export const LOCAL_DEMO_USER_ID = 'd0000000-0000-4000-8000-000000000099';
-export const LOCAL_DEMO_EMAIL = 'visitante@kairos-sandbox.cl';
+export const LOCAL_DEMO_EMAIL = 'visitante@figura-sandbox.cl';
 
 interface LocalDemoDatabase {
   organization: Organization;
@@ -86,7 +86,7 @@ function buildInitialDemoDatabase(industryType: IndustryType = 'eventos_banquete
     id: LOCAL_DEMO_ORG_ID,
     name: companyMeta.name,
     slug: 'productora-horizonte-demo',
-    invite_code: 'KAIROS-DEMO-2026',
+    invite_code: 'FIGURA-DEMO-2026',
     legal_name: companyMeta.legal,
     rut: companyMeta.rut,
     subtitle: bp.tagline.toUpperCase(),
@@ -188,7 +188,7 @@ function saveDb(db: LocalDemoDatabase) {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(LOCAL_DEMO_STORAGE_KEY, JSON.stringify(db));
-    window.dispatchEvent(new CustomEvent('kairos:local-db-changed'));
+    window.dispatchEvent(new CustomEvent('figura:local-db-changed'));
   } catch {
     // Ignore quota errors
   }
@@ -225,7 +225,7 @@ export function resetLocalDemoData(industryType?: IndustryType) {
   const fresh = buildInitialDemoDatabase(targetIndustry);
   saveDb(fresh);
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new Event('kairos:org-updated'));
+    window.dispatchEvent(new Event('figura:org-updated'));
   }
   return fresh;
 }
@@ -234,7 +234,7 @@ export function switchLocalDemoIndustry(industryType: IndustryType) {
   const fresh = buildInitialDemoDatabase(industryType);
   saveDb(fresh);
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new Event('kairos:org-updated'));
+    window.dispatchEvent(new Event('figura:org-updated'));
   }
   return fresh;
 }
@@ -246,7 +246,7 @@ export function updateLocalDemoRetentionPolicy(policy: HonorariosRetentionPolicy
   }
   saveDb(db);
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new Event('kairos:org-updated'));
+    window.dispatchEvent(new Event('figura:org-updated'));
   }
 }
 
@@ -258,7 +258,7 @@ export function updateLocalDemoTheme(theme: ThemePreset) {
   }
   saveDb(db);
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new Event('kairos:org-updated'));
+    window.dispatchEvent(new Event('figura:org-updated'));
   }
 }
 
@@ -563,13 +563,13 @@ export function createLocalDemoSupabaseClient(): any {
         },
         subscribe: () => {
           if (typeof window !== 'undefined') {
-            window.addEventListener('kairos:local-db-changed', listener);
+            window.addEventListener('figura:local-db-changed', listener);
           }
           return ch;
         },
         _cleanup: () => {
           if (typeof window !== 'undefined') {
-            window.removeEventListener('kairos:local-db-changed', listener);
+            window.removeEventListener('figura:local-db-changed', listener);
           }
         },
       };

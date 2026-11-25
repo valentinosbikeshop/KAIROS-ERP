@@ -212,11 +212,11 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchData()
     const onRefresh = () => fetchData()
-    window.addEventListener('kairos:local-db-changed', onRefresh)
-    window.addEventListener('kairos:org-updated', onRefresh)
+    window.addEventListener('figura:local-db-changed', onRefresh)
+    window.addEventListener('figura:org-updated', onRefresh)
     return () => {
-      window.removeEventListener('kairos:local-db-changed', onRefresh)
-      window.removeEventListener('kairos:org-updated', onRefresh)
+      window.removeEventListener('figura:local-db-changed', onRefresh)
+      window.removeEventListener('figura:org-updated', onRefresh)
     }
   }, [fetchData, industry.id])
 
@@ -228,7 +228,7 @@ export default function DashboardPage() {
     )
   }
 
-  const orgName = organization?.name || 'KAIROS ERP'
+  const orgName = organization?.name || 'FIGURA'
   const activeModulesCount = Object.values(entitlements.modules).filter(Boolean).length
 
   return (

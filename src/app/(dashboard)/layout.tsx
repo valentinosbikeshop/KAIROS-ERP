@@ -7,10 +7,10 @@ import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { DemoBanner } from '@/components/layout/demo-banner';
 import { TierWorkspaceBanner } from '@/components/billing/feature-gate';
-import { KairosTourProvider } from '@/components/guide/KairosTourProvider';
+import { FiguraTourProvider } from '@/components/guide/FiguraTourProvider';
 
-const KairosGuideBot = dynamic(
-  () => import('@/components/guide/KairosGuideBot').then((m) => m.KairosGuideBot),
+const FiguraGuideBot = dynamic(
+  () => import('@/components/guide/FiguraGuideBot').then((m) => m.FiguraGuideBot),
   { ssr: false }
 );
 import { Sheet, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -74,11 +74,11 @@ export default function DashboardLayout({
     );
   }
 
-  const orgName = organization?.name || 'KAIROS ERP';
+  const orgName = organization?.name || 'FIGURA';
   const activeEmail = profile?.email || authUser?.email || null;
 
   return (
-    <KairosTourProvider>
+    <FiguraTourProvider>
       <div
         data-theme-preset={isDuoExempt ? 'obsidian_gold' : entitlements.themePreset}
         className="min-h-screen bg-background flex"
@@ -159,8 +159,8 @@ export default function DashboardLayout({
           {children}
         </main>
       </div>
-      <KairosGuideBot />
+      <FiguraGuideBot />
     </div>
-    </KairosTourProvider>
+    </FiguraTourProvider>
   );
 }

@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     }
 
     const orgId = ctx.profile.organization_id;
-    const orgName = guard.org.name || 'KAIROS ERP';
+    const orgName = guard.org.name || 'FIGURA';
 
     const body = await req.json();
     const {

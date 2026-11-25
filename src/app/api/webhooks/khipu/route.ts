@@ -34,7 +34,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true, ignored: 'Sin identificador de pago' });
     }
 
-    if (transactionId && !String(transactionId).startsWith('KAIROS-')) {
+    if (
+      transactionId &&
+      !String(transactionId).startsWith('FIGURA-') &&
+      !String(transactionId).startsWith('KAIROS-')
+    ) {
       return NextResponse.json({
         received: true,
         ignored: 'Transacción fuera del ámbito SaaS',

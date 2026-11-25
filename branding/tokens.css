@@ -1,0 +1,39 @@
+/* FIGURA — Design Tokens (Obsidian & Champagne Architectural Glass) */
+:root {
+  /* Obsidian Surfaces */
+  --figura-obsidian-void: #06070a;
+  --figura-obsidian-deep: #0b0d13;
+  --figura-obsidian-elevated: #121620;
+  --figura-obsidian-border: #232a3b;
+
+  /* Champagne & Noble Metals */
+  --figura-champagne: #d8c39e;
+  --figura-champagne-bright: #ede0c8;
+  --figura-champagne-deep: #9a8460;
+
+  /* Typography & Neutral Ink */
+  --figura-platinum: #eef1f6;
+  --figura-slate-mist: #96a1b5;
+  --figura-ash-muted: #646f84;
+
+  /* Financial Semantics */
+  --figura-emerald: #4fa88b;
+  --figura-cobalt: #5e89e8;
+  --figura-amber: #d49b54;
+  --figura-crimson: #d46a6a;
+
+  /* Glassmorphism Recipes */
+  --figura-glass-bg: linear-gradient(
+    145deg,
+    rgba(20, 24, 34, 0.72) 0%,
+    rgba(11, 14, 21, 0.56) 100%
+  );
+  --figura-glass-border: rgba(255, 255, 255, 0.09);
+  --figura-glass-highlight: rgba(255, 255, 255, 0.14);
+  --figura-glass-luxury-border: rgba(216, 195, 158, 0.28);
+
+  /* Motion */
+  --figura-ease-arch: cubic-bezier(0.16, 1, 0.3, 1);
+  --figura-radius-card: 1.5rem;
+  --figura-radius-control: 0.75rem;
+}

@@ -5,7 +5,7 @@ import { Building2, ImagePlus, Landmark, Loader2, Percent, Trash2 } from 'lucide
 import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
 import type { Organization, OrganizationBankInfo } from '@/types';
 import { fileToNormalizedPngDataUrl } from '@/lib/image-to-png';
-import { CompanyLogoMark } from '@/components/ui/kairos-logo';
+import { CompanyLogoMark } from '@/components/ui/figura-logo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -168,7 +168,7 @@ export function CompanyBrandingDialog({
 
     try {
       if (company.is_demo && typeof window !== 'undefined') {
-        const raw = window.localStorage.getItem('kairos_real_erp_demo_v4');
+        const raw = window.localStorage.getItem('figura_real_erp_demo_v4');
         if (raw) {
           const parsed = JSON.parse(raw);
           if (parsed?.organization) {
@@ -187,10 +187,10 @@ export function CompanyBrandingDialog({
               uf_rate_clp: parsedUfRate,
               usd_rate_clp: parsedUsdRate,
             };
-            window.localStorage.setItem('kairos_real_erp_demo_v4', JSON.stringify(parsed));
+            window.localStorage.setItem('figura_real_erp_demo_v4', JSON.stringify(parsed));
           }
         }
-        window.dispatchEvent(new Event('kairos:org-updated'));
+        window.dispatchEvent(new Event('figura:org-updated'));
         onOpenChange(false);
         onSaved(`Configuración de "${name.trim()}" guardada en Sandbox Local.`);
         return;
@@ -225,7 +225,7 @@ export function CompanyBrandingDialog({
         return;
       }
 
-      window.dispatchEvent(new Event('kairos:org-updated'));
+      window.dispatchEvent(new Event('figura:org-updated'));
       onOpenChange(false);
       onSaved(`Marca, logo y datos bancarios de "${name.trim()}" actualizados.`);
     } catch {

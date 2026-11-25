@@ -27,11 +27,11 @@ export function RevenueChart({ data }: { data: MonthlyData[] }) {
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 10, right: 24, left: 16, bottom: 5 }}>
               <defs>
-                <linearGradient id="kairosSalesGrad" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="figuraSalesGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#4A607A" stopOpacity={0.28} />
                   <stop offset="95%" stopColor="#4A607A" stopOpacity={0.01} />
                 </linearGradient>
-                <linearGradient id="kairosCostsGrad" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="figuraCostsGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#9E4A47" stopOpacity={0.22} />
                   <stop offset="95%" stopColor="#9E4A47" stopOpacity={0.01} />
                 </linearGradient>
@@ -68,7 +68,7 @@ export function RevenueChart({ data }: { data: MonthlyData[] }) {
                 stroke="#4A607A"
                 strokeWidth={2.5}
                 fillOpacity={1}
-                fill="url(#kairosSalesGrad)"
+                fill="url(#figuraSalesGrad)"
                 dot={{ r: 3.5, fill: '#4A607A', strokeWidth: 0 }}
                 activeDot={{ r: 6, stroke: '#fff', strokeWidth: 2 }}
                 animationDuration={900}
@@ -81,7 +81,7 @@ export function RevenueChart({ data }: { data: MonthlyData[] }) {
                 stroke="#9E4A47"
                 strokeWidth={2.2}
                 fillOpacity={1}
-                fill="url(#kairosCostsGrad)"
+                fill="url(#figuraCostsGrad)"
                 dot={{ r: 3.5, fill: '#9E4A47', strokeWidth: 0 }}
                 activeDot={{ r: 6, stroke: '#fff', strokeWidth: 2 }}
                 animationDuration={900}

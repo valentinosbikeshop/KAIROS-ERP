@@ -1,0 +1,14 @@
+<svg width="260" height="240" viewBox="0 0 260 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="260" height="240" rx="28" fill="#06070A" />
+  <g transform="translate(86,40) scale(2)">
+    <rect x="2" y="2" width="40" height="40" rx="11" fill="#10141F" stroke="#D8C39E" stroke-opacity="0.38" stroke-width="1" />
+    <path d="M22.5 31.5H30.5V25.5" stroke="#D8C39E" stroke-opacity="0.45" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M15 12.5V31.5" stroke="#EEF1F6" stroke-width="2.6" stroke-linecap="round" />
+    <path d="M15 12.5H29.5" stroke="#D8C39E" stroke-width="2.6" stroke-linecap="round" />
+    <path d="M15 21.5H25" stroke="#EEF1F6" stroke-width="2.4" stroke-linecap="round" />
+    <circle cx="25.5" cy="21.5" r="2.1" fill="#D8C39E" />
+    <circle cx="25.5" cy="21.5" r="0.75" fill="#0B0E15" />
+  </g>
+  <text x="130" y="168" text-anchor="middle" fill="#EEF1F6" font-family="'Plus Jakarta Sans', 'Inter', system-ui, sans-serif" font-size="26" font-weight="600" letter-spacing="0.28em">FIGURA</text>
+  <text x="130" y="192" text-anchor="middle" fill="#D8C39E" font-family="'Plus Jakarta Sans', 'Inter', system-ui, sans-serif" font-size="9.5" font-weight="600" letter-spacing="0.28em">ARQUITECTURA FINANCIERA</text>
+</svg>

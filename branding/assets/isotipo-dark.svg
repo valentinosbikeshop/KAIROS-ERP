@@ -1,0 +1,26 @@
+<svg width="256" height="256" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="figuraObsidianBg" x1="2" y1="2" x2="42" y2="42" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#141925" />
+      <stop offset="55%" stop-color="#0B0E15" />
+      <stop offset="100%" stop-color="#06070A" />
+    </linearGradient>
+    <linearGradient id="figuraRim" x1="2" y1="2" x2="42" y2="42" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#EDE0C8" stop-opacity="0.55" />
+      <stop offset="45%" stop-color="#FFFFFF" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#D8C39E" stop-opacity="0.35" />
+    </linearGradient>
+    <linearGradient id="figuraChampagne" x1="15" y1="12.5" x2="30" y2="21.5" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#EDE0C8" />
+      <stop offset="100%" stop-color="#C7AB7B" />
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="40" height="40" rx="11" fill="url(#figuraObsidianBg)" stroke="url(#figuraRim)" stroke-width="1" />
+  <path d="M22.5 31.5H30.5V25.5" stroke="#D8C39E" stroke-opacity="0.42" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round" />
+  <line x1="26.5" y1="31.5" x2="26.5" y2="29.5" stroke="#D8C39E" stroke-opacity="0.35" stroke-width="1" stroke-linecap="round" />
+  <path d="M15 12.5V31.5" stroke="#EEF1F6" stroke-width="2.6" stroke-linecap="round" />
+  <path d="M15 12.5H29.5" stroke="url(#figuraChampagne)" stroke-width="2.6" stroke-linecap="round" />
+  <path d="M15 21.5H25" stroke="#EEF1F6" stroke-width="2.4" stroke-linecap="round" />
+  <circle cx="25.5" cy="21.5" r="2.1" fill="#D8C39E" />
+  <circle cx="25.5" cy="21.5" r="0.75" fill="#0B0E15" />
+</svg>

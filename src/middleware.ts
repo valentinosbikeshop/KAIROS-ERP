@@ -6,7 +6,7 @@ export async function middleware(request: NextRequest) {
   try {
     const { supabaseResponse, user, supabase } = await updateSession(request);
     const { pathname } = request.nextUrl;
-    const isLocalDemoCookie = request.cookies.get('kairos_local_demo_mode')?.value === '1';
+    const isLocalDemoCookie = request.cookies.get('figura_local_demo_mode')?.value === '1';
 
     const isPublicRoute =
       pathname === '/' ||

@@ -7,7 +7,7 @@ import { DUO_ORG_SLUG } from '@/lib/constants';
 import Link from 'next/link';
 import { Menu, LogOut, User, ShieldCheck, Loader2, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useKairosTour } from '@/components/guide/KairosTourProvider';
+import { useFiguraTour } from '@/components/guide/FiguraTourProvider';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -24,7 +24,7 @@ interface HeaderProps {
 
 export function Header({ onToggleSidebar, onSignOut }: HeaderProps) {
   const { profile, authUser, organization, loading, isDemo, isSuperAdmin } = useUser();
-  const { restartTour } = useKairosTour();
+  const { restartTour } = useFiguraTour();
   const [signingOut, setSigningOut] = useState(false);
   const supabase = createClient();
 
@@ -82,7 +82,7 @@ export function Header({ onToggleSidebar, onSignOut }: HeaderProps) {
                 {loading
                   ? 'Cargando...'
                   : isDemo
-                  ? 'visitante@kairos-sandbox.cl'
+                  ? 'visitante@figura-sandbox.cl'
                   : (profile?.email || authUser?.email || 'Usuario')}
               </span>
             </Button>
@@ -95,7 +95,7 @@ export function Header({ onToggleSidebar, onSignOut }: HeaderProps) {
                   {loading
                     ? 'Cargando...'
                     : isDemo
-                    ? 'visitante@kairos-sandbox.cl'
+                    ? 'visitante@figura-sandbox.cl'
                     : (profile?.email || authUser?.email || 'Usuario')}
                 </p>
               </div>

@@ -61,11 +61,11 @@ export function DemoBanner({
     }
     refreshStats();
 
-    window.addEventListener('kairos:local-db-changed', refreshStats);
-    window.addEventListener('kairos:org-updated', refreshStats);
+    window.addEventListener('figura:local-db-changed', refreshStats);
+    window.addEventListener('figura:org-updated', refreshStats);
     return () => {
-      window.removeEventListener('kairos:local-db-changed', refreshStats);
-      window.removeEventListener('kairos:org-updated', refreshStats);
+      window.removeEventListener('figura:local-db-changed', refreshStats);
+      window.removeEventListener('figura:org-updated', refreshStats);
     };
   }, [refreshStats]);
 
@@ -141,7 +141,7 @@ export function DemoBanner({
             variant="outline"
             data-tour-id="demo-guide-btn"
             onClick={() =>
-              window.dispatchEvent(new CustomEvent('kairos:open-guide', { detail: { tab: 'tour' } }))
+              window.dispatchEvent(new CustomEvent('figura:open-guide', { detail: { tab: 'tour' } }))
             }
             className="h-8 gap-1.5 text-xs font-medium"
           >

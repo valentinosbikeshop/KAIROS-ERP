@@ -19,7 +19,7 @@ import { getIndustryBlueprint } from '@/lib/industries';
 import type { MasterCost, Organization } from '@/types/database';
 
 /**
- * Perfiles de motor Gemini especializados por función de KAIROS ERP.
+ * Perfiles de motor Gemini especializados por función de FIGURA.
  * Cada ruta utiliza el modelo + thinkingLevel + mediaResolution óptimo en relación costo/calidad:
  * - ocr: Transcripción visual de facturas/boletas/PDF escaneados (máxima velocidad, bajo costo, alta resolución visual).
  * - draft_edit: Manipulación ágil del borrador en JSON (reordenar, consolidar, editar ítems).
