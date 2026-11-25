@@ -180,7 +180,7 @@ export function PlansMatrix({
               de {plans.length} planes
             </span>
             {maxCarouselIndex > 0 && (
-              <div className="hidden sm:flex items-center gap-1.5 ml-2">
+              <div className="flex items-center gap-1.5 ml-2">
                 {Array.from({ length: maxCarouselIndex + 1 }).map((_, dotIdx) => {
                   const activeDot = dotIdx === clampedIndex;
                   return (
@@ -190,14 +190,14 @@ export function PlansMatrix({
                       aria-label={`Ver vista ${dotIdx + 1} de planes`}
                       onClick={() => setCarouselIndex(dotIdx)}
                       className={cn(
-                        'h-1.5 rounded-full transition-all duration-300',
+                        'h-2 rounded-full transition-all duration-300',
                         activeDot
                           ? isObsidian
-                            ? 'w-6 bg-[#D8C39E]'
-                            : 'w-6 bg-[#0F172A]'
+                            ? 'w-7 bg-[#D8C39E]'
+                            : 'w-7 bg-[#0F172A]'
                           : isObsidian
-                          ? 'w-1.5 bg-white/20 hover:bg-white/40'
-                          : 'w-1.5 bg-slate-300 hover:bg-slate-400'
+                          ? 'w-2 bg-white/25 hover:bg-white/45'
+                          : 'w-2 bg-slate-300 hover:bg-slate-400'
                       )}
                     />
                   );
@@ -205,46 +205,59 @@ export function PlansMatrix({
               </div>
             )}
           </div>
-
-          {maxCarouselIndex > 0 && (
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                aria-label="Planes anteriores"
-                disabled={clampedIndex === 0}
-                onClick={() => setCarouselIndex((prev) => Math.max(0, prev - 1))}
-                className={cn(
-                  'h-9 w-9 rounded-full tactile-press transition-all',
-                  isObsidian
-                    ? 'border-white/15 bg-white/[0.05] text-[#EEF1F6] hover:bg-white/[0.12] hover:border-[#D8C39E]/45 disabled:opacity-30'
-                    : 'border-slate-300/90 bg-white/85 text-slate-800 hover:bg-white hover:border-[#8C7148]/50 disabled:opacity-35'
-                )}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                aria-label="Siguientes planes"
-                disabled={clampedIndex >= maxCarouselIndex}
-                onClick={() => setCarouselIndex((prev) => Math.min(maxCarouselIndex, prev + 1))}
-                className={cn(
-                  'h-9 w-9 rounded-full tactile-press transition-all',
-                  isObsidian
-                    ? 'border-[#D8C39E]/35 bg-[#D8C39E]/12 text-[#EDE0C8] hover:bg-[#D8C39E] hover:text-[#06070A] disabled:opacity-30'
-                    : 'border-[#0F172A]/20 bg-[#0F172A] text-[#EDE0C8] hover:bg-[#1E293B] disabled:opacity-35'
-                )}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+          {maxCarouselIndex > 0 && clampedIndex < maxCarouselIndex && (
+            <button
+              type="button"
+              onClick={() => setCarouselIndex((prev) => Math.min(maxCarouselIndex, prev + 1))}
+              className={cn(
+                'hidden sm:inline-flex items-center gap-1 text-xs font-semibold transition-colors',
+                isObsidian ? 'text-[#D8C39E] hover:text-[#EDE0C8]' : 'text-[#8C6F42] hover:text-slate-900'
+              )}
+            >
+              Ver {plans.length - (clampedIndex + visibleCount)} plan{plans.length - (clampedIndex + visibleCount) > 1 ? 'es' : ''} más
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
           )}
         </div>
 
-        <div className="overflow-hidden py-3 px-1 -mx-1">
+        <div className="relative">
+          {maxCarouselIndex > 0 && clampedIndex > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label="Planes anteriores"
+              onClick={() => setCarouselIndex((prev) => Math.max(0, prev - 1))}
+              className={cn(
+                'absolute left-1.5 md:-left-5 top-1/2 -translate-y-1/2 z-20 h-12 w-12 rounded-full tactile-press transition-all duration-200 backdrop-blur-xl shadow-xl hover:scale-105',
+                isObsidian
+                  ? 'border-[#D8C39E]/55 bg-[#0B0E15]/90 text-[#EDE0C8] hover:bg-[#D8C39E] hover:text-[#06070A] shadow-[0_12px_32px_rgba(0,0,0,0.65)]'
+                  : 'border-[#0F172A]/20 bg-white/95 text-[#0F172A] hover:bg-[#0F172A] hover:text-[#EDE0C8] shadow-[0_12px_32px_rgba(15,23,42,0.18)]'
+              )}
+            >
+              <ChevronLeft className="h-6 w-6 stroke-[2.25]" />
+            </Button>
+          )}
+
+          {maxCarouselIndex > 0 && clampedIndex < maxCarouselIndex && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label="Siguientes planes"
+              onClick={() => setCarouselIndex((prev) => Math.min(maxCarouselIndex, prev + 1))}
+              className={cn(
+                'absolute right-1.5 md:-right-5 top-1/2 -translate-y-1/2 z-20 h-12 w-12 rounded-full tactile-press transition-all duration-200 backdrop-blur-xl shadow-xl hover:scale-105',
+                isObsidian
+                  ? 'border-[#D8C39E]/70 bg-[#D8C39E] text-[#06070A] hover:bg-[#EDE0C8] shadow-[0_12px_32px_rgba(216,195,158,0.4)]'
+                  : 'border-[#0F172A] bg-[#0F172A] text-[#EDE0C8] hover:bg-[#1E293B] shadow-[0_12px_32px_rgba(15,23,42,0.28)]'
+              )}
+            >
+              <ChevronRight className="h-6 w-6 stroke-[2.25]" />
+            </Button>
+          )}
+
+          <div className="overflow-hidden py-3 px-1 -mx-1">
           <div
             className="flex gap-5 transition-transform duration-500 will-change-transform"
             style={{
@@ -480,6 +493,7 @@ export function PlansMatrix({
             </div>
           );
         })}
+          </div>
           </div>
         </div>
       </div>

@@ -684,9 +684,9 @@
     "semantic_hash": ""
   },
   "src/components/billing/plans-matrix.tsx": {
-    "mtime": 1795633856.8982403,
-    "seen": 1795633993.281047,
-    "ast_hash": "2d0dac6e2fabf032ddf57edd52644ba7",
+    "mtime": 1795635505.6062336,
+    "seen": 1795635672.6170778,
+    "ast_hash": "5afdcf62267bbc818d609f755aaa8903",
     "semantic_hash": ""
   },
   "src/components/governance/plans-admin-tab.tsx": {
