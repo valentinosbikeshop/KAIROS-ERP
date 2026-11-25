@@ -279,7 +279,7 @@ export const INDUSTRY_BLUEPRINTS: Record<IndustryType, IndustryBlueprint> = {
       retailModeDesc: 'Activa consolidación de tragos/platos, prorrateo unitario de insumos y separación de materias primas.',
     },
     categories: ['Gastronomía', 'Música', 'Personal', 'Mobiliario', 'Audiovisual', 'Logística'],
-    aiDomainPrompt: 'Rubro: Productora de Eventos y Banquetería en Chile. Cuida logística oculta (flete, hielo, montaje, garzones, boletas honorarios 13.75%/retención o factura).',
+    aiDomainPrompt: 'Rubro: Productora de Eventos y Banquetería en Chile. Cuida logística oculta (flete, hielo, montaje, garzones, boletas honorarios 15,25%/retención o factura).',
     starterCatalog: [
       {
         id: 'ev-1',

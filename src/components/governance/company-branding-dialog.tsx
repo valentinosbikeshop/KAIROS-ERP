@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Building2, ImagePlus, Landmark, Loader2, Trash2 } from 'lucide-react';
+import { Building2, ImagePlus, Landmark, Loader2, Percent, Trash2 } from 'lucide-react';
 import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
 import type { Organization, OrganizationBankInfo } from '@/types';
 import { fileToNormalizedPngDataUrl } from '@/lib/image-to-png';
@@ -121,6 +121,9 @@ export function CompanyBrandingDialog({
   const [contactPhone, setContactPhone] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [bankInfo, setBankInfo] = useState<OrganizationBankInfo>({});
+  const [minMarginPct, setMinMarginPct] = useState('15');
+  const [ufRateClp, setUfRateClp] = useState('41405');
+  const [usdRateClp, setUsdRateClp] = useState('1025');
 
   useEffect(() => {
     if (company && open) {
@@ -141,6 +144,15 @@ export function CompanyBrandingDialog({
         rut: company.bank_info?.rut || '',
         email: company.bank_info?.email || '',
       });
+      setMinMarginPct(
+        String(company.min_margin_pct ?? company.bank_info?.__saas_config?.min_margin_pct ?? 15)
+      );
+      setUfRateClp(
+        String(company.uf_rate_clp ?? company.bank_info?.__saas_config?.uf_rate_clp ?? 41405)
+      );
+      setUsdRateClp(
+        String(company.usd_rate_clp ?? company.bank_info?.__saas_config?.usd_rate_clp ?? 1025)
+      );
     }
   }, [company, open]);
 
@@ -150,7 +162,40 @@ export function CompanyBrandingDialog({
     setSaving(true);
     setError(null);
 
+    const parsedMinMargin = Math.min(95, Math.max(0, Number(minMarginPct) || 0));
+    const parsedUfRate = Math.min(500000, Math.max(1000, Math.round(Number(ufRateClp) || 41405)));
+    const parsedUsdRate = Math.min(10000, Math.max(100, Math.round(Number(usdRateClp) || 1025)));
+
     try {
+      if (company.is_demo && typeof window !== 'undefined') {
+        const raw = window.localStorage.getItem('kairos_real_erp_demo_v4');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.organization) {
+            parsed.organization = {
+              ...parsed.organization,
+              name: name.trim(),
+              legal_name: legalName.trim() || null,
+              rut: rut.trim() || null,
+              subtitle: subtitle.trim() || null,
+              location: location.trim() || null,
+              contact_email: contactEmail.trim() || null,
+              contact_phone: contactPhone.trim() || null,
+              logo_url: logoUrl.trim() || null,
+              bank_info: { ...(parsed.organization.bank_info || {}), ...bankInfo },
+              min_margin_pct: parsedMinMargin,
+              uf_rate_clp: parsedUfRate,
+              usd_rate_clp: parsedUsdRate,
+            };
+            window.localStorage.setItem('kairos_real_erp_demo_v4', JSON.stringify(parsed));
+          }
+        }
+        window.dispatchEvent(new Event('kairos:org-updated'));
+        onOpenChange(false);
+        onSaved(`Configuración de "${name.trim()}" guardada en Sandbox Local.`);
+        return;
+      }
+
       const res = await fetch('/api/admin/companies', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -163,6 +208,9 @@ export function CompanyBrandingDialog({
           location: location.trim() || null,
           contact_email: contactEmail.trim() || null,
           contact_phone: contactPhone.trim() || null,
+          min_margin_pct: parsedMinMargin,
+          uf_rate_clp: parsedUfRate,
+          usd_rate_clp: parsedUsdRate,
           ...(canEditBrandingAssets
             ? {
                 logo_url: logoUrl.trim() || null,
@@ -261,6 +309,51 @@ export function CompanyBrandingDialog({
                 value={contactPhone}
                 onChange={(e) => setContactPhone(e.target.value)}
               />
+            </div>
+          </div>
+
+          <div className="pt-3 border-t space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Percent className="h-3.5 w-3.5 text-primary" />
+              Reglas Comerciales &amp; Tasas Multimoneda
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Piso Margen Vendedores (%)</label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={95}
+                  step={0.5}
+                  value={minMarginPct}
+                  onChange={(e) => setMinMarginPct(e.target.value)}
+                />
+                <p className="text-[10px] text-muted-foreground">Bloquea envío PDF/Portal a vendedores bajo este %.</p>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Valor UF Referencia (CLP)</label>
+                <Input
+                  type="number"
+                  min={1000}
+                  max={500000}
+                  step={1}
+                  value={ufRateClp}
+                  onChange={(e) => setUfRateClp(e.target.value)}
+                />
+                <p className="text-[10px] text-muted-foreground">Base para presupuestos en UF.</p>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Valor USD Referencia (CLP)</label>
+                <Input
+                  type="number"
+                  min={100}
+                  max={10000}
+                  step={1}
+                  value={usdRateClp}
+                  onChange={(e) => setUsdRateClp(e.target.value)}
+                />
+                <p className="text-[10px] text-muted-foreground">Base para presupuestos en dólares.</p>
+              </div>
             </div>
           </div>
 

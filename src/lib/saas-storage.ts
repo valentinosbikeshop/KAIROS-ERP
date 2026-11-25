@@ -33,6 +33,8 @@ export async function fetchPlansAndAddonsServer(): Promise<{
 
       // Auto-sync one-time si Supabase aún conserva el seed antiguo ($49.990 / $11.990)
       const growthDb = plans.find((p) => p.id === 'growth');
+      const essentialDb = plans.find((p) => p.id === 'essential');
+      const scaleDb = plans.find((p) => p.id === 'scale');
       const baseDb = addons.find((a) => a.id === 'base_custom');
       if (
         (growthDb?.price_clp === 49990 || growthDb?.price_clp === 99990) &&
@@ -75,6 +77,55 @@ export async function fetchPlansAndAddonsServer(): Promise<{
         ]);
         plans = DEFAULT_PLANS;
         addons = DEFAULT_ADDONS;
+      } else if (
+        essentialDb?.ai_calls_limit === 0 &&
+        growthDb?.ai_calls_limit === 200 &&
+        scaleDb?.ai_calls_limit === 600
+      ) {
+        // Actualización estratégica no-destructiva de cuotas IA preservando precios editados en vivo
+        await Promise.all([
+          ...DEFAULT_PLANS.filter((p) => p.id !== 'free').map((p) =>
+            admin
+              .from('subscription_plans')
+              .update({
+                ai_calls_limit: p.ai_calls_limit,
+                included_modules: p.included_modules,
+                features: p.features,
+                tagline: p.tagline,
+              })
+              .eq('id', p.id)
+          ),
+          admin
+            .from('subscription_addons')
+            .update({
+              name: DEFAULT_ADDONS.find((a) => a.id === 'mod_ai_suite')!.name,
+              description: DEFAULT_ADDONS.find((a) => a.id === 'mod_ai_suite')!.description,
+              ai_calls_bonus: 180,
+            })
+            .eq('id', 'mod_ai_suite'),
+        ]);
+        plans = plans.map((p) => {
+          const def = DEFAULT_PLANS.find((d) => d.id === p.id);
+          return def && p.id !== 'free'
+            ? {
+                ...p,
+                ai_calls_limit: def.ai_calls_limit,
+                included_modules: def.included_modules,
+                features: def.features,
+                tagline: def.tagline,
+              }
+            : p;
+        });
+        addons = addons.map((a) =>
+          a.id === 'mod_ai_suite'
+            ? {
+                ...a,
+                name: DEFAULT_ADDONS.find((d) => d.id === 'mod_ai_suite')!.name,
+                description: DEFAULT_ADDONS.find((d) => d.id === 'mod_ai_suite')!.description,
+                ai_calls_bonus: 180,
+              }
+            : a
+        );
       }
 
       return {
@@ -128,6 +179,9 @@ export function hydrateOrganizationSaas(org: Organization | null): Organization 
       org.ai_calls_reset_at ??
       fallback?.ai_calls_reset_at ??
       new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString(),
+    min_margin_pct: org.min_margin_pct ?? fallback?.min_margin_pct ?? 15,
+    uf_rate_clp: org.uf_rate_clp ?? fallback?.uf_rate_clp ?? 41405,
+    usd_rate_clp: org.usd_rate_clp ?? fallback?.usd_rate_clp ?? 1025,
   };
 }
 
@@ -176,6 +230,12 @@ export async function updateOrganizationSaasConfig(
       patch.ai_calls_reset_at ??
       currentOrg.ai_calls_reset_at ??
       new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString(),
+    honorarios_retention_policy:
+      patch.honorarios_retention_policy ??
+      currentOrg.bank_info?.__saas_config?.honorarios_retention_policy,
+    min_margin_pct: patch.min_margin_pct ?? currentOrg.min_margin_pct ?? 15,
+    uf_rate_clp: patch.uf_rate_clp ?? currentOrg.uf_rate_clp ?? 41405,
+    usd_rate_clp: patch.usd_rate_clp ?? currentOrg.usd_rate_clp ?? 1025,
     pending_payments:
       patch.pending_payments !== undefined
         ? patch.pending_payments

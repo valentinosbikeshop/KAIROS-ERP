@@ -92,6 +92,14 @@ export function Sidebar({
               !isDemo &&
               entitlements &&
               !entitlements.modules.mod_analytics_excel;
+            const isTreasuryLocked =
+              link.href === '/treasury' &&
+              !isDuoExempt &&
+              !isDemo &&
+              entitlements &&
+              !entitlements.modules.mod_transactions_sii &&
+              !entitlements.modules.mod_analytics_excel;
+            const isLocked = isAnalyticsLocked || isTreasuryLocked;
 
             return (
               <Link
@@ -119,7 +127,7 @@ export function Sidebar({
                   />
                   <span className="truncate">{label}</span>
                 </span>
-                {isAnalyticsLocked && <Lock className="h-3 w-3 opacity-60 shrink-0" />}
+                {isLocked && <Lock className="h-3 w-3 opacity-60 shrink-0" />}
               </Link>
             );
           })}

@@ -1,15 +1,17 @@
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenAI, Type } from '@google/genai';
+import { Type } from '@google/genai';
 import { createAdminClient, getAuthenticatedContext } from '@/lib/supabase/admin';
-import { calculateFinancials } from '@/lib/utils';
+import { calculateFinancials, calculateFinancialsFromMargin } from '@/lib/utils';
 import {
-  OPTIMIZED_GEMINI_MODELS,
   buildAiCacheKey,
+  executeGeminiWithCascade,
+  extractClientIp,
   filterRelevantCatalog,
   getCachedAiResponse,
   guardAiEndpoint,
+  sanitizeAiErrorForClient,
   setCachedAiResponse,
 } from '@/lib/ai-optimizer';
 import type { MasterCost } from '@/types/database';
@@ -21,7 +23,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const guard = await guardAiEndpoint(ctx);
+    const guard = await guardAiEndpoint(ctx, extractClientIp(req.headers));
     if (!guard.allowed && guard.response) {
       return guard.response;
     }
@@ -48,15 +50,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Deduplicador LRU para evitar gasto de tokens en dobles clics
+    // Deduplicador LRU para evitar gasto de tokens y doble consumo en clics repetidos
     const cacheKey = buildAiCacheKey(orgId, `suggest-costs:${mode}`, {
-      eventDescription,
+      eventDescription: String(eventDescription).slice(0, 4000),
       eventType,
       customPrompt,
       customQuoteLocation,
       targetMargin,
-      parsedDocuments: String(parsedDocuments).slice(0, 8000),
-      itemIds: mode === 'optimize_margins' ? items.map((i: any) => `${i.id}:${i.costo}:${i.margen}`) : [],
+      parsedDocuments: String(parsedDocuments).slice(0, 12000),
+      itemIds:
+        mode === 'optimize_margins'
+          ? items.map((i: any) => `${i.id}:${i.costo}:${i.margen}:${i.tipo_doc_costo}`)
+          : [],
     });
 
     const cached = getCachedAiResponse(cacheKey);
@@ -64,9 +69,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(cached);
     }
 
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-    // MODO 1: Optimización de Márgenes
+    // MODO 1: Optimización Ponderada de Márgenes (usa gemini-3.8-flash con Thinking MEDIUM; ganancia se calcula en TS)
     if (mode === 'optimize_margins') {
       if (!items || items.length === 0) {
         return NextResponse.json({ error: 'No se enviaron ítems para optimizar' }, { status: 400 });
@@ -74,6 +77,7 @@ export async function POST(req: NextRequest) {
 
       const desiredMargin = typeof targetMargin === 'number' ? targetMargin : 35;
 
+      // Esquema ultra-compacto: no pide ganancia_sugerida al LLM (se calcula determinísticamente en TypeScript -> -20% output tokens)
       const optimizeSchema = {
         type: Type.OBJECT,
         properties: {
@@ -84,10 +88,9 @@ export async function POST(req: NextRequest) {
               properties: {
                 id: { type: Type.STRING },
                 margen_sugerido: { type: Type.NUMBER },
-                ganancia_sugerida: { type: Type.NUMBER },
                 justificacion: { type: Type.STRING },
               },
-              required: ['id', 'margen_sugerido', 'ganancia_sugerida', 'justificacion'],
+              required: ['id', 'margen_sugerido', 'justificacion'],
             },
           },
           resumen_estrategia: { type: Type.STRING },
@@ -95,50 +98,74 @@ export async function POST(req: NextRequest) {
         required: ['suggestions', 'resumen_estrategia'],
       };
 
-      const itemsText = items
-        .filter((it: any) => !it.es_insumo)
-        .slice(0, 80)
+      const eligibleItems = items.filter((it: any) => !it.es_insumo).slice(0, 80);
+      const itemsText = eligibleItems
         .map(
           (it: any) =>
-            `${it.id}|${it.servicio}|C:$${it.costo}|Q:${it.cantidad}|M:${it.margen || 0}%|${it.tipo_doc_costo === 'boleta' ? 'B' : 'F'}`
+            `${it.id}|${String(it.servicio || '').slice(0, 50)}|C:$${Math.round(Number(it.costo) || 0)}|Q:${it.cantidad || 1}|M:${it.margen || 0}%|${it.tipo_doc_costo === 'boleta' ? 'B' : 'F'}`
         )
         .join('\n');
 
-      const optimizePrompt = `Director Financiero de ${orgName}. ${guard.industryPrompt}
-META MARGEN NETO GLOBAL: ${desiredMargin}%.
-ÍTEMS (ID|Servicio|CostoU|Cant|MargenActual|Doc):
+      const optimizePrompt = `Director Financiero B2B de ${orgName} (Chile). ${guard.industryPrompt}
+META MARGEN PONDERADO GLOBAL: ${desiredMargin}%.
+ÍTEMS (ID|Servicio|CostoU_CLP|Cant|MargenActual|Doc):
 ${itemsText}
-Asigna margen_sugerido (15%-55% según elasticidad del mercado chileno) y ganancia_sugerida = Math.round(costoNeto * margen_sugerido/100) logrando promedio ponderado ~${desiredMargin}%. Justificación breve (<12 palabras).`;
+Reglas:
+1. Asigna margen_sugerido (15%-60% según elasticidad del mercado chileno: mayor margen en servicios/talento propio, menor en commodities/subcontratos) para que el promedio ponderado global quede cerca de ${desiredMargin}%.
+2. Justificación ejecutiva en español de Chile (<12 palabras, sin comillas dobles ni emojis).`;
 
-      let optResponse;
-      for (const model of OPTIMIZED_GEMINI_MODELS) {
-        try {
-          optResponse = await ai.models.generateContent({
-            model,
-            contents: [{ role: 'user', parts: [{ text: optimizePrompt }] }],
-            config: {
-              responseMimeType: 'application/json',
-              responseSchema: optimizeSchema,
-              maxOutputTokens: 4096,
-            },
-          });
-          if (optResponse?.text) break;
-        } catch {
-          // Intentar siguiente modelo de la cascada
-        }
-      }
+      const { text: rawOptText } = await executeGeminiWithCascade({
+        task: guard.isDemoMode ? 'demo_sandbox' : 'optimize_margins',
+        routeLabel: 'suggest-costs:optimize_margins',
+        contents: [{ role: 'user', parts: [{ text: optimizePrompt }] }],
+        responseMimeType: 'application/json',
+        responseSchema: optimizeSchema,
+        validateResponse: (txt) => {
+          const parsed = JSON.parse(txt);
+          if (!Array.isArray(parsed?.suggestions)) {
+            throw new Error('Falta array suggestions en optimize_margins');
+          }
+        },
+      });
 
-      if (!optResponse?.text) {
-        throw new Error('Sin respuesta del motor de optimización de márgenes');
-      }
+      const parsedOpt = JSON.parse(rawOptText);
+      const itemMap = new Map<string, any>(eligibleItems.map((it: any) => [it.id, it]));
 
-      const parsedOpt = JSON.parse(optResponse.text);
-      setCachedAiResponse(cacheKey, parsedOpt);
+      // Enriquecer determinísticamente con ganancia_sugerida exacta SII
+      const enrichedOpt = {
+        suggestions: (parsedOpt.suggestions || []).map((s: any) => {
+          const orig = itemMap.get(s.id);
+          const clampedMargin = Math.max(5, Math.min(150, Number(s.margen_sugerido) || desiredMargin));
+          const fin = orig
+            ? calculateFinancialsFromMargin(
+                Number(orig.costo) || 0,
+                clampedMargin,
+                orig.tipo_doc_costo === 'boleta' ? 'boleta' : 'factura',
+                orig.iva_incluido ?? true,
+                false
+              )
+            : { ganancia: 0 };
+
+          return {
+            id: s.id,
+            margen_sugerido: Math.round(clampedMargin * 10) / 10,
+            ganancia_sugerida: fin.ganancia,
+            justificacion: String(s.justificacion || '')
+              .replace(/^["']|["']$/g, '')
+              .trim(),
+          };
+        }),
+        resumen_estrategia: String(parsedOpt.resumen_estrategia || '')
+          .replace(/^["']|["']$/g, '')
+          .trim(),
+      };
+
+      setCachedAiResponse(cacheKey, enrichedOpt);
       await guard.consumeCredit();
-      return NextResponse.json(parsedOpt);
+      return NextResponse.json(enrichedOpt);
     }
 
-    // MODO 2: Sugerencia de Costos (calcula Neto/IVA/Total/Margen en TypeScript -> -35% tokens output y 0 errores matemáticos)
+    // MODO 2: Sugerencia de Costos y Extracción de Cotizaciones (gemini-3.8-flash + cálculo SII en TS)
     if (!eventDescription && !customPrompt && !parsedDocuments) {
       return NextResponse.json(
         { error: 'Se requiere al menos una descripción, prompt o documento' },
@@ -146,8 +173,11 @@ Asigna margen_sugerido (15%-55% según elasticidad del mercado chileno) y gananc
       );
     }
 
+    const docSnippet = String(parsedDocuments || '').trim().slice(0, 12000);
+    const descSnippet = String(eventDescription || '').trim().slice(0, 4000);
+
     let catalogString = 'SIN_CATALOGO';
-    if (orgId !== 'd0000000-0000-4000-8000-000000000000') {
+    if (!guard.isDemoMode && orgId !== 'd0000000-0000-4000-8000-000000000000') {
       try {
         const supabaseClient = createAdminClient();
         const { data: masterCosts } = await supabaseClient
@@ -158,7 +188,7 @@ Asigna margen_sugerido (15%-55% según elasticidad del mercado chileno) y gananc
         if (masterCosts && masterCosts.length > 0) {
           catalogString = filterRelevantCatalog(
             masterCosts as MasterCost[],
-            `${customPrompt} ${eventDescription} ${eventType}`,
+            `${customPrompt} ${descSnippet} ${docSnippet.slice(0, 2000)} ${eventType}`,
             25
           );
         }
@@ -183,7 +213,7 @@ Asigna margen_sugerido (15%-55% según elasticidad del mercado chileno) y gananc
               ganancia: { type: Type.NUMBER },
               tipo_doc_costo: { type: Type.STRING, enum: ['factura', 'boleta'] },
             },
-            required: ['servicio', 'detalle', 'tipo_evento', 'cantidad', 'costo', 'ganancia'],
+            required: ['servicio', 'detalle', 'tipo_evento', 'cantidad', 'costo', 'ganancia', 'tipo_doc_costo'],
           },
         },
         reasoning: { type: Type.STRING },
@@ -192,43 +222,49 @@ Asigna margen_sugerido (15%-55% según elasticidad del mercado chileno) y gananc
     };
 
     const marginRule = targetMargin
-      ? `Calibra ganancia para margen promedio ~${targetMargin}% sobre costo.`
-      : 'Margen sugerido 25%-40% realista en Chile (CLP).';
+      ? `Calibra ganancia para lograr margen promedio ~${targetMargin}% sobre costo neto.`
+      : 'Aplica margen realista en Chile (25%-40% sobre costo neto).';
 
-    const systemPrompt = `Cotizador experto de ${orgName}. ${guard.industryPrompt}
-CATÁLOGO RELEVANTE (Serv|Cat|Costo|Ganancia):
-${catalogString}
-REGLAS: CLP reales en Chile. ${marginRule} Indica tipo_doc_costo ('factura'|'boleta'). No omitas logística oculta ni mano de obra.`;
+    // Prefijo estático arriba para aprovechar implicit prompt caching
+    const systemInstruction = `Cotizador Senior especialista en presupuestos chilenos (CLP) para ${orgName}.
+${guard.industryPrompt}
+REGLAS:
+- Usa precios unitarios reales en CLP de Chile y cantidades exactas según magnitud.
+- ${marginRule}
+- Asigna tipo_doc_costo: 'factura' (proveedores/materiales/arriendos que recuperan 19% IVA Crédito) o 'boleta' (personal/honorarios con retención 15,25% 2026 o boleta simple sin IVA crédito).
+- Nunca omitas logística oculta (fletes, montaje, viáticos, consumibles, merma o imprevistos) cuando aplique al pedido.
+- Responde conciso en español de Chile sin comillas envolventes ni rellenos.`;
 
-    const userPrompt = customPrompt?.trim()
-      ? `PEDIDO: "${customPrompt.trim()}"${customQuoteLocation ? ` | Proveedor/Lugar: "${customQuoteLocation.trim()}"` : ''}. Contexto: ${eventDescription || '-'} (${eventType || 'General'}). Desglosa insumos, cantidades exactas y mano de obra.`
-      : `Proyecto: ${eventDescription.slice(0, 2000)} | Tipo: ${eventType} | Docs: ${String(parsedDocuments).slice(0, 8000)}`;
+    const userPromptParts: string[] = [`CATÁLOGO RELEVANTE (Serv|Cat|Costo|Ganancia):\n${catalogString}`];
 
-    let response;
-    let lastError: any = null;
-
-    for (const model of OPTIMIZED_GEMINI_MODELS) {
-      try {
-        response = await ai.models.generateContent({
-          model,
-          contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }],
-          config: {
-            responseMimeType: 'application/json',
-            responseSchema: compactResponseSchema,
-            maxOutputTokens: 4096,
-          },
-        });
-        if (response?.text) break;
-      } catch (e: any) {
-        lastError = e;
-      }
+    if (customPrompt?.trim()) {
+      userPromptParts.push(
+        `PEDIDO: "${customPrompt.trim()}"${customQuoteLocation ? ` | Lugar/Proveedor: "${customQuoteLocation.trim()}"` : ''}`
+      );
+    }
+    if (descSnippet) {
+      userPromptParts.push(`CONTEXTO PROYECTO (${eventType || 'General'}):\n${descSnippet}`);
+    }
+    if (docSnippet) {
+      userPromptParts.push(`DOCUMENTO ADJUNTO:\n${docSnippet}`);
     }
 
-    if (!response?.text) {
-      throw new Error(lastError?.message || 'Sin respuesta de Gemini');
-    }
+    const { text: rawCostText } = await executeGeminiWithCascade({
+      task: guard.isDemoMode ? 'demo_sandbox' : 'suggest_costs',
+      routeLabel: 'suggest-costs:suggest',
+      systemInstruction,
+      contents: [{ role: 'user', parts: [{ text: userPromptParts.join('\n\n') }] }],
+      responseMimeType: 'application/json',
+      responseSchema: compactResponseSchema,
+      validateResponse: (txt) => {
+        const parsed = JSON.parse(txt);
+        if (!Array.isArray(parsed?.suggestions)) {
+          throw new Error('Falta array suggestions en suggest_costs');
+        }
+      },
+    });
 
-    const rawParsed = JSON.parse(response.text);
+    const rawParsed = JSON.parse(rawCostText);
     // Cálculo determinístico SII Chile en TypeScript (ahorro de tokens + precisión 100%)
     const enrichedSuggestions = (rawParsed.suggestions || []).map((s: any) => {
       const costo = Math.max(0, Math.round(Number(s.costo) || 0));
@@ -236,9 +272,9 @@ REGLAS: CLP reales en Chile. ${marginRule} Indica tipo_doc_costo ('factura'|'bol
       const docType = s.tipo_doc_costo === 'boleta' ? 'boleta' : 'factura';
       const fin = calculateFinancials(costo, ganancia, docType, true);
       return {
-        servicio: s.servicio,
-        detalle: s.detalle,
-        tipo_evento: s.tipo_evento,
+        servicio: String(s.servicio || 'Servicio').trim(),
+        detalle: String(s.detalle || '').trim(),
+        tipo_evento: String(s.tipo_evento || 'General').trim(),
         cantidad: Math.max(1, Math.round(Number(s.cantidad) || 1)),
         costo,
         ganancia,
@@ -252,7 +288,9 @@ REGLAS: CLP reales en Chile. ${marginRule} Indica tipo_doc_costo ('factura'|'bol
 
     const finalPayload = {
       suggestions: enrichedSuggestions,
-      reasoning: rawParsed.reasoning || '',
+      reasoning: String(rawParsed.reasoning || '')
+        .replace(/^["']|["']$/g, '')
+        .trim(),
     };
 
     setCachedAiResponse(cacheKey, finalPayload);
@@ -261,6 +299,7 @@ REGLAS: CLP reales en Chile. ${marginRule} Indica tipo_doc_costo ('factura'|'bol
     return NextResponse.json(finalPayload);
   } catch (error: any) {
     console.error('Error in suggest-costs endpoint:', error);
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+    const sanitized = sanitizeAiErrorForClient(error);
+    return NextResponse.json({ error: sanitized.message }, { status: sanitized.status });
   }
 }

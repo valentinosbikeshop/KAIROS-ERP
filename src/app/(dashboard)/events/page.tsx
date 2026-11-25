@@ -167,11 +167,20 @@ export default function EventsPage() {
     return matchesSearch && matchesStatus;
   });
 
+  const startOfCurrentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+  const projectsCountingAgainstLimit =
+    entitlements.effectiveTier === 'free'
+      ? events.length
+      : events.filter((ev) => {
+          const ts = ev.created_at ? new Date(ev.created_at).getTime() : 0;
+          return ts >= startOfCurrentMonth;
+        }).length;
+
   const reachedProjectLimit =
     !isDuoExempt &&
     !isDemo &&
     entitlements.maxProjects !== null &&
-    events.length >= entitlements.maxProjects;
+    projectsCountingAgainstLimit >= entitlements.maxProjects;
 
   return (
     <div className="space-y-8">
@@ -191,7 +200,7 @@ export default function EventsPage() {
           {reachedProjectLimit ? (
             <Link href="/billing">
               <Button className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold">
-                Ampliar Cupo ({events.length}/{entitlements.maxProjects})
+                Ampliar Cupo ({projectsCountingAgainstLimit}/{entitlements.maxProjects})
               </Button>
             </Link>
           ) : (

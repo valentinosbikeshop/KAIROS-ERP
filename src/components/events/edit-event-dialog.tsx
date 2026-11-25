@@ -21,12 +21,15 @@ import {
   CalendarDays, 
   Save,
   Store,
-  Sparkles
+  Sparkles,
+  Coins,
+  AlertTriangle
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
-import { parseDateSafe } from '@/lib/utils';
+import { formatDateCL, parseDateSafe } from '@/lib/utils';
 import { Event } from '@/types';
+import type { QuoteCurrency } from '@/types/database';
 
 interface EditEventDialogProps {
   event: Event;
@@ -34,12 +37,13 @@ interface EditEventDialogProps {
 }
 
 export function EditEventDialog({ event, onUpdate }: EditEventDialogProps) {
-  const { entitlements, isDuoExempt, isDemo } = useWorkspaceConfig();
+  const { entitlements, isDuoExempt, isDemo, organization } = useWorkspaceConfig();
   const canUseConsolidation =
     isDuoExempt || isDemo || entitlements.modules.mod_consolidation_retail;
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [sameDateAlert, setSameDateAlert] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: event.name || '',
     client_company: event.client_company || '',
@@ -47,6 +51,8 @@ export function EditEventDialog({ event, onUpdate }: EditEventDialogProps) {
     event_date: event.event_date || '',
     description: event.description || '',
     has_retail_sales: event.has_retail_sales || false,
+    currency: (event.currency || 'CLP') as QuoteCurrency,
+    exchange_rate: String(event.exchange_rate || 1),
   });
 
   useEffect(() => {
@@ -58,10 +64,52 @@ export function EditEventDialog({ event, onUpdate }: EditEventDialogProps) {
         event_date: event.event_date || '',
         description: event.description || '',
         has_retail_sales: event.has_retail_sales || false,
+        currency: (event.currency || 'CLP') as QuoteCurrency,
+        exchange_rate: String(
+          event.exchange_rate ||
+            (event.currency === 'UF'
+              ? organization?.uf_rate_clp ?? 41405
+              : event.currency === 'USD'
+              ? organization?.usd_rate_clp ?? 1025
+              : 1)
+        ),
       });
       setErrorMsg(null);
     }
-  }, [open, event]);
+  }, [open, event, organization?.uf_rate_clp, organization?.usd_rate_clp]);
+
+  useEffect(() => {
+    if (!open || !formData.event_date) {
+      setSameDateAlert(null);
+      return;
+    }
+    let active = true;
+    const supabase = createClient();
+    supabase
+      .from('events')
+      .select('id, name, status, quote_status')
+      .eq('event_date', formData.event_date)
+      .is('deleted_at', null)
+      .then(({ data }) => {
+        if (!active || !data) return;
+        const others = (data as any[]).filter(
+          (e) =>
+            e.id !== event.id &&
+            (e.status === 'planning' || e.status === 'approved') &&
+            e.quote_status !== 'rejected'
+        );
+        if (others.length > 0) {
+          setSameDateAlert(
+            `Tope de agenda detectado el ${formatDateCL(formData.event_date)} con "${others[0].name}".`
+          );
+        } else {
+          setSameDateAlert(null);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [open, formData.event_date, event.id]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -88,6 +136,9 @@ export function EditEventDialog({ event, onUpdate }: EditEventDialogProps) {
     }
 
     try {
+      const parsedRate =
+        formData.currency === 'CLP' ? 1 : Math.max(1, Number(formData.exchange_rate) || 1);
+
       let { data, error } = await (supabase.from('events') as any)
         .update({
           name: formData.name.trim(),
@@ -98,13 +149,21 @@ export function EditEventDialog({ event, onUpdate }: EditEventDialogProps) {
           month,
           year,
           has_retail_sales: formData.has_retail_sales,
+          currency: formData.currency,
+          exchange_rate: parsedRate,
         })
         .eq('id', event.id)
         .select()
         .single();
 
-      if (error && (error.message?.includes('has_retail_sales') || error.code === 'PGRST204')) {
-        console.warn('has_retail_sales column not found in schema. Please run add_has_retail_sales.sql in Supabase.');
+      if (
+        error &&
+        (error.message?.includes('has_retail_sales') ||
+          error.message?.includes('currency') ||
+          error.message?.includes('exchange_rate') ||
+          error.code === 'PGRST204')
+      ) {
+        console.warn('Optional columns missing in schema, retrying base update.');
         const retry = await (supabase.from('events') as any)
           .update({
             name: formData.name.trim(),
@@ -220,6 +279,62 @@ export function EditEventDialog({ event, onUpdate }: EditEventDialogProps) {
                   value={formData.event_date} 
                   onChange={handleChange}
                   className="rounded-xl border-border/80 focus-visible:ring-primary/20"
+                />
+              </div>
+            </div>
+
+            {sameDateAlert && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 flex items-center gap-2">
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                <span>{sameDateAlert}</span>
+              </div>
+            )}
+
+            {/* Moneda y Tipo de Cambio */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-xl border border-border/80 bg-muted/20 p-3">
+              <div className="space-y-1">
+                <Label htmlFor="edit_currency" className="text-xs font-medium flex items-center gap-1.5">
+                  <Coins className="h-3.5 w-3.5 text-primary" />
+                  Moneda de Cotización
+                </Label>
+                <select
+                  id="edit_currency"
+                  value={formData.currency}
+                  onChange={(e) => {
+                    const next = e.target.value as QuoteCurrency;
+                    const nextRate =
+                      next === 'UF'
+                        ? String(organization?.uf_rate_clp ?? 41405)
+                        : next === 'USD'
+                        ? String(organization?.usd_rate_clp ?? 1025)
+                        : '1';
+                    setFormData((prev) => ({
+                      ...prev,
+                      currency: next,
+                      exchange_rate: nextRate,
+                    }));
+                  }}
+                  className="flex h-9 w-full rounded-xl border border-input bg-background px-3 py-1 text-xs"
+                >
+                  <option value="CLP">Peso Chileno (CLP)</option>
+                  <option value="UF">Unidad de Fomento (UF)</option>
+                  <option value="USD">Dólar (USD)</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="edit_exchange_rate" className="text-xs font-medium">
+                  Valor Referencia (CLP)
+                </Label>
+                <Input
+                  id="edit_exchange_rate"
+                  type="number"
+                  min={1}
+                  disabled={formData.currency === 'CLP'}
+                  value={formData.exchange_rate}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, exchange_rate: e.target.value }))
+                  }
+                  className="rounded-xl h-9 text-xs"
                 />
               </div>
             </div>

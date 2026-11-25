@@ -5,7 +5,7 @@ import { SUPER_ADMIN_EMAIL, DUO_ORG_SLUG } from '@/lib/constants';
 import { calculateFinancials } from '@/lib/utils';
 import { COMPANY_COST_TEMPLATES, formatCostMetadata } from '@/lib/cost-metadata';
 import { isDuoProducciones, resolveOrgEntitlements } from '@/lib/entitlements';
-import { fetchPlansAndAddonsServer, hydrateOrganizationSaas } from '@/lib/saas-storage';
+import { fetchPlansAndAddonsServer, hydrateOrganizationSaas, updateOrganizationSaasConfig } from '@/lib/saas-storage';
 import type { Organization } from '@/types/database';
 
 export const runtime = 'nodejs';
@@ -49,6 +49,9 @@ const UpdateCompanySchema = z.object({
   logo_url: z.string().trim().max(500000).optional().nullable(),
   bank_info: BankInfoSchema.optional(),
   invite_code: z.string().trim().min(4).max(32).optional(),
+  min_margin_pct: z.coerce.number().min(0).max(95).optional(),
+  uf_rate_clp: z.coerce.number().min(1000).max(500000).optional(),
+  usd_rate_clp: z.coerce.number().min(100).max(10000).optional(),
 });
 
 function isAuthorizedSuperAdmin(ctx: Awaited<ReturnType<typeof getAuthenticatedContext>>) {
@@ -304,7 +307,7 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const { id, ...rawUpdates } = parsed.data;
+    const { id, min_margin_pct, uf_rate_clp, usd_rate_clp, ...rawUpdates } = parsed.data;
     const isSuper = isAuthorizedSuperAdmin(ctx);
     const isOwnCompanyAdmin =
       Boolean(ctx?.profile) &&
@@ -388,16 +391,38 @@ export async function PATCH(req: NextRequest) {
       };
     }
 
-    const { data: updated, error } = await admin
-      .from('organizations')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
+    let updatedCompany: Organization = targetOrgRaw as Organization;
+    if (Object.keys(updates).length > 0) {
+      const { data: updated, error } = await admin
+        .from('organizations')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
 
-    if (error) throw error;
+      if (error) throw error;
+      if (updated) {
+        updatedCompany = updated as Organization;
+      }
+    }
 
-    return NextResponse.json({ company: updated });
+    if (
+      min_margin_pct !== undefined ||
+      uf_rate_clp !== undefined ||
+      usd_rate_clp !== undefined
+    ) {
+      const saasPatch: Record<string, number> = {};
+      if (min_margin_pct !== undefined) saasPatch.min_margin_pct = Math.round(min_margin_pct * 10) / 10;
+      if (uf_rate_clp !== undefined) saasPatch.uf_rate_clp = Math.round(uf_rate_clp);
+      if (usd_rate_clp !== undefined) saasPatch.usd_rate_clp = Math.round(usd_rate_clp);
+
+      const updatedSaas = await updateOrganizationSaasConfig(id, saasPatch);
+      if (updatedSaas) {
+        updatedCompany = updatedSaas;
+      }
+    }
+
+    return NextResponse.json({ company: hydrateOrganizationSaas(updatedCompany) });
   } catch (err: any) {
     console.error('Error PATCH /api/admin/companies:', err);
     return NextResponse.json({ error: err.message || 'Error al actualizar empresa' }, { status: 500 });

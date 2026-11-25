@@ -84,7 +84,8 @@ export function FloatingFinancialAdvisor({ event, items }: FloatingFinancialAdvi
       });
 
       if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Error HTTP: ${response.status}`);
       }
 
       const data = await response.json();
@@ -94,11 +95,14 @@ export function FloatingFinancialAdvisor({ event, items }: FloatingFinancialAdvi
         { role: 'assistant', content: data.reply }
       ]);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in AI Advisor:', error);
+      const errMsg = error instanceof Error && error.message && !error.message.startsWith('Error HTTP:')
+        ? error.message
+        : 'No pude completar el análisis en este momento. Por favor intenta nuevamente.';
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: 'Lo siento, he encontrado un problema analizando los datos. Mis servidores pueden estar saturados, por favor intenta de nuevo.' }
+        { role: 'assistant', content: `⚠️ ${errMsg}` }
       ]);
     } finally {
       setIsLoading(false);

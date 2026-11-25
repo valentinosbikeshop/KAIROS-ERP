@@ -19,7 +19,7 @@ import { EditEventDialog } from '@/components/events/edit-event-dialog';
 import { TransactionDialog } from '@/components/events/transaction-dialog';
 import { ClientQuotePdfDialog } from '@/components/reports/client-quote-pdf-dialog';
 import { EVENT_STATUS_LABELS, EVENT_STATUS_COLORS } from '@/lib/constants';
-import { formatDateCL, calculateFinancials } from '@/lib/utils';
+import { formatDateCL, calculateFinancials, formatCLP, formatCurrencyAmount } from '@/lib/utils';
 import { 
   Sparkles, 
   FileText, 
@@ -37,7 +37,15 @@ import {
   ClipboardList,
   Store,
   Upload,
-  Receipt
+  Receipt,
+  Share2,
+  ExternalLink,
+  Copy,
+  Check,
+  AlertTriangle,
+  ShieldAlert,
+  ShieldCheck,
+  Coins
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -46,7 +54,7 @@ export default function EventDetailPage() {
   const id = params.id as string;
   const router = useRouter();
   const supabase = createClient();
-  const { isDemo } = useUser();
+  const { isDemo, isAdmin, isSuperAdmin, organization } = useUser();
   const { entitlements, isDuoExempt, terms, industry } = useWorkspaceConfig();
   const canUseAi = isDuoExempt || isDemo || entitlements.modules.mod_ai_suite;
   const canUsePdf = isDuoExempt || isDemo || entitlements.modules.mod_pdf_quotes;
@@ -64,6 +72,13 @@ export default function EventDetailPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [customAiLoading, setCustomAiLoading] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+
+  const [sharingLink, setSharingLink] = useState(false);
+  const [sharedUrl, setSharedUrl] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [approvingOverride, setApprovingOverride] = useState(false);
+  const [sameDateCollisions, setSameDateCollisions] = useState<{ id: string; name: string }[]>([]);
   
   const [isTransactionOpen, setIsTransactionOpen] = useState(false);
   const [transactionType, setTransactionType] = useState<'ABONO' | 'GASTO'>('ABONO');
@@ -79,7 +94,36 @@ export default function EventDetailPage() {
         .single();
       
       if (eventError) throw eventError;
-      setEvent(eventData as Event);
+      const loadedEvent = eventData as Event;
+      setEvent(loadedEvent);
+      if (loadedEvent.quote_token) {
+        setSharedUrl(`/q/${loadedEvent.quote_token}`);
+      } else if (isDemo && loadedEvent.quote_status && loadedEvent.quote_status !== 'draft') {
+        setSharedUrl(`/q/demo-${loadedEvent.id}`);
+      }
+
+      if (loadedEvent.event_date) {
+        const { data: sameDayRows } = await supabase
+          .from('events')
+          .select('id, name, status, quote_status')
+          .eq('event_date', loadedEvent.event_date)
+          .is('deleted_at', null);
+
+        if (sameDayRows) {
+          setSameDateCollisions(
+            (sameDayRows as any[])
+              .filter(
+                (r) =>
+                  r.id !== loadedEvent.id &&
+                  (r.status === 'planning' || r.status === 'approved') &&
+                  r.quote_status !== 'rejected'
+              )
+              .map((r) => ({ id: r.id, name: r.name }))
+          );
+        }
+      } else {
+        setSameDateCollisions([]);
+      }
 
       const { data: itemsData, error: itemsError } = await supabase
         .from('event_items')
@@ -98,7 +142,7 @@ export default function EventDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [id, supabase]);
+  }, [id, supabase, isDemo]);
 
   useEffect(() => {
     fetchEventData();
@@ -313,6 +357,119 @@ export default function EventDetailPage() {
 
   const isCompleted = event.status === 'completed';
 
+  const topLevelQuoteItems = items.filter((it) => !it.parent_id);
+  const quoteCostoNeto = topLevelQuoteItems.reduce((sum, it) => {
+    const unitNeto =
+      it.tipo_doc_costo === 'boleta'
+        ? Number(it.costo || 0)
+        : Math.round(Number(it.costo || 0) / 1.19);
+    return sum + unitNeto * (Number(it.cantidad) || 1);
+  }, 0);
+  const quoteGanancia = topLevelQuoteItems.reduce(
+    (sum, it) => sum + (it.es_insumo ? 0 : Number(it.ganancia || 0)) * (Number(it.cantidad) || 1),
+    0
+  );
+  const quoteMarginPct = quoteCostoNeto > 0 ? (quoteGanancia / quoteCostoNeto) * 100 : 100;
+  const minMarginFloor = organization?.min_margin_pct ?? 15;
+  const belowMarginFloor =
+    !isDuoExempt &&
+    topLevelQuoteItems.length > 0 &&
+    quoteMarginPct < minMarginFloor &&
+    !event.min_margin_override_approved;
+  const isMarginBlockedForMember = belowMarginFloor && !isAdmin && !isSuperAdmin;
+
+  const handleShareInteractiveQuote = async () => {
+    if (!event) return;
+    if (isMarginBlockedForMember) {
+      setShareError(
+        `El margen actual (${quoteMarginPct.toFixed(1)}%) está bajo el piso mínimo (${minMarginFloor}%). Un Administrador debe aprobar la excepción antes de compartir el portal.`
+      );
+      return;
+    }
+
+    setSharingLink(true);
+    setShareError(null);
+    try {
+      if (isDemo) {
+        const demoUrl = `/q/demo-${event.id}`;
+        const nowIso = new Date().toISOString();
+        const nextStatus = event.quote_status === 'accepted' ? 'accepted' : 'sent';
+        await (supabase.from('events') as any)
+          .update({
+            quote_token: `demo-${event.id}`,
+            quote_status: nextStatus,
+            quote_sent_at: nowIso,
+          })
+          .eq('id', event.id);
+        setSharedUrl(demoUrl);
+        setEvent({
+          ...event,
+          quote_token: `demo-${event.id}`,
+          quote_status: nextStatus,
+          quote_sent_at: nowIso,
+        });
+        if (navigator?.clipboard) {
+          navigator.clipboard.writeText(`${window.location.origin}${demoUrl}`).catch(() => {});
+          setCopiedLink(true);
+          setTimeout(() => setCopiedLink(false), 3000);
+        }
+        return;
+      }
+
+      const res = await fetch('/api/quotes/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId: event.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setShareError(data?.error || 'No se pudo generar el enlace del portal.');
+        return;
+      }
+
+      setSharedUrl(data.url);
+      setEvent({
+        ...event,
+        quote_token: data.token,
+        quote_status: data.quote_status || 'sent',
+        quote_sent_at: data.quote_sent_at || event.quote_sent_at,
+      });
+      if (navigator?.clipboard && data.url) {
+        navigator.clipboard.writeText(`${window.location.origin}${data.url}`).catch(() => {});
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 3000);
+      }
+    } catch {
+      setShareError('Error de conexión al generar el portal interactivo.');
+    } finally {
+      setSharingLink(false);
+    }
+  };
+
+  const handleApproveMarginOverride = async () => {
+    if (!event) return;
+    setApprovingOverride(true);
+    try {
+      const { error } = await (supabase.from('events') as any)
+        .update({ min_margin_override_approved: true })
+        .eq('id', event.id);
+
+      if (error) {
+        if (error.code === 'PGRST204' || String(error.message || '').includes('min_margin_override')) {
+          setEvent({ ...event, min_margin_override_approved: true });
+          return;
+        }
+        throw error;
+      }
+      setEvent({ ...event, min_margin_override_approved: true });
+      setShareError(null);
+    } catch (err: any) {
+      setShareError(err?.message || 'No se pudo aprobar la excepción de margen.');
+    } finally {
+      setApprovingOverride(false);
+    }
+  };
+
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-4">
@@ -324,15 +481,37 @@ export default function EventDetailPage() {
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+          <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3 flex-wrap">
             {event.name}
             {isCompleted && <Lock className="h-5 w-5 text-muted-foreground" />}
             {!isCompleted && <EditEventDialog event={event} onUpdate={setEvent} />}
           </h2>
-          <div className="flex items-center gap-2 mt-2">
+          <div className="flex items-center flex-wrap gap-2 mt-2">
             <Badge className={EVENT_STATUS_COLORS[event.status as keyof typeof EVENT_STATUS_COLORS]}>
               {EVENT_STATUS_LABELS[event.status as keyof typeof EVENT_STATUS_LABELS] || event.status}
             </Badge>
+            {event.currency && event.currency !== 'CLP' && (
+              <Badge variant="outline" className="border-slate-300 bg-slate-50 text-slate-800 font-mono text-[11px]">
+                <Coins className="mr-1 h-3 w-3 text-primary" />
+                {event.currency} ({formatCLP(event.exchange_rate || 1)})
+              </Badge>
+            )}
+            {event.quote_status === 'sent' && (
+              <Badge variant="outline" className="border-blue-300 text-blue-700 bg-blue-50 font-medium">
+                Cotización Enviada (Portal)
+              </Badge>
+            )}
+            {event.quote_status === 'accepted' && (
+              <Badge variant="outline" className="border-emerald-300 text-emerald-700 bg-emerald-50 font-medium">
+                <ShieldCheck className="mr-1 h-3 w-3" />
+                Aceptada Digitalmente{event.quote_accepted_by_name ? ` (${event.quote_accepted_by_name})` : ''}
+              </Badge>
+            )}
+            {event.quote_status === 'rejected' && (
+              <Badge variant="outline" className="border-rose-300 text-rose-700 bg-rose-50 font-medium">
+                Ajustes Solicitados
+              </Badge>
+            )}
             {event.has_retail_sales && (
               <Badge variant="outline" className="border-indigo-300 text-indigo-700 bg-indigo-50 font-medium">
                 <Store className="mr-1 h-3 w-3" />
@@ -353,7 +532,25 @@ export default function EventDetailPage() {
           </div>
         </div>
         
-        <div className="flex items-center gap-2" data-tour-id="event-pdf-actions">
+        <div className="flex flex-wrap items-center gap-2" data-tour-id="event-pdf-actions">
+          {event && canUsePdf && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleShareInteractiveQuote}
+              disabled={sharingLink || items.length === 0 || isMarginBlockedForMember}
+              className="h-8 gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/5"
+              data-testid="share-quote-portal-btn"
+            >
+              {sharingLink ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Share2 className="h-3.5 w-3.5" />
+              )}
+              Portal Cliente
+            </Button>
+          )}
           {event && canUsePdf && <ClientQuotePdfDialog event={event} items={items} />}
           {isCompleted ? (
             <div className="flex gap-2">
@@ -369,13 +566,105 @@ export default function EventDetailPage() {
               </Link>
             </div>
           ) : (
-            <Button onClick={handleFinalizeEvent} disabled={finalizing || items.length === 0} variant="outline" className="bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800 border-green-200">
+            <Button
+              onClick={handleFinalizeEvent}
+              disabled={finalizing || items.length === 0 || isMarginBlockedForMember}
+              variant="outline"
+              className="bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800 border-green-200"
+            >
               {finalizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
               Finalizar Evento
             </Button>
           )}
         </div>
       </div>
+
+      {/* Banners Operativos: Portal Link / Piso de Margen / Choque de Fechas */}
+      {(sharedUrl || shareError || belowMarginFloor || sameDateCollisions.length > 0) && (
+        <div className="space-y-2">
+          {sharedUrl && (
+            <div className="rounded-xl border border-blue-200 bg-blue-50/70 px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <Share2 className="h-4 w-4 text-blue-700 shrink-0" />
+                <span className="font-semibold text-blue-950 shrink-0">Portal Interactivo Activo:</span>
+                <code className="text-[11px] bg-white/80 border border-blue-200 rounded px-2 py-0.5 truncate font-mono text-blue-900">
+                  {sharedUrl}
+                </code>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1 bg-white"
+                  onClick={() => {
+                    navigator.clipboard?.writeText(`${window.location.origin}${sharedUrl}`).catch(() => {});
+                    setCopiedLink(true);
+                    setTimeout(() => setCopiedLink(false), 2500);
+                  }}
+                >
+                  {copiedLink ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+                  {copiedLink ? 'Copiado' : 'Copiar URL'}
+                </Button>
+                <Link href={sharedUrl} target="_blank" data-testid="open-quote-portal-link">
+                  <Button type="button" size="sm" className="h-7 text-xs gap-1">
+                    Abrir Portal
+                    <ExternalLink className="h-3 w-3" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {shareError && (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-xs text-destructive flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>{shareError}</span>
+            </div>
+          )}
+
+          {belowMarginFloor && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50/80 px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-950">
+              <div className="flex items-start gap-2">
+                <ShieldAlert className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Control de Margen Comercial:</strong> El margen proyectado ({quoteMarginPct.toFixed(1)}%) está bajo el piso configurado ({minMarginFloor}%).
+                  {isMarginBlockedForMember
+                    ? ' Solicita aprobación de un Administrador para exportar PDF, compartir portal o finalizar.'
+                    : ' Como Administrador puedes autorizar una excepción comercial.'}
+                </span>
+              </div>
+              {(isAdmin || isSuperAdmin) && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleApproveMarginOverride}
+                  disabled={approvingOverride}
+                  className="h-7 text-xs border-amber-400 bg-white hover:bg-amber-100 shrink-0 gap-1"
+                >
+                  {approvingOverride ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3 text-emerald-700" />}
+                  Aprobar Excepción
+                </Button>
+              )}
+            </div>
+          )}
+
+          {sameDateCollisions.length > 0 && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50/60 px-4 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-900">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                <span>
+                  <strong>Tope de Fecha:</strong> Coincide el {formatDateCL(event.event_date || '')} con {sameDateCollisions.length} proyecto(s) ({sameDateCollisions.map((c) => c.name).slice(0, 2).join(', ')}).
+                </span>
+              </div>
+              <Link href="/treasury" className="text-primary font-semibold hover:underline shrink-0">
+                Ver Agenda en Tesorería →
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
 
       <Tabs defaultValue="info" className="space-y-6 mt-6">
         <TabsList data-tour-id="event-tabs" className="inline-flex h-11 items-center justify-center rounded-lg bg-muted/60 p-1 text-muted-foreground w-full md:w-auto overflow-x-auto shadow-sm">
@@ -592,14 +881,18 @@ export default function EventDetailPage() {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                              customPrompt: "Extrae de este documento (factura/boleta/cotización) todos los artículos de compra y cantidades para el borrador de costos.",
-                              eventDescription: text,
+                              customPrompt: "Extrae de este documento (factura/boleta/cotización) todos los artículos, cantidades, precios CLP y tipo de documento (factura o boleta) para el borrador de costos.",
+                              parsedDocuments: text,
+                              eventDescription: event?.description || '',
                               eventType: event?.status || '',
                               targetMargin: aiTargetMargin,
                             }),
                           });
-                          
-                          if (!aiRes.ok) throw new Error('Error al generar desglose');
+
+                          if (!aiRes.ok) {
+                            const errBody = await aiRes.json().catch(() => ({}));
+                            throw new Error(errBody.error || 'Error al generar desglose');
+                          }
                           const data = await aiRes.json();
                           
                           if (data.suggestions && data.suggestions.length > 0) {
@@ -900,6 +1193,11 @@ export default function EventDetailPage() {
                             <p className="text-sm font-semibold text-foreground mt-1">
                               ${totalPresupuestado.toLocaleString('es-CL')}
                             </p>
+                            {event.currency && event.currency !== 'CLP' && (event.exchange_rate || 1) > 1 && (
+                              <p className="text-[11px] font-mono text-primary">
+                                {formatCurrencyAmount(totalPresupuestado, event.currency, event.exchange_rate)}
+                              </p>
+                            )}
                           </div>
                           <div className="text-right">
                             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Costo Insumos/Servicios</p>

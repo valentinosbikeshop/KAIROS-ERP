@@ -4,6 +4,9 @@ export const DUO_ORG_SLUG = 'duo-producciones';
 export const DEMO_ORG_SLUG = 'demo-sandbox';
 export const DEMO_USER_EMAIL = 'demo@duoproducciones-erp.cl';
 
+// Tasa legal vigente de retención Boleta de Honorarios en Chile (Ley N° 21.133 · año 2026)
+export const CHILE_HONORARIOS_RETENTION_2026 = 0.1525;
+
 export const DEMO_MAX_EVENTS = 8;
 export const DEMO_MAX_COSTS = 15;
 export const DEMO_MAX_ITEMS = 120;

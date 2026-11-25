@@ -6,10 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
-import { Loader2, Trash2, AlertTriangle, Calendar as CalendarIcon, FileText, CreditCard, Receipt, Users } from 'lucide-react';
+import { Loader2, Trash2, AlertTriangle, Calendar as CalendarIcon, FileText, CreditCard, Receipt, Users, Camera, CheckCircle2 } from 'lucide-react';
 import { EventItem } from '@/types';
 import { createClient } from '@/lib/supabase/client';
+import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
 import { formatCLP } from '@/lib/utils';
+import { CHILE_HONORARIOS_RETENTION_2026 } from '@/lib/constants';
 
 type ExpenseDocMode = 'factura' | 'honorarios' | 'boleta';
 
@@ -32,6 +34,81 @@ function inferInitialDocMode(item?: EventItem): ExpenseDocMode {
     return 'honorarios';
   }
   return 'boleta';
+}
+
+function parseChileanReceiptOcr(rawText: string): {
+  amount: number | null;
+  fecha: string | null;
+  docMode: ExpenseDocMode;
+  descripcion: string;
+} {
+  const text = rawText || '';
+  const lower = text.toLowerCase();
+
+  let docMode: ExpenseDocMode = 'boleta';
+  if (/honorarios|retenci[oó]n|segunda\s+categor[ií]a/i.test(lower)) {
+    docMode = 'honorarios';
+  } else if (/factura\s+electr[oó]nica|iva\s*19%|i\.v\.a\.|monto\s+neto/i.test(lower)) {
+    docMode = 'factura';
+  }
+
+  // Extract total amount (prefer explicit TOTAL lines, fallback to largest CLP integer)
+  const totalMatches: number[] = [];
+  const totalRegex = /(?:total\s*(?:a\s*pagar|bruto|l[ií]quido|final|general)?|monto\s+total)\s*[:$]?\s*\$?\s*([0-9]{1,3}(?:[.\s][0-9]{3})+|[0-9]{3,9})/gi;
+  let m: RegExpExecArray | null;
+  while ((m = totalRegex.exec(text)) !== null) {
+    const val = parseInt(m[1].replace(/[^\d]/g, ''), 10);
+    if (val >= 100 && val < 500000000) totalMatches.push(val);
+  }
+  if (totalMatches.length === 0) {
+    const currencyRegex = /\$\s*([0-9]{1,3}(?:\.[0-9]{3})+|[0-9]{4,9})/g;
+    while ((m = currencyRegex.exec(text)) !== null) {
+      const val = parseInt(m[1].replace(/[^\d]/g, ''), 10);
+      if (val >= 500 && val < 500000000) totalMatches.push(val);
+    }
+  }
+  const amount = totalMatches.length > 0 ? Math.max(...totalMatches) : null;
+
+  // Extract date
+  let fecha: string | null = null;
+  const isoDate = text.match(/(\d{4}-\d{2}-\d{2})/);
+  const clDate = text.match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+  if (isoDate) {
+    fecha = isoDate[1];
+  } else if (clDate) {
+    const dd = clDate[1].padStart(2, '0');
+    const mm = clDate[2].padStart(2, '0');
+    const yyyy = clDate[3];
+    if (Number(mm) >= 1 && Number(mm) <= 12 && Number(dd) >= 1 && Number(dd) <= 31) {
+      fecha = `${yyyy}-${mm}-${dd}`;
+    }
+  }
+
+  // Extract merchant / description line
+  const emisorMatch = text.match(/(?:raz[oó]n\s+social|emisor|proveedor|se[ñn]or(?:\(es\))?)\s*[:\-]\s*([^\n]{3,65})/i);
+  let descripcion = '';
+  if (emisorMatch?.[1]) {
+    descripcion = emisorMatch[1].trim();
+  } else {
+    const lines = text
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(
+        (l) =>
+          l.length >= 4 &&
+          l.length <= 65 &&
+          !/^(rut|r\.u\.t|fecha|s\.i\.i|folio|boleta|factura|total|neto|iva)/i.test(l) &&
+          /[a-zA-ZáéíóúñÁÉÍÓÚÑ]{3,}/.test(l)
+      );
+    descripcion = lines[0] || 'Comprobante escaneado';
+  }
+
+  return {
+    amount,
+    fecha,
+    docMode,
+    descripcion: descripcion.slice(0, 120),
+  };
 }
 
 export function TransactionDialog({
@@ -64,10 +141,70 @@ export function TransactionDialog({
     return transactionToEdit.tipo_doc_costo || 'transferencia';
   };
 
+  const { entitlements, isDuoExempt, isDemo } = useWorkspaceConfig();
+  const canUseOcr =
+    isDuoExempt ||
+    isDemo ||
+    entitlements.modules.mod_ai_suite ||
+    (entitlements.aiCallsLimit ?? 0) > 0;
+
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrStatus, setOcrStatus] = useState<{ type: 'ok' | 'err'; message: string } | null>(null);
+
   const [metodoPago, setMetodoPago] = useState<string>(
     !type || type === 'ABONO' ? getInitialMetodoPago() : 'transferencia'
   );
   const [loading, setLoading] = useState(false);
+
+  const handleReceiptOcr = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!canUseOcr) {
+      setOcrStatus({
+        type: 'err',
+        message: 'El escáner OCR de boletas/facturas requiere Plan Operación Esencial+ o Suite IA.',
+      });
+      e.target.value = '';
+      return;
+    }
+
+    setOcrLoading(true);
+    setOcrStatus(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/parse-file', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!res.ok) {
+        setOcrStatus({
+          type: 'err',
+          message: data?.error || 'No se pudo leer el comprobante con OCR.',
+        });
+        return;
+      }
+
+      const parsed = parseChileanReceiptOcr(String(data?.text || ''));
+      if (parsed.amount) setMonto(String(parsed.amount));
+      if (parsed.fecha) setFecha(parsed.fecha);
+      if (parsed.descripcion) setDescripcion(parsed.descripcion);
+      setDocMode(parsed.docMode);
+
+      setOcrStatus({
+        type: 'ok',
+        message: parsed.amount
+          ? `OCR detectó ${formatCLP(parsed.amount)} (${parsed.docMode.toUpperCase()}). Verifica antes de guardar.`
+          : 'Texto extraído correctamente. Completa el monto final antes de guardar.',
+      });
+    } catch {
+      setOcrStatus({
+        type: 'err',
+        message: 'Error de conexión durante el escaneo OCR.',
+      });
+    } finally {
+      setOcrLoading(false);
+      e.target.value = '';
+    }
+  };
 
   // States for delete confirmation
   const [isDeleting, setIsDeleting] = useState(false);
@@ -117,7 +254,8 @@ export function TransactionDialog({
   // Live tax math
   const facturaNeto = Math.round(parsedMonto / 1.19);
   const facturaIvaCredito = docMode === 'factura' ? parsedMonto - facturaNeto : 0;
-  const honorariosRetencion = docMode === 'honorarios' ? Math.round(parsedMonto * 0.1375) : 0;
+  const honorariosRetencion =
+    docMode === 'honorarios' ? Math.round(parsedMonto * CHILE_HONORARIOS_RETENTION_2026) : 0;
   const abonoNeto = aplicaIvaAbono ? Math.round(parsedMonto / 1.19) : parsedMonto;
   const abonoIvaDebito = aplicaIvaAbono ? parsedMonto - abonoNeto : 0;
 
@@ -241,6 +379,56 @@ export function TransactionDialog({
       </DialogHeader>
 
       <DialogBody className="space-y-4">
+        {isGasto && (
+          <div className="rounded-xl border border-dashed border-primary/35 bg-primary/5 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <Camera className="h-3.5 w-3.5 text-primary shrink-0" />
+                  Escanear Boleta o Factura (OCR)
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Toma una foto desde el celular o sube PDF/imagen para autocompletar monto, fecha y tipo SII.
+                </p>
+              </div>
+              <label
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-medium cursor-pointer shrink-0 transition-colors"
+                data-testid="ocr-receipt-trigger"
+              >
+                {ocrLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Camera className="h-3.5 w-3.5" />
+                )}
+                <span>{ocrLoading ? 'Leyendo...' : 'Escanear'}</span>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={handleReceiptOcr}
+                  disabled={ocrLoading}
+                  className="hidden"
+                />
+              </label>
+            </div>
+            {ocrStatus && (
+              <div
+                className={`text-[11px] rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 ${
+                  ocrStatus.type === 'ok'
+                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                    : 'bg-destructive/10 text-destructive border border-destructive/20'
+                }`}
+              >
+                {ocrStatus.type === 'ok' ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                ) : (
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                )}
+                <span>{ocrStatus.message}</span>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Monto Total ($)</Label>
@@ -405,7 +593,7 @@ export function TransactionDialog({
                 ) : docMode === 'honorarios' ? (
                   <>
                     <div>
-                      <span className="text-muted-foreground block text-[10px]">Líquido / Retención SII (13,75%)</span>
+                      <span className="text-muted-foreground block text-[10px]">Líquido / Retención SII (15,25%)</span>
                       <span className="font-semibold text-indigo-900">
                         {formatCLP(parsedMonto - honorariosRetencion)} + Ret. {formatCLP(honorariosRetencion)}
                       </span>

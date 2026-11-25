@@ -1,9 +1,10 @@
-import { LayoutDashboard, DollarSign, Calendar, BarChart3, Shield, Trash2 } from 'lucide-react';
+import { LayoutDashboard, DollarSign, Calendar, BarChart3, Shield, Trash2, Landmark } from 'lucide-react';
 
 export const navLinks = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/costs', label: 'Tarifas', icon: DollarSign },
   { href: '/events', label: 'Eventos', icon: Calendar },
+  { href: '/treasury', label: 'Tesorería', icon: Landmark },
   { href: '/analytics', label: 'Consolidación', icon: BarChart3 },
 ];
 

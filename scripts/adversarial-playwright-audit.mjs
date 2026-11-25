@@ -7,7 +7,7 @@ const PORT = 3099;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 const SCREENSHOT_DIR =
   process.env.PW_SCREENSHOT_DIR ||
-  'C:/Users/isaia/.gemini/antigravity/brain/98f31476-cbfe-4880-8911-0446f35b5c87/scratch';
+  'C:/Users/isaia/.gemini/antigravity/brain/8e9fc306-261f-4865-aa45-2e147b6a2c91/scratch';
 
 function findBrowserExecutable() {
   const candidates = [
@@ -294,6 +294,7 @@ async function runAudit() {
       await expressBtn.click();
       await page.waitForURL(/\/events\/.+/, { timeout: 10000 });
       await page.waitForTimeout(600);
+      const newEventUrl = page.url();
       const newEventDetailText = await page.locator('body').innerText();
       assert(
         newEventDetailText.includes('Borrador de Costos') &&
@@ -332,6 +333,167 @@ async function runAudit() {
 
       await page.screenshot({
         path: path.join(SCREENSHOT_DIR, 'pw-demo-analytics-construccion.png'),
+        fullPage: false,
+      });
+
+      // =========================================================
+      // 8. AUDIT EventDetail: Multicurrency UF, OCR Gasto, Non-DUO PDF Guard,
+      //    & Interactive Quote Portal (/q/demo-...) with RUT Acceptance
+      // =========================================================
+      await page.goto(newEventUrl, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(500);
+
+      // Si el proyecto Express parte en Borrador, aprobar la primera partida para probar Portal + PDF
+      const sharePortalBtn = page.getByTestId('share-quote-portal-btn');
+      if (await sharePortalBtn.isDisabled()) {
+        await page.locator('button:has-text("Borrador de Costos")').first().click();
+        await page.waitForTimeout(350);
+        const approveAllBtn = page.getByRole('button', { name: /Aprobar Todos|Aprobar Selección|Aprobar/i }).first();
+        if ((await approveAllBtn.count()) > 0 && !(await approveAllBtn.isDisabled())) {
+          await approveAllBtn.click();
+          await page.waitForTimeout(500);
+        }
+      }
+
+      // 8a. Multicurrency UF via EditEventDialog
+      await page.getByRole('button', { name: /^Editar$/i }).first().click();
+      await page.waitForTimeout(250);
+      await page.locator('#edit_currency').selectOption('UF');
+      await page.getByRole('button', { name: /Guardar Cambios/i }).click();
+      await page.waitForTimeout(450);
+      const detailAfterUf = await page.locator('body').innerText();
+      assert(detailAfterUf.includes('UF ('), 'EventDetailPage did not show UF currency badge after edit');
+
+      // 8b. OCR button in TransactionDialog (Finanzas -> Documento Gasto)
+      await page.locator('button:has-text("Finanzas")').first().click();
+      await page.waitForTimeout(300);
+      await page.getByRole('button', { name: /Documento \(Gasto\)/i }).first().click();
+      await page.waitForTimeout(300);
+      assert(
+        (await page.getByTestId('ocr-receipt-trigger').count()) === 1,
+        'Missing OCR receipt scanner button inside Gasto TransactionDialog'
+      );
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(200);
+
+      // 8c. Non-DUO PDF Quote Modal Guard (hide DUO music video presets)
+      await page.getByRole('button', { name: /Cotización Formal \(PDF\)/i }).first().click();
+      await page.waitForTimeout(300);
+      const pdfModal = page.getByRole('dialog');
+      const videoSwitch = pdfModal.getByTestId('pdf-videos-toggle');
+      await videoSwitch.scrollIntoViewIfNeeded();
+      await videoSwitch.click();
+      await page.waitForTimeout(250);
+      const pdfModalText = await pdfModal.innerText();
+      assert(
+        !/Dúo de Cuerdas|Cuarteto de Cuerdas|Violín & Chelo/i.test(pdfModalText),
+        'Non-DUO ClientQuotePdfDialog leaked DUO musical video presets!'
+      );
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(200);
+
+      // 8d. Share Interactive Quote Portal & Accept with Valid RUT
+      assert(!(await sharePortalBtn.isDisabled()), 'Portal Cliente button remained disabled with approved items');
+      await sharePortalBtn.click();
+      await page.waitForTimeout(450);
+      const portalLinkEl = page.getByTestId('open-quote-portal-link');
+      const portalHref = await portalLinkEl.getAttribute('href');
+      assert(portalHref && portalHref.startsWith('/q/demo-'), `Invalid Demo portal href: ${portalHref}`);
+
+      await page.goto(`${BASE_URL}${portalHref}`, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(500);
+      const portalText = await page.locator('body').innerText();
+      assert(
+        portalText.includes('Total Propuesta') &&
+          portalText.includes('UF ') &&
+          !/Costo Insumos|Margen\s*\(/i.test(portalText),
+        'Public Quote Portal missing totals/UF or leaked internal cost/margin fields'
+      );
+
+      // Mobile viewport check on Public Quote Portal (390px)
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.waitForTimeout(200);
+      const portalMobileOverflow = await page.evaluate(
+        () => document.documentElement.scrollWidth > window.innerWidth + 1
+      );
+      assert(!portalMobileOverflow, 'Public Quote Portal has horizontal overflow on mobile (390px)');
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.waitForTimeout(200);
+
+      // Sign digitally with Módulo 11 RUT (11.111.111-1 is mathematically valid)
+      await page.getByPlaceholder(/Carolina Méndez/i).fill('Carolina Méndez Rojas');
+      await page.getByPlaceholder('12.345.678-9').fill('111111111');
+      await page.getByPlaceholder('cliente@empresa.cl').fill('cmendez@cordillera.cl');
+      await page.getByRole('button', { name: /Aprobar Cotización/i }).click();
+      await page.waitForTimeout(450);
+      const portalAcceptedText = await page.locator('body').innerText();
+      assert(
+        portalAcceptedText.includes('Propuesta Aceptada Oficialmente'),
+        'Public Quote Portal did not confirm acceptance'
+      );
+
+      // Verify status synced back to EventDetailPage ('Aprobado' + 'Aceptada Digitalmente')
+      await page.goto(newEventUrl, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(450);
+      const syncedEventText = await page.locator('body').innerText();
+      assert(
+        syncedEventText.includes('Aprobado') && syncedEventText.includes('Aceptada Digitalmente'),
+        'Accepted quote portal did not auto-promote Event status to Aprobado'
+      );
+
+      // =========================================================
+      // 9. AUDIT /treasury (Flujo 30/60/90d, F29 Global, Cartola RCV, Agenda)
+      // =========================================================
+      await page.goto(`${BASE_URL}/treasury`, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(800);
+      const treasuryText = await page.locator('body').innerText();
+      assert(
+        /Por Cobrar Confirmado/i.test(treasuryText) &&
+          /Consolidado SII F29 Global/i.test(treasuryText) &&
+          /Caja Neta Realizada/i.test(treasuryText),
+        `/treasury missing Cashflow or F29 KPI sections. Preview:\n${treasuryText.slice(0, 600)}`
+      );
+      const treasurySvgs = await page.locator('.recharts-wrapper > svg.recharts-surface').count();
+      assert(treasurySvgs >= 1, 'Expected CashflowChart SVG in /treasury');
+
+      const treasuryDesktopOverflow = await page.evaluate(
+        () => document.documentElement.scrollWidth > window.innerWidth + 1
+      );
+      assert(!treasuryDesktopOverflow, '/treasury has horizontal overflow on desktop');
+
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.waitForTimeout(200);
+      const treasuryMobileOverflow = await page.evaluate(
+        () => document.documentElement.scrollWidth > window.innerWidth + 1
+      );
+      assert(!treasuryMobileOverflow, '/treasury has horizontal overflow on mobile (390px)');
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.waitForTimeout(200);
+
+      // Test Cartola & RCV SII Reconciler (1-Click Sample + Batch Insert)
+      await page.getByRole('button', { name: /Cartola & RCV SII/i }).click();
+      await page.waitForTimeout(300);
+      await page.getByRole('button', { name: /Cargar Cartola Demo/i }).click();
+      await page.waitForTimeout(300);
+      await page.getByRole('button', { name: /Contabilizar \(3\)/i }).click();
+      await page.waitForTimeout(500);
+      const reconcilerAfterText = await page.locator('body').innerText();
+      assert(
+        reconcilerAfterText.includes('conciliados y contabilizados exitosamente'),
+        'Bank & RCV Reconciler did not batch-insert demo movements'
+      );
+
+      // Test Resource Calendar & Collision Detector Tab
+      await page.getByRole('button', { name: /^Agenda/i }).click();
+      await page.waitForTimeout(350);
+      const agendaText = await page.locator('body').innerText();
+      assert(
+        agendaText.includes('Agenda Operativa'),
+        'Resource Calendar Agenda tab did not render'
+      );
+
+      await page.screenshot({
+        path: path.join(SCREENSHOT_DIR, 'pw-demo-treasury.png'),
         fullPage: false,
       });
 

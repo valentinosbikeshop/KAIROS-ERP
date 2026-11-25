@@ -30,5 +30,8 @@ export function hydrateOrganizationSaas(org: Organization | null): Organization 
     khipu_subscription_id: org.khipu_subscription_id ?? fallback?.khipu_subscription_id ?? null,
     ai_calls_used: org.ai_calls_used ?? fallback?.ai_calls_used ?? 0,
     ai_calls_reset_at: org.ai_calls_reset_at ?? fallback?.ai_calls_reset_at,
+    min_margin_pct: org.min_margin_pct ?? fallback?.min_margin_pct ?? 15,
+    uf_rate_clp: org.uf_rate_clp ?? fallback?.uf_rate_clp ?? 41405,
+    usd_rate_clp: org.usd_rate_clp ?? fallback?.usd_rate_clp ?? 1025,
   };
 }

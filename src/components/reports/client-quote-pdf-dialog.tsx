@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import { jsPDF } from 'jspdf';
 import { EventItem, Event } from '@/types';
 import { useUser } from '@/hooks/use-user';
-import { formatCLP, formatDateCL } from '@/lib/utils';
+import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
+import { formatCLP, formatCurrencyAmount, formatDateCL } from '@/lib/utils';
 import { tryAddOrgLogoToPdf } from '@/lib/pdf-logo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,7 +31,8 @@ import {
   Check, 
   Plus, 
   Trash2,
-  ExternalLink
+  ExternalLink,
+  AlertTriangle
 } from 'lucide-react';
 
 interface ClientQuotePdfDialogProps {
@@ -69,7 +71,8 @@ const DEFAULT_VIDEO_PRESETS: VideoPreset[] = [
 ];
 
 export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuotePdfDialogProps) {
-  const { organization } = useUser();
+  const { organization, isAdmin, isSuperAdmin } = useUser();
+  const { isDuoExempt, industry } = useWorkspaceConfig();
   const orgName = organization?.name || 'KAIROS ERP';
   const orgLegalName = organization?.legal_name || orgName;
   const orgSubtitle =
@@ -82,17 +85,57 @@ export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuot
   const [isOpen, setIsOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
 
+  const isEventosMusic = isDuoExempt || industry.id === 'eventos_banqueteria';
+
   // Form states
   const [clientName, setClientName] = useState(event.client_company || event.name || '');
   const [clientRut, setClientRut] = useState('');
   const [clientEmail, setClientEmail] = useState('');
-  const [eventLocation, setEventLocation] = useState(event.location || 'Rancagua / Machalí');
+  const [eventLocation, setEventLocation] = useState(
+    event.location || (isDuoExempt ? 'Rancagua / Machalí' : orgLocation)
+  );
   const [eventDate, setEventDate] = useState(event.event_date ? formatDateCL(event.event_date) : '');
-  const [eventDuration, setEventDuration] = useState('2 horas de servicio musical');
-  const [eventSchedule, setEventSchedule] = useState('Horario a coordinar según pauta del evento');
-  const [eventCalltime, setEventCalltime] = useState('Llegada: 45 a 60 min previos para montaje y prueba de sonido');
-  const [eventRepertoire, setEventRepertoire] = useState('Repertorio personalizado y curaduría de estilos según la ocasión');
+  const [eventDuration, setEventDuration] = useState(
+    isEventosMusic ? '2 horas de servicio musical' : 'Según cronograma acordado'
+  );
+  const [eventSchedule, setEventSchedule] = useState(
+    isEventosMusic ? 'Horario a coordinar según pauta del evento' : 'Coordinación de inicio según pauta del cliente'
+  );
+  const [eventCalltime, setEventCalltime] = useState(
+    isEventosMusic
+      ? 'Llegada: 45 a 60 min previos para montaje y prueba de sonido'
+      : 'Coordinación logística previa según planificación operativa'
+  );
+  const [eventRepertoire, setEventRepertoire] = useState(
+    isEventosMusic
+      ? 'Repertorio personalizado y curaduría de estilos según la ocasión'
+      : 'Alcance técnico y partidas detalladas según propuesta económica'
+  );
   const [validityDays, setValidityDays] = useState(7);
+
+  // Cálculo piso de margen para vendedores (member)
+  const topLevelApproved = items.filter((it) => !it.parent_id);
+  const totalCostoNetoMargen = topLevelApproved.reduce((sum, it) => {
+    const unitNeto =
+      it.tipo_doc_costo === 'boleta'
+        ? Number(it.costo || 0)
+        : Math.round(Number(it.costo || 0) / 1.19);
+    return sum + unitNeto * (Number(it.cantidad) || 1);
+  }, 0);
+  const totalGananciaMargen = topLevelApproved.reduce(
+    (sum, it) => sum + (it.es_insumo ? 0 : Number(it.ganancia || 0)) * (Number(it.cantidad) || 1),
+    0
+  );
+  const currentProjectMargin =
+    totalCostoNetoMargen > 0 ? (totalGananciaMargen / totalCostoNetoMargen) * 100 : 100;
+  const minMarginFloor = organization?.min_margin_pct ?? 15;
+  const isMarginBlocked =
+    !isDuoExempt &&
+    !isAdmin &&
+    !isSuperAdmin &&
+    topLevelApproved.length > 0 &&
+    currentProjectMargin < minMarginFloor &&
+    !event.min_margin_override_approved;
 
   // Selection of items to quote (by default all non-insumo approved items)
   const nonInsumoItems = items.filter(it => !it.es_insumo && (it.valor_total || 0) > 0);
@@ -233,9 +276,9 @@ export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuot
       doc.setFontSize(8.5);
       // Columna Izquierda
       doc.setFont('helvetica', 'bold');
-      doc.text('Tipo de Evento:', colLeftX, currentY + 13);
+      doc.text(isEventosMusic ? 'Tipo de Evento:' : 'Proyecto:', colLeftX, currentY + 13);
       doc.setFont('helvetica', 'normal');
-      doc.text(event.name || 'Presentación Musical', colLeftX + 24, currentY + 13);
+      doc.text((event.name || (isEventosMusic ? 'Presentación Musical' : 'Servicio Especializado')).substring(0, 38), colLeftX + 24, currentY + 13);
 
       doc.setFont('helvetica', 'bold');
       doc.text('Fecha:', colLeftX, currentY + 19);
@@ -245,26 +288,30 @@ export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuot
       doc.setFont('helvetica', 'bold');
       doc.text('Lugar:', colLeftX, currentY + 25);
       doc.setFont('helvetica', 'normal');
-      doc.text((eventLocation || 'Rancagua / Machalí').substring(0, 35), colLeftX + 13, currentY + 25);
+      doc.text((eventLocation || orgLocation).substring(0, 35), colLeftX + 13, currentY + 25);
 
       doc.setFont('helvetica', 'bold');
       doc.text('Duración:', colLeftX, currentY + 31);
       doc.setFont('helvetica', 'normal');
-      doc.text(eventDuration || '2 horas', colLeftX + 18, currentY + 31);
+      doc.text((eventDuration || 'Según cronograma').substring(0, 34), colLeftX + 18, currentY + 31);
 
       // Columna Derecha
       doc.setFont('helvetica', 'bold');
       doc.text('Horario:', colRightX, currentY + 13);
       doc.setFont('helvetica', 'normal');
-      doc.text(eventSchedule || 'A convenir con productora', colRightX + 15, currentY + 13);
+      doc.text((eventSchedule || 'A convenir').substring(0, 36), colRightX + 15, currentY + 13);
 
       doc.setFont('helvetica', 'bold');
-      doc.text('Llegada:', colRightX, currentY + 19);
+      doc.text(isEventosMusic ? 'Llegada:' : 'Inicio:', colRightX, currentY + 19);
       doc.setFont('helvetica', 'normal');
-      doc.text('45-60 min previos para prueba técnica', colRightX + 15, currentY + 19);
+      doc.text(
+        (isEventosMusic ? '45-60 min previos para prueba técnica' : eventCalltime).substring(0, 38),
+        colRightX + 15,
+        currentY + 19
+      );
 
       doc.setFont('helvetica', 'bold');
-      doc.text('Repertorio:', colRightX, currentY + 25);
+      doc.text(isEventosMusic ? 'Repertorio:' : 'Alcance:', colRightX, currentY + 25);
       doc.setFont('helvetica', 'normal');
       const repLines = doc.splitTextToSize(eventRepertoire || 'Selección personalizada', (contentWidth / 2) - 22);
       doc.text(repLines, colRightX + 20, currentY + 25);
@@ -282,13 +329,20 @@ export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuot
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(70, 85, 105);
-      const technicalBullets = [
-        "• Personal y Músicos: Intérpretes profesionales egresados de conservatorio y staff técnico capacitado.",
-        "• Equipamiento de Sonido: Amplificación profesional propia e inalámbrica según la acústica del recinto.",
-        "• Mobiliario & Atriles: Atriles profesionales de concierto, banquetas e iluminación autónoma de partituras.",
-        "• Vestimenta: Rigurosa etiqueta formal institucional acorde a la solemnidad de su evento.",
-        "• Requisitos de Instalación: Punto eléctrico 220V a menos de 15 metros y espacio protegido de lluvia o sol directo."
-      ];
+      const technicalBullets = isDuoExempt
+        ? [
+            "• Personal y Músicos: Intérpretes profesionales egresados de conservatorio y staff técnico capacitado.",
+            "• Equipamiento de Sonido: Amplificación profesional propia e inalámbrica según la acústica del recinto.",
+            "• Mobiliario & Atriles: Atriles profesionales de concierto, banquetas e iluminación autónoma de partituras.",
+            "• Vestimenta: Rigurosa etiqueta formal institucional acorde a la solemnidad de su evento.",
+            "• Requisitos de Instalación: Punto eléctrico 220V a menos de 15 metros y espacio protegido de lluvia o sol directo."
+          ]
+        : [
+            `• Equipo Profesional: Especialistas acreditados y staff técnico asignado bajo estándares de ${industry.shortName}.`,
+            "• Alcance e Insumos: Provisión integral de materiales, insumos o servicios conforme a partidas detalladas.",
+            "• Supervisión & Calidad: Coordinación operativa continua, control de cumplimiento y trazabilidad en terreno.",
+            "• Respaldo Tributario: Facturación o documentación oficial SII vigente y cumplimiento normativo laboral."
+          ];
       technicalBullets.forEach(bullet => {
         doc.text(bullet, marginX + 2, currentY);
         currentY += 4.2;
@@ -357,15 +411,18 @@ export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuot
       const totalIva = Math.round(subtotalNeto * 0.19);
       const totalGeneral = subtotalNeto + totalIva;
 
+      const hasForeignCurrency =
+        Boolean(event.currency && event.currency !== 'CLP' && (event.exchange_rate || 1) > 1);
+
       // Cuadro de Totales (Alineado a la derecha)
       currentY += 2;
-      checkPageBreak(30);
-      const totalsBoxWidth = 85;
+      checkPageBreak(34);
+      const totalsBoxWidth = 90;
       const totalsBoxX = marginX + contentWidth - totalsBoxWidth;
 
       doc.setFillColor(245, 248, 252);
       doc.setDrawColor(215, 225, 235);
-      doc.roundedRect(totalsBoxX, currentY, totalsBoxWidth, 23, 2, 2, 'FD');
+      doc.roundedRect(totalsBoxX, currentY, totalsBoxWidth, hasForeignCurrency ? 29 : 23, 2, 2, 'FD');
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8.5);
@@ -383,7 +440,15 @@ export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuot
       doc.setTextColor(16, 120, 70); // Verde distinguido
       doc.text(formatCLP(totalGeneral), totalsBoxX + totalsBoxWidth - 5, currentY + 19, { align: 'right' });
 
-      currentY += 28;
+      if (hasForeignCurrency && event.currency && event.exchange_rate) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(74, 96, 122);
+        const eqText = `${formatCurrencyAmount(totalGeneral, event.currency, event.exchange_rate)} (1 ${event.currency} = ${formatCLP(event.exchange_rate)})`;
+        doc.text(eqText, totalsBoxX + totalsBoxWidth - 5, currentY + 25.5, { align: 'right' });
+      }
+
+      currentY += hasForeignCurrency ? 34 : 28;
 
       // 6. CONDICIONES COMERCIALES Y RESERVA
       checkPageBreak(40);
@@ -435,7 +500,9 @@ export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuot
 
       // 8. SECCIÓN OPCIONAL DE VIDEOS DEMOSTRATIVOS
       if (includeVideos) {
-        const activePresets = DEFAULT_VIDEO_PRESETS.filter(vp => selectedVideoIds.includes(vp.id));
+        const activePresets = isDuoExempt
+          ? DEFAULT_VIDEO_PRESETS.filter(vp => selectedVideoIds.includes(vp.id))
+          : [];
         const allVideosToInclude = [
           ...activePresets.map(p => ({ title: p.title, url: p.url })),
           ...customVideos
@@ -601,11 +668,17 @@ export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuot
                 />
               </div>
               <div className="sm:col-span-2">
-                <Label className="text-[11px] text-muted-foreground">Curaduría Musical / Repertorio</Label>
+                <Label className="text-[11px] text-muted-foreground">
+                  {isEventosMusic ? 'Curaduría Musical / Repertorio' : 'Alcance & Notas Técnicas'}
+                </Label>
                 <Input
                   value={eventRepertoire}
                   onChange={(e) => setEventRepertoire(e.target.value)}
-                  placeholder="Ej: Repertorio clásico en ceremonia y bossa nova contemporánea en cóctel"
+                  placeholder={
+                    isEventosMusic
+                      ? 'Ej: Repertorio clásico en ceremonia y bossa nova contemporánea en cóctel'
+                      : 'Ej: Especificaciones de entrega y estándares técnicos acordados'
+                  }
                   className="h-8 text-xs mt-1"
                 />
               </div>
@@ -684,7 +757,10 @@ export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuot
                   </p>
                 </div>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
+              <label
+                className="relative inline-flex items-center cursor-pointer"
+                data-testid="pdf-videos-toggle"
+              >
                 <input
                   type="checkbox"
                   checked={includeVideos}
@@ -697,28 +773,30 @@ export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuot
 
             {includeVideos && (
               <div className="pt-2 space-y-3 animate-in fade-in-50">
-                <div className="space-y-1.5">
-                  <span className="text-[11px] font-medium text-foreground">Muestras del catálogo institucional:</span>
-                  {DEFAULT_VIDEO_PRESETS.map((preset) => (
-                    <label
-                      key={preset.id}
-                      className="flex items-center justify-between p-2 rounded-md border border-border/60 bg-background text-xs cursor-pointer hover:bg-muted/40"
-                    >
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={selectedVideoIds.includes(preset.id)}
-                          onChange={() => toggleVideoPreset(preset.id)}
-                          className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600"
-                        />
-                        <span className="font-medium text-foreground">{preset.title}</span>
-                      </div>
-                      <span className="text-[10px] text-blue-600 underline truncate max-w-[200px]">
-                        {preset.url}
-                      </span>
-                    </label>
-                  ))}
-                </div>
+                {isDuoExempt && (
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] font-medium text-foreground">Muestras del catálogo institucional:</span>
+                    {DEFAULT_VIDEO_PRESETS.map((preset) => (
+                      <label
+                        key={preset.id}
+                        className="flex items-center justify-between p-2 rounded-md border border-border/60 bg-background text-xs cursor-pointer hover:bg-muted/40"
+                      >
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedVideoIds.includes(preset.id)}
+                            onChange={() => toggleVideoPreset(preset.id)}
+                            className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600"
+                          />
+                          <span className="font-medium text-foreground">{preset.title}</span>
+                        </div>
+                        <span className="text-[10px] text-blue-600 underline truncate max-w-[200px]">
+                          {preset.url}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
 
                 {/* Videos personalizados agregados */}
                 {customVideos.length > 0 && (
@@ -781,6 +859,15 @@ export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuot
           </div>
         </DialogBody>
 
+        {isMarginBlocked && (
+          <div className="mx-6 mb-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <span>
+              Margen actual ({currentProjectMargin.toFixed(1)}%) está bajo el piso mínimo ({minMarginFloor}%). Un Administrador debe aprobar la excepción antes de exportar el PDF.
+            </span>
+          </div>
+        )}
+
         <DialogFooter className="mt-auto flex sm:justify-between items-center gap-2 border-t border-border/50 pt-4">
           <Button
             type="button"
@@ -796,7 +883,7 @@ export function ClientQuotePdfDialog({ event, items, triggerButton }: ClientQuot
             variant="default"
             size="sm"
             onClick={handleGeneratePDF}
-            disabled={generating || selectedItemIds.length === 0}
+            disabled={generating || selectedItemIds.length === 0 || isMarginBlocked}
             className="h-9 px-4 text-xs font-semibold bg-[#4A607A] hover:bg-[#3F536B] text-white gap-2 shadow-sm"
           >
             {generating ? (

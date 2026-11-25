@@ -13,7 +13,9 @@ export async function middleware(request: NextRequest) {
       pathname === '/login' ||
       pathname === '/register' ||
       pathname === '/welcome' ||
-      pathname === '/demo';
+      pathname === '/demo' ||
+      pathname === '/q' ||
+      pathname.startsWith('/q/');
     const isMfaRoute = pathname === '/mfa-challenge';
     const isPendingRoute = pathname === '/pending';
     const isOnboardingRoute = pathname === '/onboarding';
@@ -28,7 +30,8 @@ export async function middleware(request: NextRequest) {
       pathname === '/api/cron/keep-alive' ||
       pathname === '/api/auth/register-owner' ||
       pathname === '/api/plans' ||
-      pathname === '/api/webhooks/khipu';
+      pathname === '/api/webhooks/khipu' ||
+      pathname.startsWith('/api/quotes/public/');
 
     if (isPublicApi) {
       return supabaseResponse;

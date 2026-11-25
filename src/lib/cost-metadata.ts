@@ -1,4 +1,5 @@
 import { calculateFinancials } from '@/lib/utils';
+import { CHILE_HONORARIOS_RETENTION_2026 } from '@/lib/constants';
 
 export type CostResourceType = 'servicio' | 'personal' | 'insumo' | 'logistica';
 export type StaffModality = 'honorarios' | 'turno' | 'factura_subcontrato';
@@ -266,7 +267,7 @@ export function computeCostTaxBreakdown(cost: {
   const costoBruto = Number(cost.costo) || 0;
   const retencionHonorarios =
     meta.resourceType === 'personal' && meta.staffModality === 'honorarios'
-      ? Math.round(costoBruto * 0.1375)
+      ? Math.round(costoBruto * CHILE_HONORARIOS_RETENTION_2026)
       : 0;
   const liquidoHonorarios =
     retencionHonorarios > 0 ? Math.max(0, costoBruto - retencionHonorarios) : costoBruto;

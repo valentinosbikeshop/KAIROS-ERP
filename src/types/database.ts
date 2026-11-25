@@ -20,6 +20,10 @@ export type OperationMode = 'project' | 'retail_mixed' | 'retainer_hours';
 
 export type HonorariosRetentionPolicy = 'company' | 'contractor' | 'split_50_50';
 
+export type QuoteCurrency = 'CLP' | 'UF' | 'USD';
+
+export type QuotePortalStatus = 'draft' | 'sent' | 'accepted' | 'rejected';
+
 export type SubscriptionTier = 'free' | 'essential' | 'growth' | 'scale' | 'custom';
 
 export type SubscriptionStatus = 'active' | 'past_due' | 'canceled';
@@ -57,6 +61,9 @@ export type OrganizationSaasConfig = {
   ai_calls_used: number;
   ai_calls_reset_at: string;
   honorarios_retention_policy?: HonorariosRetentionPolicy;
+  min_margin_pct?: number;
+  uf_rate_clp?: number;
+  usd_rate_clp?: number;
   pending_payments?: BillingPayment[];
 };
 
@@ -104,6 +111,9 @@ export type Organization = {
   khipu_subscription_id?: string | null;
   ai_calls_used?: number;
   ai_calls_reset_at?: string;
+  min_margin_pct?: number;
+  uf_rate_clp?: number;
+  usd_rate_clp?: number;
 };
 
 export type SubscriptionPlan = {
@@ -198,6 +208,17 @@ export type Event = {
   deleted_at: string | null;
   has_retail_sales?: boolean;
   is_demo_base?: boolean;
+  quote_token?: string | null;
+  quote_status?: QuotePortalStatus;
+  quote_sent_at?: string | null;
+  quote_accepted_at?: string | null;
+  quote_accepted_by_name?: string | null;
+  quote_accepted_by_rut?: string | null;
+  quote_accepted_by_email?: string | null;
+  quote_notes?: string | null;
+  currency?: QuoteCurrency;
+  exchange_rate?: number;
+  min_margin_override_approved?: boolean;
 };
 
 export type EventItem = {

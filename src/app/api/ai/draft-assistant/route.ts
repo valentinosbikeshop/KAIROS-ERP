@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenAI, Type } from '@google/genai';
+import { Type } from '@google/genai';
 import { getAuthenticatedContext } from '@/lib/supabase/admin';
 import {
-  OPTIMIZED_GEMINI_MODELS,
   compactChatHistory,
+  executeGeminiWithCascade,
+  extractClientIp,
   guardAiEndpoint,
+  sanitizeAiErrorForClient,
   serializeDraftCompact,
 } from '@/lib/ai-optimizer';
 
@@ -17,7 +19,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const guard = await guardAiEndpoint(ctx);
+    const guard = await guardAiEndpoint(ctx, extractClientIp(req.headers));
     if (!guard.allowed && guard.response) {
       return guard.response;
     }
@@ -36,13 +38,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const itemsContext = serializeDraftCompact(draftItems || []);
+    const cleanFileText = typeof fileText === 'string' ? fileText.trim().slice(0, 15000) : '';
+    const hasHeavyDocument = cleanFileText.length >= 300;
 
-    const systemInstruction = `Asistente de Borradores de ${orgName}. ${guard.industryPrompt}
-BORRADOR ACTUAL (columnas ID|P_ID|Serv|Det|Tipo|Cant|CostoU|GanU|Doc(F/B)|Ins(1/0)|IvaInc):
-${itemsContext}
-
+    // Prefijo estático arriba para aprovechar implicit prompt caching
+    const systemInstruction = `Asistente de Borradores de ${orgName} (Chile). ${guard.industryPrompt}
 ACCIONES DISPONIBLES (JSON):
 1. CONSOLIDATE: {type, parentName, parentDetail?, parentQuantity?, itemIds:[IDs exactos]}
 2. UNCONSOLIDATE: {type, parentId? | itemIds?}
@@ -53,12 +54,15 @@ ACCIONES DISPONIBLES (JSON):
 7. DELETE_ITEMS: {type, itemIds:[IDs]}
 
 REGLAS:
-- Responde conciso en 'reply' (es-CL).
-- Si hay [DOCUMENTO], extrae grupos con ADD_ITEMS (asConsolidated=true) respetando Boleta/Factura en tipo_doc_costo.
-- En CONSOLIDATE siempre incluye 'itemIds' no vacío.
-- Si no hay cambios, devuelve actions: [].`;
+- Responde conciso y directo en 'reply' (español de Chile, sin comillas envolventes ni emojis innecesarios).
+- Si hay [DOCUMENTO], extrae todos los ítems con ADD_ITEMS (asConsolidated=true si corresponden a un grupo/proveedor), respetando 'factura' vs 'boleta' en tipo_doc_costo y precios numéricos enteros en CLP.
+- En CONSOLIDATE siempre incluye 'itemIds' exactos no vacío.
+- Si el usuario solo hace una pregunta sin pedir cambios, devuelve actions: [].
 
-    // Esquema esbelto: sólo 'type' es obligatorio por acción, ahorrando cientos de tokens de campos vacíos
+BORRADOR ACTUAL (ID|P_ID|Serv|Det|Tipo|Cant|CostoU|GanU|Doc(F/B)|Ins(1/0)|IvaInc):
+${itemsContext}`;
+
+    // Esquema tipado con valores numéricos/booleanos nativos (evita errores de parseo en CLP)
     const responseSchema = {
       type: Type.OBJECT,
       properties: {
@@ -94,11 +98,11 @@ REGLAS:
                     id: { type: Type.STRING },
                     servicio: { type: Type.STRING },
                     detalle: { type: Type.STRING },
-                    cantidad: { type: Type.STRING },
-                    costo: { type: Type.STRING },
-                    ganancia: { type: Type.STRING },
-                    tipo_doc_costo: { type: Type.STRING },
-                    es_insumo: { type: Type.STRING },
+                    cantidad: { type: Type.NUMBER },
+                    costo: { type: Type.NUMBER },
+                    ganancia: { type: Type.NUMBER },
+                    tipo_doc_costo: { type: Type.STRING, enum: ['factura', 'boleta'] },
+                    es_insumo: { type: Type.BOOLEAN },
                   },
                   required: ['id'],
                 },
@@ -110,11 +114,11 @@ REGLAS:
                   properties: {
                     servicio: { type: Type.STRING },
                     detalle: { type: Type.STRING },
-                    cantidad: { type: Type.STRING },
-                    costo: { type: Type.STRING },
-                    ganancia: { type: Type.STRING },
-                    tipo_doc_costo: { type: Type.STRING },
-                    es_insumo: { type: Type.STRING },
+                    cantidad: { type: Type.NUMBER },
+                    costo: { type: Type.NUMBER },
+                    ganancia: { type: Type.NUMBER },
+                    tipo_doc_costo: { type: Type.STRING, enum: ['factura', 'boleta'] },
+                    es_insumo: { type: Type.BOOLEAN },
                   },
                   required: ['servicio'],
                 },
@@ -136,56 +140,42 @@ REGLAS:
       });
     }
 
-    if (fileText && fileText.trim()) {
+    if (cleanFileText) {
       const lastUserMsg = [...sanitizedMessages].reverse().find((m) => m.role === 'user');
       if (lastUserMsg) {
         lastUserMsg.parts.push({
-          text: `\n[DOCUMENTO]:\n${fileText.trim().slice(0, 18000)}`,
+          text: `\n[DOCUMENTO]:\n${cleanFileText}`,
         });
       }
     }
 
-    let responseText: string | null = null;
-    let lastError: any = null;
+    // Ruteo inteligente por complejidad: documento largo -> gemini-3.8-flash; edición rápida -> gemini-3.5-flash-lite
+    const taskKey = guard.isDemoMode
+      ? 'demo_sandbox'
+      : hasHeavyDocument
+      ? 'draft_document'
+      : 'draft_edit';
 
-    for (const model of OPTIMIZED_GEMINI_MODELS) {
-      try {
-        const response = await ai.models.generateContent({
-          model,
-          contents: sanitizedMessages,
-          config: {
-            systemInstruction,
-            responseMimeType: 'application/json',
-            responseSchema,
-            maxOutputTokens: 4096,
-          },
-        });
-
-        if (response?.text) {
-          let cleaned = response.text.trim();
-          if (cleaned.startsWith('```')) {
-            cleaned = cleaned.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '');
-          }
-          JSON.parse(cleaned);
-          responseText = cleaned;
-          break;
+    const { text: responseText } = await executeGeminiWithCascade({
+      task: taskKey,
+      routeLabel: `draft-assistant:${taskKey}`,
+      systemInstruction,
+      contents: sanitizedMessages,
+      responseMimeType: 'application/json',
+      responseSchema,
+      validateResponse: (txt) => {
+        const parsed = JSON.parse(txt);
+        if (typeof parsed?.reply !== 'string' || !Array.isArray(parsed?.actions)) {
+          throw new Error('Estructura inválida en draft-assistant');
         }
-      } catch (e: any) {
-        lastError = e;
-      }
-    }
-
-    if (!responseText) {
-      throw new Error(lastError?.message || 'No hubo respuesta válida de la IA');
-    }
+      },
+    });
 
     await guard.consumeCredit();
     return NextResponse.json(JSON.parse(responseText));
   } catch (error: any) {
     console.error('Error en draft assistant:', error);
-    return NextResponse.json(
-      { error: error.message || 'Error interno al procesar con IA' },
-      { status: 500 }
-    );
+    const sanitized = sanitizeAiErrorForClient(error);
+    return NextResponse.json({ error: sanitized.message }, { status: sanitized.status });
   }
 }

@@ -89,19 +89,19 @@ const PERSUASIVE_PITCH: Record<
     roiNote: 'Tus datos nunca se borran: cuando estés listo para emitir PDFs, controlar IVA F29 o usar IA, subes de nivel en 1 clic.',
   },
   essential: {
-    headline: 'Orden comercial y flujo de caja al día sin planillas sueltas',
-    audience: 'Diseñado para empresas en marcha que necesitan cotizar formalmente en PDF y saber qué abonos y gastos reales ocurrieron.',
-    roiNote: 'Evita errores manuales de IVA y retenciones 15,25%. Si haces más de 8 proyectos al mes o quieres OCR con IA, el plan de $59.990 se paga solo.',
+    headline: 'Orden comercial, flujo de caja e impulso inicial con IA',
+    audience: 'Diseñado para empresas en marcha que necesitan cotizar formalmente en PDF, controlar abonos/gastos reales e iniciar con 25 consultas IA/OCR al mes.',
+    roiNote: 'Evita errores manuales de IVA y retenciones 15,25%. Si haces más de 12 proyectos al mes, prorrateas insumos o necesitas Analítica P&L + 250 créditos IA, el plan de $59.990 se paga solo.',
   },
   growth: {
-    headline: 'El punto óptimo de rentabilidad: control total de IVA, fugas e IA',
+    headline: 'El punto óptimo de rentabilidad: control total de IVA, fugas e IA Pro',
     audience: 'El preferido por productoras, constructoras, agencias y empresas de servicios que buscan cero sorpresas a fin de mes.',
     roiNote: 'Protegiendo apenas un 4,5% de margen oculto en un proyecto de $1.500.000, recuperas $67.500: más que el valor mensual completo.',
   },
   scale: {
     headline: 'Gobernanza corporativa, equipo ilimitado y Marca Blanca',
     audience: 'Pensado para operaciones consolidadas con múltiples jefes de proyecto, vendedores y exigencia de identidad propia.',
-    roiNote: 'Ahorras $37.930/mes frente a contratar todos los módulos por separado, sumando usuarios ilimitados y 600 créditos IA.',
+    roiNote: 'Ahorras $37.930/mes frente a contratar todos los módulos por separado, sumando usuarios ilimitados y 800 créditos IA con motor CFO.',
   },
 };
 
@@ -190,7 +190,7 @@ export function PlanDetailModal({
                 {plan.price_clp === 0 ? '$0' : formatCLP(plan.price_clp)}
               </div>
               <div className="text-[11px] text-muted-foreground">
-                / mes + IVA
+                {plan.price_clp === 0 ? '/ mes' : '/ mes · IVA incl.'}
               </div>
             </div>
             <button

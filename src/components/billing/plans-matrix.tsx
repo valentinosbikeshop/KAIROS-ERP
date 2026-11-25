@@ -35,9 +35,9 @@ const PLAN_MISSING_HIGHLIGHTS: Record<string, string[]> = {
     'Sin Suite IA ni lectura OCR',
   ],
   essential: [
-    'Tope de 12 proyectos al mes',
-    'Sin Suite IA ni lectura OCR de facturas',
-    'Sin Analítica P&L ni Excel F29',
+    'Tope de 12 proyectos al mes y 25 consultas IA',
+    'Sin Consolidación, Recetas ni Prorrateo Retail',
+    'Sin Analítica P&L ni Excel Contable F29',
   ],
   growth: [
     'Hasta 5 usuarios colaboradores',
@@ -48,9 +48,9 @@ const PLAN_MISSING_HIGHLIGHTS: Record<string, string[]> = {
 
 const PLAN_ROI_NUDGE: Record<string, string> = {
   free: 'Ideal para probar el cálculo neto/IVA antes de cotizar en volumen.',
-  essential: 'Ordena tus cotizaciones PDF y caja diaria por menos de $1.200/día.',
+  essential: 'Ordena cotizaciones PDF, caja e inicia con 25 IA/mes por ~$1.166/día.',
   growth: 'Protegiendo 4,5% de margen en un proyecto de $1,5M recuperas el valor del plan.',
-  scale: 'Ahorras $37.930/mes frente a módulos sueltos, con equipo y marca blanca.',
+  scale: 'Ahorras $37.930/mes frente a módulos sueltos, con equipo ilimitado y 800 IA/mes.',
 };
 
 interface PlansMatrixProps {
@@ -200,7 +200,7 @@ export function PlansMatrix({
                         {plan.price_clp === 0 ? '$0' : formatCLP(plan.price_clp)}
                       </span>
                       <span className="text-xs font-medium text-muted-foreground">
-                        / mes + IVA
+                        {plan.price_clp === 0 ? '/ mes' : '/ mes · IVA incl.'}
                       </span>
                     </div>
                     <p className="text-[11px] mt-2 leading-relaxed text-muted-foreground">
@@ -349,7 +349,7 @@ export function PlansMatrix({
                 <div>
                   <Zap className="h-3.5 w-3.5 inline mr-1 text-[#467366]" />
                   <strong>¡Te conviene Enterprise!</strong> Por{' '}
-                  <strong>{formatCLP(scalePlan.price_clp)}/mes</strong> tienes TODO incluido, usuarios ilimitados y 600 IA/mes. Ahorras{' '}
+                  <strong>{formatCLP(scalePlan.price_clp)}/mes</strong> tienes TODO incluido, usuarios ilimitados y {scalePlan.ai_calls_limit} IA/mes. Ahorras{' '}
                   <strong>{formatCLP(customTotalClp - scalePlan.price_clp)}/mes</strong>.
                 </div>
                 <button

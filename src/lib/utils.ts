@@ -14,6 +14,61 @@ export function formatCLP(amount: number): string {
   }).format(amount);
 }
 
+export function formatCurrencyAmount(
+  amountClp: number,
+  currency: 'CLP' | 'UF' | 'USD' = 'CLP',
+  exchangeRate = 1
+): string {
+  if (currency === 'UF') {
+    const rate = exchangeRate > 0 ? exchangeRate : 41405;
+    const uf = amountClp / rate;
+    return `UF ${uf.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+  if (currency === 'USD') {
+    const rate = exchangeRate > 0 ? exchangeRate : 1025;
+    const usd = amountClp / rate;
+    return `US$ ${usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+  return formatCLP(amountClp);
+}
+
+/**
+ * Formatea un RUT chileno a XX.XXX.XXX-X
+ */
+export function formatRutCL(raw: string): string {
+  const clean = String(raw || '')
+    .replace(/[^0-9kK]/g, '')
+    .toUpperCase();
+  if (clean.length <= 1) return clean;
+  const body = clean.slice(0, -1);
+  const dv = clean.slice(-1);
+  const formattedBody = body.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${formattedBody}-${dv}`;
+}
+
+/**
+ * Valida un RUT chileno mediante algoritmo Módulo 11.
+ */
+export function validateRutCL(raw: string): boolean {
+  const clean = String(raw || '')
+    .replace(/[^0-9kK]/g, '')
+    .toUpperCase();
+  if (clean.length < 7 || clean.length > 10) return false;
+  const body = clean.slice(0, -1);
+  const dv = clean.slice(-1);
+  if (!/^\d+$/.test(body)) return false;
+
+  let sum = 0;
+  let multiplier = 2;
+  for (let i = body.length - 1; i >= 0; i--) {
+    sum += Number(body[i]) * multiplier;
+    multiplier = multiplier === 7 ? 2 : multiplier + 1;
+  }
+  const mod = 11 - (sum % 11);
+  const expectedDv = mod === 11 ? '0' : mod === 10 ? 'K' : String(mod);
+  return dv === expectedDv;
+}
+
 export function formatPercentage(value: number): string {
   return `${value.toFixed(1)}%`;
 }

@@ -46,23 +46,23 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
   {
     id: 'essential',
     name: 'Operación Esencial',
-    tagline: 'Cotización formal y control de flujo de caja',
+    tagline: 'Cotización formal, flujo de caja y Suite IA Inicial',
     description:
-      'Pensado para empresas en marcha que necesitan emitir propuestas PDF profesionales y controlar abonos, gastos reales e IVA SII.',
+      'Pensado para empresas en marcha que necesitan emitir propuestas PDF profesionales, controlar abonos/gastos reales e iniciar con IA y OCR.',
     price_clp: 34990,
     is_recommended: false,
     badge_text: 'Inicial',
     max_projects: 12,
     max_costs: 120,
     max_users: 2,
-    ai_calls_limit: 0,
-    included_modules: ['mod_pdf_quotes', 'mod_transactions_sii'],
+    ai_calls_limit: 25,
+    included_modules: ['mod_pdf_quotes', 'mod_transactions_sii', 'mod_ai_suite'],
     features: [
-      'Hasta 12 proyectos activos al mes',
+      'Hasta 12 proyectos nuevos al mes',
       'Hasta 120 tarifas en catálogo maestro',
       '2 usuarios en tu espacio',
-      'Cotizador PDF comercial de alta presentación',
-      'Registro de Abonos, Gastos Reales y Boletas/Facturas',
+      'Cotizador PDF comercial + Abonos y Gastos Reales SII',
+      'Suite IA Inicial (25 consultas/mes + OCR de Boletas/Facturas)',
     ],
     sort_order: 2,
     is_active: true,
@@ -70,7 +70,7 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
   {
     id: 'growth',
     name: 'Crecimiento Inteligente IA',
-    tagline: 'Máximo retorno: IA + OCR + IVA F29 sin sorpresas',
+    tagline: 'Máximo retorno: IA Pro + OCR + IVA F29 sin sorpresas',
     description:
       'La opción más rentable: automatiza cotizaciones desde PDF/Excel/Fotos con IA, domina tu IVA mensual y protege tu margen neto.',
     price_clp: 59990,
@@ -79,7 +79,7 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
     max_projects: null,
     max_costs: null,
     max_users: 5,
-    ai_calls_limit: 200,
+    ai_calls_limit: 250,
     included_modules: [
       'mod_unlimited_projects',
       'mod_pdf_quotes',
@@ -91,8 +91,8 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
     features: [
       'Proyectos y catálogo maestro ILIMITADOS',
       'Hasta 5 usuarios colaboradores',
-      'Suite IA Optimizada (200 consultas/mes) + OCR Facturas/Excel',
-      'Asesor Financiero IA + Optimizador de Márgenes',
+      'Suite IA Pro (250 consultas/mes) + OCR PDF/Excel/Fotos',
+      'Asesor Financiero CFO IA + Optimizador de Márgenes',
       'Consolidación, Recetas / Prorrateo Retail y Analítica P&L + Excel F29',
     ],
     sort_order: 3,
@@ -110,7 +110,7 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
     max_projects: null,
     max_costs: null,
     max_users: null,
-    ai_calls_limit: 600,
+    ai_calls_limit: 800,
     included_modules: [
       'mod_unlimited_projects',
       'mod_pdf_quotes',
@@ -123,7 +123,7 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
     features: [
       'Todo lo de Crecimiento Inteligente incluido',
       'Usuarios ILIMITADOS con roles y auditoría',
-      '600 consultas de IA mensuales de alta prioridad',
+      '800 consultas de IA mensuales con prioridad CFO',
       'Marca Blanca PDF (tu logo, datos bancarios y pie legal)',
       'Gobernanza avanzada de equipo y soporte prioritario',
     ],
@@ -190,12 +190,12 @@ export const DEFAULT_ADDONS: SubscriptionAddon[] = [
   },
   {
     id: 'mod_ai_suite',
-    name: 'Suite IA + OCR Documental (150 créditos/mes)',
+    name: 'Suite IA + OCR Documental (180 créditos/mes)',
     description:
-      'Asistente de borradores, desglose automático de costos, optimizador de márgenes y lectura de PDF/Excel/Fotos.',
+      'Asistente de borradores, desglose automático de costos, optimizador de márgenes, asesor CFO y OCR de PDF/Excel/Fotos.',
     price_clp: 24990,
     category: 'module',
-    ai_calls_bonus: 150,
+    ai_calls_bonus: 180,
     sort_order: 5,
     is_active: true,
   },
@@ -355,7 +355,7 @@ export function resolveOrgEntitlements(
   if (effectiveTier === 'custom') {
     const mods = buildModulesRecord(selectedModules);
     const aiAddon = addons.find((a) => a.id === 'mod_ai_suite');
-    const aiLimit = mods.mod_ai_suite ? aiAddon?.ai_calls_bonus ?? 150 : 0;
+    const aiLimit = mods.mod_ai_suite ? aiAddon?.ai_calls_bonus ?? 180 : 0;
     return {
       tier,
       effectiveTier,

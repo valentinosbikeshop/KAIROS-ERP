@@ -391,7 +391,7 @@ export function CostFormDialog({
                 <p className="text-[11px] text-indigo-900/80 flex items-center gap-1.5 bg-white/70 rounded-lg px-2.5 py-1.5 border border-indigo-100">
                   <Info className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
                   <span>
-                    Ref. Boleta Honorarios (retención 13,75%): líquido al trabajador{' '}
+                    Ref. Boleta Honorarios (retención 15,25%): líquido al trabajador{' '}
                     <strong>{formatCLP(breakdown.liquidoHonorarios)}</strong> + retención SII{' '}
                     <strong>{formatCLP(breakdown.retencionHonorarios)}</strong> (sin IVA Crédito).
                   </span>
