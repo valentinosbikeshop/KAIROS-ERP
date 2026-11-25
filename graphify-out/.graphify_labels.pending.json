@@ -1,10 +1,10 @@
 {
-  "0": "interactive-guide-bot.tsx",
+  "0": "(dashboard)/layout.tsx",
   "1": "package.json",
   "2": "cn",
   "3": "ai-optimizer.ts",
-  "4": "companies/route.ts",
-  "5": "checkout/route.ts",
+  "4": "createAdminClient",
+  "5": "[id]/page.tsx",
   "6": "demo-seed.ts",
   "7": "compilerOptions",
   "8": "dependencies",
@@ -21,12 +21,15 @@
   "19": "database.ts",
   "20": "devDependencies",
   "21": "admin/plans/route.ts",
-  "22": "getAuthenticatedContext",
+  "22": "complete/route.ts",
   "23": "allowScripts",
   "24": "scripts",
-  "25": "useWorkspaceConfig",
+  "25": "next",
   "26": "react",
   "27": "next",
   "28": "adversarial-playwright-audit.mjs",
-  "29": "register-owner/route.ts"
+  "29": "LocalQueryBuilder",
+  "30": "industry-demo-datasets.ts",
+  "31": "cost-metadata.ts",
+  "32": "tailwind.config.ts"
 }

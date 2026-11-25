@@ -47,7 +47,7 @@ export default function EventDetailPage() {
   const router = useRouter();
   const supabase = createClient();
   const { isDemo } = useUser();
-  const { entitlements, isDuoExempt } = useWorkspaceConfig();
+  const { entitlements, isDuoExempt, terms, industry } = useWorkspaceConfig();
   const canUseAi = isDuoExempt || isDemo || entitlements.modules.mod_ai_suite;
   const canUsePdf = isDuoExempt || isDemo || entitlements.modules.mod_pdf_quotes;
   const canUseTransactions = isDuoExempt || isDemo || entitlements.modules.mod_transactions_sii;
@@ -353,7 +353,7 @@ export default function EventDetailPage() {
           </div>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" data-tour-id="event-pdf-actions">
           {event && canUsePdf && <ClientQuotePdfDialog event={event} items={items} />}
           {isCompleted ? (
             <div className="flex gap-2">
@@ -378,7 +378,7 @@ export default function EventDetailPage() {
       </div>
 
       <Tabs defaultValue="info" className="space-y-6 mt-6">
-        <TabsList className="inline-flex h-11 items-center justify-center rounded-lg bg-muted/60 p-1 text-muted-foreground w-full md:w-auto overflow-x-auto shadow-sm">
+        <TabsList data-tour-id="event-tabs" className="inline-flex h-11 items-center justify-center rounded-lg bg-muted/60 p-1 text-muted-foreground w-full md:w-auto overflow-x-auto shadow-sm">
           <TabsTrigger value="info" className="flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
             <Building2 className="h-4 w-4" />
             Información
@@ -517,7 +517,7 @@ export default function EventDetailPage() {
                       }}
                     />
                     <div className="absolute bottom-1.5 right-1.5 left-1.5 flex justify-between items-center gap-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2" data-tour-id="event-pdf-actions">
                         {event.has_retail_sales ? (
                           <input
                             type="text"
@@ -851,9 +851,49 @@ export default function EventDetailPage() {
                     const gastosReales = transactions.filter(t => t.tipo_evento === 'GASTO_REAL').reduce((acc, t) => acc + (t.valor_total || 0), 0);
                     const cashActualMano = abonosRecibidos - gastosReales;
                     const saldoPorCobrar = totalPresupuestado - abonosRecibidos;
+                    const pctCobrado = totalPresupuestado > 0 ? Math.min(100, Math.round((abonosRecibidos / totalPresupuestado) * 100)) : 0;
+                    const pctGastoEjecutado = costoTotalItems > 0 ? Math.min(150, Math.round((gastosReales / costoTotalItems) * 100)) : 0;
+                    const margenRealPct = totalPresupuestado > 0 ? ((totalPresupuestado - Math.max(costoTotalItems, gastosReales)) / totalPresupuestado) * 100 : 0;
+                    const meetsTargetMargin = margenRealPct >= industry.targetMarginPct;
 
                     return (
                       <>
+                        {/* Control Presupuesto vs. Real */}
+                        <div className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/70 space-y-2.5 text-xs">
+                          <div className="flex items-center justify-between font-semibold text-foreground">
+                            <span>Control Presupuesto vs. Real</span>
+                            <span
+                              className={
+                                meetsTargetMargin
+                                  ? 'text-emerald-700 font-bold'
+                                  : 'text-amber-700 font-bold'
+                              }
+                            >
+                              Margen {margenRealPct.toFixed(1)}% (Meta {industry.targetMarginPct}%)
+                            </span>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-[11px] text-muted-foreground">
+                              <span>Cobranza ({pctCobrado}%)</span>
+                              <span>${abonosRecibidos.toLocaleString('es-CL')} / ${totalPresupuestado.toLocaleString('es-CL')}</span>
+                            </div>
+                            <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
+                              <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${pctCobrado}%` }} />
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-[11px] text-muted-foreground">
+                              <span>Ejecución Costos ({pctGastoEjecutado}%)</span>
+                              <span>${gastosReales.toLocaleString('es-CL')} / ${costoTotalItems.toLocaleString('es-CL')}</span>
+                            </div>
+                            <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${pctGastoEjecutado > 100 ? 'bg-rose-600' : 'bg-[#4A607A]'}`}
+                                style={{ width: `${Math.min(100, pctGastoEjecutado)}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
                         <div className="flex justify-between items-end border-b border-border/40 pb-3">
                           <div>
                             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Presupuestado</p>

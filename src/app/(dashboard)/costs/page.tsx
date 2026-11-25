@@ -55,10 +55,9 @@ export default function CostsPage() {
   const [editingCost, setEditingCost] = useState<MasterCost | null>(null)
 
   const isDuoOrg = organization?.slug === DUO_ORG_SLUG
-  const activeTemplates: CostTemplatePreset[] =
-    isDuoOrg || isDemo
-      ? COMPANY_COST_TEMPLATES
-      : (industry.starterCatalog as unknown as CostTemplatePreset[])
+  const activeTemplates: CostTemplatePreset[] = isDuoOrg
+    ? COMPANY_COST_TEMPLATES
+    : (industry.starterCatalog as unknown as CostTemplatePreset[])
 
   const fetchCosts = async () => {
     setLoading(true)
@@ -84,7 +83,14 @@ export default function CostsPage() {
 
   useEffect(() => {
     fetchCosts()
-  }, [])
+    const onRefresh = () => fetchCosts()
+    window.addEventListener('kairos:local-db-changed', onRefresh)
+    window.addEventListener('kairos:org-updated', onRefresh)
+    return () => {
+      window.removeEventListener('kairos:local-db-changed', onRefresh)
+      window.removeEventListener('kairos:org-updated', onRefresh)
+    }
+  }, [industry.id])
 
   const stats = useMemo(() => {
     const breakdowns = costs.map((c) => computeCostTaxBreakdown(c))
@@ -242,7 +248,7 @@ export default function CostsPage() {
             <h1 className="text-3xl font-bold tracking-tight">{terms.catalogLabel}, Personal e IVA</h1>
             {isDemo && (
               <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300">
-                24 Tarifas Base + Tus Pruebas
+                {costs.length} Tarifas · {industry.shortName}
               </Badge>
             )}
           </div>
@@ -252,7 +258,7 @@ export default function CostsPage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2" data-tour-id="costs-actions">
           <Button variant="outline" onClick={() => setTemplatesOpen(true)} className="gap-2">
             <BookOpen className="h-4 w-4 text-primary" />
             Plantillas Base
@@ -285,7 +291,7 @@ export default function CostsPage() {
       )}
 
       {/* Tarjetas Resumen KPI */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" data-tour-id="costs-kpis">
         <Card className="border-border/70 shadow-2xs">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
@@ -350,7 +356,9 @@ export default function CostsPage() {
           <p className="text-sm text-muted-foreground">Cargando servicios y tarifas...</p>
         </div>
       ) : (
-        <CostsTable data={costs} onEdit={handleEdit} onDelete={handleDelete} />
+        <div data-tour-id="costs-table">
+          <CostsTable data={costs} onEdit={handleEdit} onDelete={handleDelete} />
+        </div>
       )}
 
       <CostFormDialog

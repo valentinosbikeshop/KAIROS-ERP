@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Calendar, MapPin, Building2, Trash2 } from 'lucide-react';
+import { Calendar, MapPin, Building2, Trash2, Copy, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Event } from '@/types';
@@ -9,9 +9,11 @@ import { cn, formatDateCL } from '@/lib/utils';
 interface EventCardProps {
   event: Event;
   onDelete?: (id: string, e: React.MouseEvent) => void;
+  onDuplicate?: (id: string, e: React.MouseEvent) => void;
+  duplicating?: boolean;
 }
 
-export function EventCard({ event, onDelete }: EventCardProps) {
+export function EventCard({ event, onDelete, onDuplicate, duplicating }: EventCardProps) {
   const statusColor = EVENT_STATUS_COLORS[event.status] || 'bg-gray-100 text-gray-800';
   const statusLabel = EVENT_STATUS_LABELS[event.status] || event.status;
 
@@ -19,41 +21,60 @@ export function EventCard({ event, onDelete }: EventCardProps) {
     ? formatDateCL(event.event_date, { long: true })
     : 'Fecha por definir';
 
-
   return (
     <Link href={`/events/${event.id}`}>
       <Card className="hover:shadow-md transition-shadow cursor-pointer h-full animate-in fade-in duration-300 flex flex-col">
         <CardHeader>
-          <div className="flex justify-between items-start gap-4">
-            <div className="flex-1">
+          <div className="flex justify-between items-start gap-2">
+            <div className="flex-1 min-w-0">
               <CardTitle className="text-xl font-bold line-clamp-2">{event.name}</CardTitle>
               <CardDescription className="flex items-center gap-1 mt-2 text-sm">
-                <Building2 className="w-4 h-4" />
-                {event.client_company || 'Sin empresa'}
+                <Building2 className="w-4 h-4 shrink-0" />
+                <span className="truncate">{event.client_company || 'Sin empresa'}</span>
               </CardDescription>
             </div>
-            {event.status === 'planning' && !event.is_demo_base && onDelete && (
-              <button 
-                onClick={(e) => onDelete(event.id, e)}
-                className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
-                title="Mover a papelera"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            )}
+            <div className="flex items-center gap-1 shrink-0">
+              {onDuplicate && (
+                <button
+                  type="button"
+                  disabled={duplicating}
+                  onClick={(e) => onDuplicate(event.id, e)}
+                  className="p-2 text-muted-foreground hover:text-[#1261E0] hover:bg-[#1261E0]/10 rounded-md transition-colors disabled:opacity-50"
+                  title="Duplicar cotización en 1 clic"
+                  aria-label="Duplicar cotización"
+                >
+                  {duplicating ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </button>
+              )}
+              {event.status === 'planning' && !event.is_demo_base && onDelete && (
+                <button
+                  type="button"
+                  onClick={(e) => onDelete(event.id, e)}
+                  className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
+                  title="Mover a papelera"
+                  aria-label="Mover a papelera"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="mt-auto flex flex-col gap-3">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Calendar className="w-4 h-4" />
+            <Calendar className="w-4 h-4 shrink-0" />
             <span className="capitalize">{formattedDate}</span>
           </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <MapPin className="w-4 h-4" />
+            <MapPin className="w-4 h-4 shrink-0" />
             <span className="line-clamp-1">{event.location || 'Ubicación por definir'}</span>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className={cn("border-none", statusColor)}>
+            <Badge variant="outline" className={cn('border-none', statusColor)}>
               {statusLabel}
             </Badge>
             {event.is_demo_base && (

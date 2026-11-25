@@ -12,6 +12,7 @@ import {
   ArrowRight,
   Sliders,
   Eye,
+  Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +20,7 @@ import { AnimatedNumber } from '@/components/ui/motion-primitives';
 import { PlanDetailModal } from './plan-detail-modal';
 import { cn, formatCLP } from '@/lib/utils';
 import { calculateCustomPriceClp } from '@/lib/entitlements';
+import type { IndustryBlueprint } from '@/lib/industries';
 import type {
   ModuleKey,
   SubscriptionAddon,
@@ -26,11 +28,37 @@ import type {
   SubscriptionTier,
 } from '@/types/database';
 
+const PLAN_MISSING_HIGHLIGHTS: Record<string, string[]> = {
+  free: [
+    'Sin Cotizador PDF comercial',
+    'Sin control de abonos ni IVA F29',
+    'Sin Suite IA ni lectura OCR',
+  ],
+  essential: [
+    'Tope de 12 proyectos al mes',
+    'Sin Suite IA ni lectura OCR de facturas',
+    'Sin Analítica P&L ni Excel F29',
+  ],
+  growth: [
+    'Hasta 5 usuarios colaboradores',
+    'Sin Marca Blanca PDF propia',
+  ],
+  scale: [],
+};
+
+const PLAN_ROI_NUDGE: Record<string, string> = {
+  free: 'Ideal para probar el cálculo neto/IVA antes de cotizar en volumen.',
+  essential: 'Ordena tus cotizaciones PDF y caja diaria por menos de $1.200/día.',
+  growth: 'Protegiendo 4,5% de margen en un proyecto de $1,5M recuperas el valor del plan.',
+  scale: 'Ahorras $37.930/mes frente a módulos sueltos, con equipo y marca blanca.',
+};
+
 interface PlansMatrixProps {
   plans: SubscriptionPlan[];
   addons: SubscriptionAddon[];
   currentTier?: SubscriptionTier;
   currentModules?: ModuleKey[];
+  industry?: IndustryBlueprint;
   industryName?: string;
   khipuReady?: boolean;
   isSuperAdmin?: boolean;
@@ -48,6 +76,7 @@ export function PlansMatrix({
   addons,
   currentTier,
   currentModules = [],
+  industry,
   industryName,
   khipuReady = false,
   isSuperAdmin = false,
@@ -179,14 +208,50 @@ export function PlansMatrix({
                     </p>
                   </div>
 
-                  <ul className="space-y-2.5 pt-1 text-xs">
+                  <ul className="space-y-2 pt-1 text-xs">
                     {(plan.features || []).map((feat, idx) => (
                       <li key={idx} className="flex items-start gap-2">
                         <Check className="h-4 w-4 shrink-0 mt-0.5 text-[#467366]" />
                         <span className="text-foreground/85">{feat}</span>
                       </li>
                     ))}
+                    {industry?.planSpecialtyFeatures?.[plan.id]?.map((specFeat, sIdx) => (
+                      <li
+                        key={`spec-${sIdx}`}
+                        className="flex items-start gap-2 rounded-lg bg-[#1261E0]/[0.06] border border-[#1261E0]/15 px-2 py-1.5"
+                      >
+                        <Sparkles className="h-3.5 w-3.5 shrink-0 mt-0.5 text-[#1261E0]" />
+                        <span className="text-[#0F4FB8] font-medium leading-snug">
+                          <span className="text-[10px] uppercase tracking-wider font-bold block">
+                            Para {industry.shortName}:
+                          </span>
+                          {specFeat}
+                        </span>
+                      </li>
+                    ))}
                   </ul>
+
+                  {(PLAN_MISSING_HIGHLIGHTS[plan.id] || []).length > 0 && (
+                    <div className="pt-2 border-t border-slate-200/70 space-y-1.5">
+                      <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground block">
+                        Qué le falta en este nivel
+                      </span>
+                      <ul className="space-y-1 text-[11px] text-muted-foreground">
+                        {PLAN_MISSING_HIGHLIGHTS[plan.id].map((missing, mIdx) => (
+                          <li key={mIdx} className="flex items-start gap-1.5">
+                            <Lock className="h-3 w-3 shrink-0 mt-0.5 text-slate-400" />
+                            <span>{missing}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {PLAN_ROI_NUDGE[plan.id] && (
+                    <div className="p-2.5 rounded-xl bg-slate-100/75 border border-slate-200/80 text-[11px] text-slate-700 leading-snug">
+                      {PLAN_ROI_NUDGE[plan.id]}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -421,6 +486,7 @@ export function PlansMatrix({
       {/* Modal de Detalle Extendido por Plan */}
       <PlanDetailModal
         plan={detailPlan}
+        industry={industry}
         industryName={industryName}
         isCurrent={Boolean(detailPlan && currentTier === detailPlan.id)}
         loadingTier={loadingTier}

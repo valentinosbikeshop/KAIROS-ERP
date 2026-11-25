@@ -79,11 +79,12 @@ export function Sidebar({
       </div>
 
       <div className="flex-1 overflow-y-auto py-4 custom-scrollbar">
-        <nav className="px-3.5 space-y-1">
+        <nav className="px-3.5 space-y-1" data-tour-id="sidebar-nav">
           {navLinks.map((link) => {
             const Icon = link.icon;
             const isActive =
-              pathname === link.href || (link.href !== '/' && pathname.startsWith(link.href));
+              pathname === link.href ||
+              (link.href !== '/dashboard' && link.href !== '/' && pathname.startsWith(link.href));
             const label = resolveNavLabel(link.href, link.label);
             const isAnalyticsLocked =
               link.href === '/analytics' &&

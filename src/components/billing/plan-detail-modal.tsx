@@ -17,10 +17,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatCLP } from '@/lib/utils';
+import type { IndustryBlueprint } from '@/lib/industries';
 import type { ModuleKey, SubscriptionPlan, SubscriptionTier } from '@/types/database';
 
 interface PlanDetailModalProps {
   plan: SubscriptionPlan | null;
+  industry?: IndustryBlueprint;
   industryName?: string;
   isCurrent?: boolean;
   loadingTier?: string | null;
@@ -105,6 +107,7 @@ const PERSUASIVE_PITCH: Record<
 
 export function PlanDetailModal({
   plan,
+  industry,
   industryName,
   isCurrent = false,
   loadingTier = null,
@@ -286,6 +289,20 @@ export function PlanDetailModal({
                   </div>
                 );
               })}
+              {industry?.planSpecialtyFeatures?.[plan.id]?.map((specFeat, sIdx) => (
+                <div
+                  key={`modal-spec-${sIdx}`}
+                  className="p-3 rounded-xl border bg-[#1261E0]/[0.06] border-[#1261E0]/20 flex items-start gap-2.5 text-xs sm:col-span-2"
+                >
+                  <Sparkles className="h-4 w-4 text-[#1261E0] shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-semibold text-[#0F4FB8]">
+                      Especializado para {industry.shortName}
+                    </div>
+                    <div className="text-[11px] mt-0.5 text-foreground/85">{specFeat}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 

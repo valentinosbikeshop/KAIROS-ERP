@@ -25,6 +25,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { INDUSTRY_LIST } from '@/lib/industries';
+import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
 import {
   LOCAL_DEMO_CONSENT_KEY,
   disableLocalDemoMode,
@@ -40,6 +41,7 @@ export function DemoBanner({
   isSuperAdmin?: boolean;
   onSignOut?: () => Promise<void> | void;
 }) {
+  const { terms } = useWorkspaceConfig();
   const [mounted, setMounted] = useState(false);
   const [cacheAccepted, setCacheAccepted] = useState(true);
   const [stats, setStats] = useState(() => getLocalDemoStats());
@@ -84,10 +86,10 @@ export function DemoBanner({
   const handleReset = () => {
     resetLocalDemoData();
     refreshStats();
-    setResetMessage('Caché local restaurado al estado inicial.');
+    setResetMessage('Datos de demostración restaurados al estado inicial.');
     setTimeout(() => {
       setConfirmOpen(false);
-      window.location.href = '/';
+      window.location.href = '/dashboard';
     }, 450);
   };
 
@@ -113,7 +115,7 @@ export function DemoBanner({
             Sesión de Prueba · Plan Enterprise
           </Badge>
 
-          <div className="w-48 sm:w-56">
+          <div className="w-48 sm:w-56" data-tour-id="demo-industry-switcher">
             <Select
               value={stats.industryType}
               onChange={(e) => handleIndustryChange(e.target.value as IndustryType)}
@@ -126,9 +128,9 @@ export function DemoBanner({
           </div>
 
           <span className="hidden xl:inline-flex items-center gap-2 rounded-lg bg-slate-100/80 border border-slate-200/80 px-2.5 py-1 text-[11px] font-medium text-muted-foreground tabular-nums">
-            <span>Eventos propios: {stats.userEventsCount}/{stats.maxEvents}</span>
+            <span>{terms.projectPlural} propios: {stats.userEventsCount}/{stats.maxEvents}</span>
             <span>•</span>
-            <span>Tarifas propias: {stats.userCostsCount}/{stats.maxCosts}</span>
+            <span>{terms.catalogLabel} propios: {stats.userCostsCount}/{stats.maxCosts}</span>
           </span>
         </div>
 
@@ -137,6 +139,7 @@ export function DemoBanner({
             type="button"
             size="sm"
             variant="outline"
+            data-tour-id="demo-guide-btn"
             onClick={() =>
               window.dispatchEvent(new CustomEvent('kairos:open-guide', { detail: { tab: 'tour' } }))
             }
@@ -157,7 +160,7 @@ export function DemoBanner({
             className="h-8 gap-1.5 text-xs font-medium"
           >
             <RotateCcw className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Resetear Prueba</span>
+            <span className="hidden sm:inline">Restaurar Demo</span>
           </Button>
 
           <Link href="/welcome#planes">
@@ -220,10 +223,10 @@ export function DemoBanner({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <RotateCcw className="h-4 w-4 text-[#4A607A]" />
-            Resetear Sesión de Prueba Local
+            Restaurar Sesión de Prueba
           </DialogTitle>
           <DialogDescription>
-            Esta acción limpiará los cambios guardados en el caché de tu navegador y restaurará los ejemplos base.
+            Esta acción limpiará los cambios realizados en tu navegador y restaurará los ejemplos base del rubro.
           </DialogDescription>
         </DialogHeader>
         <DialogBody className="space-y-3 text-sm">
@@ -233,7 +236,7 @@ export function DemoBanner({
               ¿Qué ocurrirá al confirmar?
             </p>
             <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
-              <li>Se restaurarán los 6 eventos base y todas las tarifas maestras originales en tu navegador.</li>
+              <li>Se restaurarán los proyectos y tarifas maestras originales de tu rubro en el navegador.</li>
               <li>Ningún servidor externo es afectado.</li>
             </ul>
           </div>
@@ -258,7 +261,7 @@ export function DemoBanner({
             className="font-semibold gap-1.5"
           >
             <RotateCcw className="h-4 w-4" />
-            Sí, Resetear Caché
+            Sí, Restaurar Datos
           </Button>
         </DialogFooter>
       </Dialog>

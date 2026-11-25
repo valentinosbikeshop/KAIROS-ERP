@@ -5,15 +5,27 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowRight,
+  Clapperboard,
   FileSpreadsheet,
   FlaskConical,
-  GitBranch,
-  Layers,
+  HardHat,
+  LayoutGrid,
+  PartyPopper,
+  Plane,
   Receipt,
+  Scale,
   Sparkles,
-  Wallet,
+  UtensilsCrossed,
+  Wind,
+  Wrench,
+  Zap,
 } from 'lucide-react';
-import { INDUSTRY_BLUEPRINTS, INDUSTRY_LIST, THEME_PRESETS } from '@/lib/industries';
+import {
+  INDUSTRY_BLUEPRINTS,
+  INDUSTRY_LIST,
+  THEME_PRESETS,
+  type IndustryIconName,
+} from '@/lib/industries';
 import { DEFAULT_ADDONS, DEFAULT_PLANS } from '@/lib/entitlements';
 import { PlansMatrix } from '@/components/billing/plans-matrix';
 import { KairosLogo } from '@/components/ui/kairos-logo';
@@ -34,6 +46,18 @@ import type {
   SubscriptionTier,
 } from '@/types/database';
 
+const INDUSTRY_ICONS: Record<IndustryIconName, typeof PartyPopper> = {
+  PartyPopper,
+  Clapperboard,
+  HardHat,
+  UtensilsCrossed,
+  LayoutGrid,
+  Wrench,
+  Wind,
+  Scale,
+  Plane,
+};
+
 export default function WelcomeLandingPage() {
   const router = useRouter();
   const [plans, setPlans] = useState<SubscriptionPlan[]>(DEFAULT_PLANS);
@@ -52,6 +76,7 @@ export default function WelcomeLandingPage() {
 
   const blueprint = INDUSTRY_BLUEPRINTS[selectedIndustry];
   const themeDef = THEME_PRESETS[blueprint.recommendedTheme];
+  const demoHref = `/demo?industry=${selectedIndustry}`;
 
   const heroTotalSample = useMemo(
     () =>
@@ -106,7 +131,7 @@ export default function WelcomeLandingPage() {
               Tu Rubro
             </a>
             <a href="#capacidades" className="hover:text-foreground transition-colors">
-              IVA &amp; Trazabilidad
+              Capacidades
             </a>
             <a href="#planes" className="hover:text-foreground transition-colors">
               Planes
@@ -114,10 +139,10 @@ export default function WelcomeLandingPage() {
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-2.5">
-            <Link href="/demo">
+            <Link href={demoHref}>
               <Button variant="outline" size="sm" className="gap-1.5 text-xs font-medium tactile-press">
                 <FlaskConical className="h-3.5 w-3.5 text-[#4A607A]" />
-                <span className="hidden sm:inline">Probar Demo Completa</span>
+                <span className="hidden sm:inline">Probar Demo</span>
                 <span className="sm:hidden">Demo</span>
               </Button>
             </Link>
@@ -130,40 +155,65 @@ export default function WelcomeLandingPage() {
         </div>
       </header>
 
-      {/* Hero Editorial + Selector Inmediato de Rubro */}
-      <section className="relative pt-10 pb-16 px-4 sm:px-8">
-        <div className="max-w-7xl mx-auto space-y-10">
-          {/* Barra superior de selección de rubro (Primera interacción inmediata) */}
-          <div id="rubros" className="glass-card rounded-2xl p-3.5 sm:p-4 space-y-3 animate-reveal-up">
+      {/* Hero Editorial + Selector Arquitectónico de Rubro */}
+      <section className="relative pt-8 pb-16 px-4 sm:px-8">
+        <div className="max-w-7xl mx-auto space-y-9">
+          {/* Selector Inmediato de Rubro (Deck Arquitectónico) */}
+          <div id="rubros" className="glass-luxury rounded-3xl p-4 sm:p-5 space-y-3.5 animate-reveal-up">
             <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-              <span className="text-[11px] uppercase tracking-[0.14em] text-[#4A607A] font-semibold flex items-center gap-2">
+              <span className="text-[11px] uppercase tracking-[0.14em] text-[#3B4F66] font-semibold flex items-center gap-2">
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-pulse-ring absolute inline-flex h-full w-full rounded-full bg-[#4A607A] opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#4A607A]" />
+                  <span className="animate-pulse-ring absolute inline-flex h-full w-full rounded-full bg-[#1261E0] opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#1261E0]" />
                 </span>
-                Paso 1 · Elige tu rubro para adaptar todo el ERP en vivo
+                Paso 1 · Elige tu rubro para adaptar el ERP, sus tarifas y planes en vivo
               </span>
-              <span className="text-[11px] text-muted-foreground hidden sm:inline">
-                9 industrias configuradas con catálogo CLP, retenciones SII y márgenes reales
-              </span>
+              <Badge className="bg-[#467366]/12 text-[#2E5248] border border-[#467366]/25 text-[10px] font-semibold">
+                <Zap className="h-3 w-3 mr-1" />
+                {blueprint.quickWinStat}
+              </Badge>
             </div>
 
-            <div className="flex flex-wrap gap-1.5 sm:gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-2">
               {INDUSTRY_LIST.map((ind) => {
                 const active = selectedIndustry === ind.id;
+                const Icon = INDUSTRY_ICONS[ind.iconName] || PartyPopper;
                 return (
                   <button
                     key={ind.id}
                     type="button"
+                    aria-pressed={active}
                     onClick={() => setSelectedIndustry(ind.id)}
                     className={cn(
-                      'px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-medium border transition-all duration-200 tactile-press',
+                      'group text-left rounded-2xl p-2.5 sm:p-3 border transition-all duration-200 tactile-press flex flex-col justify-between gap-2',
                       active
-                        ? 'bg-[#4A607A] text-white border-[#4A607A] shadow-xs'
-                        : 'bg-white/75 text-muted-foreground border-slate-200/90 hover:border-[#4A607A]/40 hover:text-foreground'
+                        ? 'bg-[#1261E0] text-white border-[#1261E0] shadow-md ring-2 ring-[#1261E0]/25'
+                        : 'bg-white/75 text-foreground border-slate-200/90 hover:border-[#1261E0]/45 hover:bg-white'
                     )}
                   >
-                    {ind.shortName}
+                    <div className="flex items-center justify-between gap-1.5">
+                      <span
+                        className={cn(
+                          'h-7 w-7 rounded-xl flex items-center justify-center transition-colors',
+                          active
+                            ? 'bg-white/20 text-white'
+                            : 'bg-[#4A607A]/10 text-[#4A607A] group-hover:bg-[#1261E0]/10 group-hover:text-[#1261E0]'
+                        )}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                      </span>
+                      <span
+                        className={cn(
+                          'text-[10px] font-mono font-semibold tabular-nums',
+                          active ? 'text-white/90' : 'text-muted-foreground'
+                        )}
+                      >
+                        {ind.targetMarginPct}%
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-semibold leading-tight line-clamp-2">
+                      {ind.shortName}
+                    </span>
                   </button>
                 );
               })}
@@ -172,35 +222,39 @@ export default function WelcomeLandingPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
             <div className="lg:col-span-7 space-y-6">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#4A607A]/25 bg-white/70 backdrop-blur-md text-[11px] font-medium tracking-[0.1em] uppercase text-[#3B4F66] animate-reveal-up">
-                {blueprint.shortName} · Meta {blueprint.targetMarginPct}% Neto
+              <div className="inline-flex flex-wrap items-center gap-2 px-3 py-1 rounded-full border border-[#4A607A]/25 bg-white/75 backdrop-blur-md text-[11px] font-medium tracking-[0.08em] uppercase text-[#3B4F66] animate-reveal-up">
+                <span>{blueprint.shortName}</span>
+                <span className="text-slate-300">•</span>
+                <span>Meta {blueprint.targetMarginPct}% Neto</span>
+                <span className="text-slate-300">•</span>
+                <span className="text-[#467366] font-semibold">{blueprint.quickWinStat}</span>
               </div>
 
-              <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-semibold tracking-[-0.035em] text-foreground leading-[1.06] animate-reveal-up stagger-1">
-                Cero sorpresas con tu{' '}
-                <span className="editorial-italic text-[#4A607A] font-normal">
-                  IVA a fin de mes
-                </span>
-                . Control total peso a peso.
+              <h1 className="text-4xl sm:text-5xl lg:text-[3.35rem] font-semibold tracking-[-0.035em] text-foreground leading-[1.07] animate-reveal-up stagger-1">
+                {blueprint.heroHeadlinePrefix}{' '}
+                <span className="editorial-italic text-[#1261E0] font-normal">
+                  {blueprint.heroHeadlineAccent}
+                </span>{' '}
+                {blueprint.heroHeadlineSuffix}
               </h1>
 
               <p className="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-2xl animate-reveal-up stagger-2">
-                {blueprint.ownerPainPoint} KAIROS ERP unifica cotizaciones, trazabilidad de abonos y gastos reales, retenciones de honorarios (15,25%) e IVA Débito vs. Crédito en tiempo real para <strong>{blueprint.name}</strong>.
+                {blueprint.heroValueProp}
               </p>
 
               <div className="flex flex-wrap items-center gap-3 pt-1 animate-reveal-up stagger-3">
-                <a href="#planes">
+                <Link href={demoHref}>
                   <Button size="lg" className="font-semibold gap-2 px-6 tactile-press">
-                    Ver Planes desde $0 · Recomendado $59.990
+                    <FlaskConical className="h-4 w-4" />
+                    Probar Demo Interactiva
                     <ArrowRight className="h-4 w-4" />
                   </Button>
-                </a>
-                <Link href="/demo">
-                  <Button size="lg" variant="outline" className="gap-2 font-medium tactile-press">
-                    <FlaskConical className="h-4 w-4 text-[#4A607A]" />
-                    Probar Demo Completa en Caché
-                  </Button>
                 </Link>
+                <a href="#planes">
+                  <Button size="lg" variant="outline" className="gap-2 font-medium tactile-press">
+                    Ver Planes desde $0 · Recomendado $59.990
+                  </Button>
+                </a>
               </div>
 
               {/* Ficha rápida del rubro seleccionado */}
@@ -240,19 +294,19 @@ export default function WelcomeLandingPage() {
               </div>
             </div>
 
-            {/* Consola Ejecutiva Glassmórfica Luminosa (IVA + Trazabilidad) */}
+            {/* Consola Ejecutiva Glassmórfica Luminosa (IVA + Partidas del Rubro) */}
             <div className="lg:col-span-5 animate-reveal-up stagger-3">
               <div className="rounded-3xl glass-luxury hairline-shimmer p-6 sm:p-7 space-y-5">
                 <div className="flex items-center justify-between border-b border-slate-200/80 pb-4">
                   <div>
                     <div className="text-[10px] uppercase tracking-[0.18em] text-[#4A607A] font-semibold">
-                      Telemetría Financiera en Vivo
+                      Simulación en Vivo · {blueprint.terminology.catalogLabel}
                     </div>
                     <div className="text-lg font-semibold tracking-tight mt-1 text-foreground">
-                      {blueprint.shortName}
+                      {blueprint.name}
                     </div>
                   </div>
-                  <Badge className="bg-[#467366]/12 text-[#34594E] border border-[#467366]/25 text-[11px] font-medium">
+                  <Badge className="bg-[#467366]/12 text-[#34594E] border border-[#467366]/25 text-[11px] font-medium shrink-0">
                     Meta {blueprint.targetMarginPct}%
                   </Badge>
                 </div>
@@ -260,9 +314,9 @@ export default function WelcomeLandingPage() {
                 {/* Bloque IVA a fin de mes sin sorpresas */}
                 <div className="p-4 rounded-2xl bg-white/75 border border-slate-200/80 space-y-2.5 shadow-2xs">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-foreground font-medium">Proyección IVA F29 (Ejemplo)</span>
+                    <span className="text-foreground font-medium">Proyección IVA F29 ({blueprint.terminology.projectSingular})</span>
                     <span className="text-[10px] text-[#467366] font-semibold uppercase tracking-wider">
-                      Sin sorpresas
+                      Cálculo SII en vivo
                     </span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-xs tabular-nums">
@@ -324,57 +378,58 @@ export default function WelcomeLandingPage() {
         </div>
       </section>
 
-      {/* Sección Capacidades Profundas: IVA, Trazabilidad, Detalle Operativo e IA */}
+      {/* Sección Capacidades Específicas del Rubro + Núcleo Financiero */}
       <section id="capacidades" className="py-16 px-4 sm:px-8 border-t border-white/80 bg-white/35">
         <div className="max-w-7xl mx-auto space-y-10">
           <Reveal>
-            <div className="max-w-2xl space-y-2">
-              <span className="text-[10px] uppercase tracking-[0.18em] text-[#4A607A] font-semibold">
-                Ingeniería Operativa &amp; Fiscal · {blueprint.shortName}
-              </span>
-              <h2 className="text-3xl font-semibold tracking-tight text-foreground">
-                Todo lo que puedes dominar con{' '}
-                <span className="editorial-italic text-[#4A607A]">precisión financiera</span>
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Cada peso cotizado, abonado, gastado y rendido queda conectado para que tomes decisiones rápidas y sin incertidumbre tributaria.
-              </p>
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+              <div className="max-w-2xl space-y-2">
+                <span className="text-[10px] uppercase tracking-[0.18em] text-[#4A607A] font-semibold">
+                  Diseñado para {blueprint.name}
+                </span>
+                <h2 className="text-3xl font-semibold tracking-tight text-foreground">
+                  Lo que resuelve KAIROS en tu{' '}
+                  <span className="editorial-italic text-[#4A607A]">operación diaria</span>
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {blueprint.ownerPainPoint} Cada peso cotizado, abonado y rendido queda conectado para proteger tu margen neto.
+                </p>
+              </div>
+              <Link href={demoHref}>
+                <Button variant="outline" size="sm" className="gap-1.5 font-semibold shrink-0">
+                  Ver {blueprint.shortName} en vivo
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              </Link>
             </div>
           </Reveal>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            <Reveal delay={60}>
-              <SpotlightCard className="p-6 h-full space-y-3">
-                <div className="h-10 w-10 rounded-xl bg-[#4A607A]/10 text-[#4A607A] flex items-center justify-center">
-                  <Receipt className="h-5 w-5" />
-                </div>
-                <h3 className="text-lg font-semibold">IVA a Fin de Mes Sin Sorpresas</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  KAIROS calcula en vivo tu <strong>IVA Débito</strong> por ventas facturadas menos tu <strong>IVA Crédito</strong> de compras con factura. Sabes desde el día 1 cuánto pagarás en el Formulario 29, evitando sustos de caja.
-                </p>
-              </SpotlightCard>
-            </Reveal>
-
-            <Reveal delay={120}>
-              <SpotlightCard className="p-6 h-full space-y-3">
-                <div className="h-10 w-10 rounded-xl bg-[#467366]/10 text-[#467366] flex items-center justify-center">
-                  <GitBranch className="h-5 w-5" />
-                </div>
-                <h3 className="text-lg font-semibold">Trazabilidad Peso a Peso</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Sigue el ciclo completo de cada {blueprint.terminology.projectSingular.toLowerCase()}: <strong>Cotización → Aprobación → Abonos de Clientes → Gastos Reales → Cierre P&amp;L</strong>. Nada se pierde entre chats o planillas sueltas.
-                </p>
-              </SpotlightCard>
-            </Reveal>
+            {blueprint.capabilityHighlights.map((cap, idx) => (
+              <Reveal key={cap.title} delay={idx * 60}>
+                <SpotlightCard className="p-6 h-full flex flex-col justify-between gap-4 border-[#1261E0]/15">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <Badge className="bg-[#1261E0]/10 text-[#0F4FB8] border border-[#1261E0]/20 text-[10px] font-semibold">
+                        Especial {blueprint.shortName}
+                      </Badge>
+                      <span className="text-[11px] font-semibold text-[#467366]">{cap.metric}</span>
+                    </div>
+                    <h3 className="text-lg font-semibold leading-snug">{cap.title}</h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{cap.description}</p>
+                  </div>
+                </SpotlightCard>
+              </Reveal>
+            ))}
 
             <Reveal delay={180}>
               <SpotlightCard className="p-6 h-full space-y-3">
                 <div className="h-10 w-10 rounded-xl bg-[#4A607A]/10 text-[#4A607A] flex items-center justify-center">
-                  <Layers className="h-5 w-5" />
+                  <Receipt className="h-5 w-5" />
                 </div>
-                <h3 className="text-lg font-semibold">Operación al Detalle &amp; Cero Fugas</h3>
+                <h3 className="text-lg font-semibold">IVA F29 &amp; Flujo de Caja en Vivo</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Agrupa partidas padre/hijo, prorratea insumos unitarios, controla fletes y configura quién asume la retención del <strong>15,25% en Boletas de Honorarios</strong> (Empresa, Contratado o 50/50).
+                  Calcula automáticamente tu <strong>IVA Débito</strong> vs. <strong>IVA Crédito</strong> por compras con factura, abonos recibidos y gastos reales de cada {blueprint.terminology.projectSingular.toLowerCase()}.
                 </p>
               </SpotlightCard>
             </Reveal>
@@ -382,11 +437,11 @@ export default function WelcomeLandingPage() {
             <Reveal delay={240}>
               <SpotlightCard className="p-6 h-full space-y-3">
                 <div className="h-10 w-10 rounded-xl bg-[#467366]/10 text-[#467366] flex items-center justify-center">
-                  <Wallet className="h-5 w-5" />
+                  <Sparkles className="h-5 w-5" />
                 </div>
-                <h3 className="text-lg font-semibold">Flujo de Caja &amp; Cobranza Clara</h3>
+                <h3 className="text-lg font-semibold">Cotización Express + Suite IA OCR</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Visualiza al instante cuánto te han abonado, qué saldo está pendiente por cobrar y cuánto margen real queda libre después de pagar proveedores y personal.
+                  Crea una cotización completa en 1 clic desde plantillas de <strong>{blueprint.shortName}</strong> o sube PDF/Excel de proveedores para que la IA sugiera costos y márgenes.
                 </p>
               </SpotlightCard>
             </Reveal>
@@ -394,23 +449,11 @@ export default function WelcomeLandingPage() {
             <Reveal delay={300}>
               <SpotlightCard className="p-6 h-full space-y-3">
                 <div className="h-10 w-10 rounded-xl bg-[#4A607A]/10 text-[#4A607A] flex items-center justify-center">
-                  <Sparkles className="h-5 w-5" />
-                </div>
-                <h3 className="text-lg font-semibold">Suite IA + OCR Documental</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Sube un PDF, Excel o foto de cotización de proveedor y nuestra IA optimizada extrae ítems, detecta costos ocultos y sugiere mejoras de margen en segundos.
-                </p>
-              </SpotlightCard>
-            </Reveal>
-
-            <Reveal delay={360}>
-              <SpotlightCard className="p-6 h-full space-y-3">
-                <div className="h-10 w-10 rounded-xl bg-[#467366]/10 text-[#467366] flex items-center justify-center">
                   <FileSpreadsheet className="h-5 w-5" />
                 </div>
                 <h3 className="text-lg font-semibold">PDF Comercial &amp; Excel Contable</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Genera cotizaciones PDF ejecutivas para enviar a tu {blueprint.terminology.clientLabel.toLowerCase()} e informes contables con desglose tributario listos para tu contador.
+                  Genera propuestas PDF listas para enviar a tu {blueprint.terminology.clientLabel.toLowerCase()} y exporta libros contables en Excel con desglose tributario para tu contador.
                 </p>
               </SpotlightCard>
             </Reveal>
@@ -424,14 +467,14 @@ export default function WelcomeLandingPage() {
           <Reveal>
             <div className="text-center max-w-2xl mx-auto space-y-2">
               <Badge className="bg-[#4A607A]/10 text-[#3B4F66] border border-[#4A607A]/25 text-[10px] tracking-[0.14em] uppercase">
-                Haz clic en cualquier plan para ver el detalle completo
+                Comparativa transparente · Incluye lo que tiene y lo que falta en cada plan
               </Badge>
               <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
                 Invierte según tu etapa o{' '}
                 <span className="editorial-italic text-[#4A607A]">arma tu ERP</span> a medida
               </h2>
               <p className="text-sm text-muted-foreground">
-                Selecciona tu modalidad para <strong>{blueprint.shortName}</strong> y pasa directo a crear tu espacio privado con Khipu o en plan gratuito.
+                Planes adaptados a <strong>{blueprint.shortName}</strong>. Selecciona cualquier plan para ver el desglose completo o contratar con Khipu.
               </p>
             </div>
           </Reveal>
@@ -440,6 +483,7 @@ export default function WelcomeLandingPage() {
             plans={plans}
             addons={addons}
             currentModules={blueprint.recommendedModules}
+            industry={blueprint}
             industryName={blueprint.shortName}
             onSelectCheckout={handleSelectPlanBeforeRegister}
           />
@@ -456,8 +500,8 @@ export default function WelcomeLandingPage() {
             </span>
           </div>
           <div className="flex items-center gap-6">
-            <Link href="/demo" className="hover:text-foreground transition-colors">
-              Demo en Caché Local
+            <Link href={demoHref} className="hover:text-foreground transition-colors">
+              Probar Demo Interactiva
             </Link>
             <Link href="/login" className="hover:text-foreground transition-colors">
               Acceso Clientes

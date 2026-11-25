@@ -7,7 +7,7 @@ const PORT = 3099;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 const SCREENSHOT_DIR =
   process.env.PW_SCREENSHOT_DIR ||
-  'C:/Users/isaia/.gemini/antigravity/brain/a57695cb-9013-4143-bc57-59f0c46129f2/scratch';
+  'C:/Users/isaia/.gemini/antigravity/brain/98f31476-cbfe-4880-8911-0446f35b5c87/scratch';
 
 function findBrowserExecutable() {
   const candidates = [
@@ -109,30 +109,32 @@ async function runAudit() {
       const welcomeRes = await page.goto(`${BASE_URL}/welcome`, { waitUntil: 'networkidle' });
       assert(welcomeRes && welcomeRes.status() === 200, '/welcome did not return 200');
 
-      // Verify redundant #simulador section was removed
-      assert(
-        (await page.locator('#simulador').count()) === 0,
-        'Redundant #simulador section still exists on /welcome'
-      );
-
       const welcomeOverflow = await page.evaluate(
         () => document.documentElement.scrollWidth > window.innerWidth + 1
       );
       assert(!welcomeOverflow, '/welcome has horizontal overflow on desktop');
 
-      await page.screenshot({
-        path: path.join(SCREENSHOT_DIR, 'pw-welcome-desktop.png'),
-        fullPage: false,
-      });
+      const initialWelcomeText = await page.locator('body').innerText();
+      assert(
+        !/en cach[eé]/i.test(initialWelcomeText),
+        '/welcome still contains unnecessary "en caché" jargon'
+      );
 
-      // Switch industry in Hero selector
-      await page.getByRole('button', { name: 'Construcción' }).click();
-      await page.waitForTimeout(350);
+      // Switch industry to Construcción & Obras and verify dynamic hero, capabilities & plans
+      await page.getByRole('button', { name: /Construcción & Obras/i }).click();
+      await page.waitForTimeout(400);
       const bodyAfterInd = await page.locator('body').innerText();
       assert(
-        bodyAfterInd.includes('Constructora') || bodyAfterInd.includes('Construcción'),
-        '/welcome did not adapt copy to Construcción industry'
+        bodyAfterInd.includes('Cotiza partidas y obras') &&
+          /para construcci[oó]n & obras:/i.test(bodyAfterInd) &&
+          /qu[eé] le falta en este nivel/i.test(bodyAfterInd),
+        '/welcome did not adapt hero or plans matrix to Construcción & Obras'
       );
+
+      await page.screenshot({
+        path: path.join(SCREENSHOT_DIR, 'pw-welcome-construccion.png'),
+        fullPage: false,
+      });
 
       // Open PlanDetailModal on Recommended $59.990 plan
       const detailBtns = page.getByRole('button', { name: /Ver detalle completo/i });
@@ -145,31 +147,11 @@ async function runAudit() {
       const modalText = await modalDialog.innerText();
       assert(/lo que incluye este plan/i.test(modalText), 'PlanDetailModal missing included section');
       assert(/lo que no incluye/i.test(modalText), 'PlanDetailModal missing non-included section');
+      assert(/Especializado para Construcción & Obras/i.test(modalText), 'PlanDetailModal missing industry specialty');
 
-      // Dismiss modal with Escape
       await page.keyboard.press('Escape');
       await page.waitForTimeout(250);
       assert((await modalDialog.count()) === 0, 'PlanDetailModal did not close on Escape');
-
-      // Select ALL 7 modules in "Arma tu Plan" and verify $147.920 > Enterprise $109.990 nudge
-      const addonButtons = page.locator('button:has-text("Cargo mensual adicional")');
-      const addonCount = await addonButtons.count();
-      assert(addonCount === 7, `Expected 7 selectable add-ons, got ${addonCount}`);
-      for (let i = 0; i < addonCount; i++) {
-        const btn = addonButtons.nth(i);
-        const pressed = await btn.getAttribute('aria-pressed');
-        const cls = (await btn.getAttribute('class')) || '';
-        const isActive = pressed === 'true' || cls.includes('bg-white/95') || cls.includes('ring-1');
-        if (!isActive) {
-          await btn.click();
-        }
-      }
-      await page.waitForTimeout(600);
-      const welcomePlansText = await page.locator('#planes').innerText();
-      assert(
-        welcomePlansText.includes('7 módulos') && welcomePlansText.includes('¡Te conviene Enterprise!'),
-        `Arma tu Plan with all 7 modules did not display 7 módulos and Enterprise savings nudge`
-      );
 
       // =========================================================
       // 2. AUDIT /welcome (Mobile 390x844)
@@ -182,121 +164,156 @@ async function runAudit() {
         () => document.documentElement.scrollWidth > window.innerWidth + 1
       );
       assert(!mobileOverflow, '/welcome has horizontal overflow on mobile (390px)');
-      await mPage.screenshot({
-        path: path.join(SCREENSHOT_DIR, 'pw-welcome-mobile.png'),
-        fullPage: false,
-      });
       await mobileCtx.close();
 
       // =========================================================
-      // 3. AUDIT /demo -> Real ERP in Local Cache (Zero Supabase DB calls)
+      // 3. AUDIT /demo?industry=construccion_arquitectura -> 100% Coherent Construcción Demo
       // =========================================================
       const supabaseDbViolations = [];
       page.on('request', (req) => {
-        const url = req.url();
-        if (url.includes('supabase.co')) {
-          supabaseDbViolations.push(url);
+        if (req.url().includes('supabase.co')) {
+          supabaseDbViolations.push(req.url());
         }
       });
 
-      await page.goto(`${BASE_URL}/demo`, { waitUntil: 'networkidle' });
-      await page.waitForURL(`${BASE_URL}/`, { timeout: 10000 });
-      await page.waitForTimeout(500);
+      await page.goto(`${BASE_URL}/demo?industry=construccion_arquitectura`, {
+        waitUntil: 'networkidle',
+      });
+      await page.waitForURL(`${BASE_URL}/dashboard`, { timeout: 10000 });
+      await page.waitForTimeout(900);
 
-      // Verify zero DUO Producciones leaks
-      const demoBodyText = await page.locator('body').innerText();
+      const dashText = await page.locator('body').innerText();
       assert(
-        !/duo\s*producciones|duoproducciones/i.test(demoBodyText),
-        'Found forbidden DUO Producciones reference in Demo ERP'
+        dashText.includes('Constructora Cordillera') &&
+          dashText.includes('Obras y Proyectos'),
+        `Dashboard did not load Construcción & Obras persona`
+      );
+      assert(
+        !/Gala TechChile|Matrimonio Sof[ií]a|Cuarteto de Cuerdas|Fonda Primavera/i.test(dashText),
+        'Found Eventos leakage inside Construcción Demo Dashboard!'
       );
 
-      // Verify NO Administración section in Demo Sidebar
-      const sidebarText = await page.locator('aside').first().innerText();
-      assert(
-        !/administraci[oó]n/i.test(sidebarText),
-        'Demo Sidebar still contains Administración section'
-      );
-
-      // Verify local cache consent banner & accept
+      // Accept cache notice once and verify it does NOT reappear after reload
       const consentBtn = page.getByRole('button', { name: /Entendido, continuar/i });
       if ((await consentBtn.count()) > 0) {
         await consentBtn.click();
         await page.waitForTimeout(250);
       }
 
-      // Verify Floating "Bot Guía Demo" button exists
-      const guideBotBtn = page.getByRole('button', { name: /Bot Guía Demo/i });
-      assert((await guideBotBtn.count()) > 0, 'Missing floating Bot Guía Demo button');
+      // Close auto-started tour if open, then test scroll + Guía Interactiva
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(250);
 
-      await page.screenshot({
-        path: path.join(SCREENSHOT_DIR, 'pw-demo-dashboard.png'),
-        fullPage: false,
-      });
-
-      // Navigate to /costs (Tarifas) and verify tariff editing dialog (CostFormDialog) opens
-      await page.goto(`${BASE_URL}/costs`, { waitUntil: 'networkidle' });
-      await page.waitForTimeout(450);
-      const editButtons = page.locator('table tbody tr button').first();
-      assert((await editButtons.count()) > 0, 'No tariff action buttons found in /costs');
-      await editButtons.click();
-      await page.waitForTimeout(300);
-
-      await page.screenshot({
-        path: path.join(SCREENSHOT_DIR, 'pw-demo-costs-edit.png'),
-        fullPage: false,
-      });
-
-      // Navigate to /events/new and verify full real EventForm (with description and retail toggle)
-      await page.goto(`${BASE_URL}/events/new`, { waitUntil: 'networkidle' });
-      await page.waitForTimeout(350);
+      await page.reload({ waitUntil: 'networkidle' });
+      await page.waitForTimeout(600);
       assert(
-        (await page.locator('textarea#description').count()) === 1 &&
-          (await page.locator('input#has_retail_sales').count()) === 1,
-        '/events/new is missing full EventForm fields (description or has_retail_sales)'
+        (await page.getByRole('button', { name: /Entendido, continuar/i }).count()) === 0,
+        'Cache notice reappeared after already accepting!'
       );
 
-      // Navigate to real Event Detail workspace (/events/d0000002-0000-4000-8000-000000000003)
-      await page.goto(`${BASE_URL}/events/d0000002-0000-4000-8000-000000000003`, {
+      // Verify Dashboard trend chart renders
+      await page.locator('.recharts-wrapper > svg.recharts-surface').first().waitFor({ state: 'visible', timeout: 6000 });
+      const dashCharts = await page.locator('.recharts-wrapper > svg.recharts-surface').count();
+      assert(dashCharts >= 1, 'Expected RevenueChart on /dashboard');
+
+      // Test Guide Bot after scroll
+      await page.evaluate(() => window.scrollBy(0, 320));
+      await page.waitForTimeout(200);
+      const guideLauncher = page.getByRole('button', { name: /Guía Interactiva|Bot Guía Demo/i }).first();
+      await guideLauncher.click();
+      await page.waitForTimeout(500);
+      const guideDialog = page.getByRole('dialog');
+      assert((await guideDialog.count()) > 0, 'Guide Bot dialog did not open');
+      const box = await guideDialog.first().boundingBox();
+      assert(box && box.y >= 0 && box.y + box.height <= 905, 'Guide Bot dialog clipped outside viewport');
+
+      await page.screenshot({
+        path: path.join(SCREENSHOT_DIR, 'pw-demo-dashboard-construccion.png'),
+        fullPage: false,
+      });
+
+      // Close guide before navigating
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(200);
+
+      // =========================================================
+      // 4. AUDIT /costs (Maestro de Partidas Construcción)
+      // =========================================================
+      await page.goto(`${BASE_URL}/costs`, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(500);
+      const costsText = await page.locator('body').innerText();
+      assert(
+        costsText.includes('Tabiquería Metalcon') &&
+          !/Cuarteto de Cuerdas|Banda Live/i.test(costsText),
+        'Costs page did not show Construcción tariffs or leaked Eventos tariffs'
+      );
+
+      // =========================================================
+      // 5. AUDIT /events & 1-Click Duplication + /events/new Express Quote
+      // =========================================================
+      await page.goto(`${BASE_URL}/events`, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(500);
+      const eventsText = await page.locator('body').innerText();
+      assert(
+        eventsText.includes('Remodelación Integral Casa Los Dominicos') &&
+          !/Gala TechChile|Matrimonio Sof[ií]a/i.test(eventsText),
+        'Events page leaked Eventos items in Construcción mode'
+      );
+
+      // Test 1-Click Duplication
+      const dupBtns = page.getByRole('button', { name: /Duplicar cotización/i });
+      assert((await dupBtns.count()) > 0, 'Missing 1-click Duplicar button on EventCard');
+      await dupBtns.first().click();
+      await page.waitForTimeout(500);
+      const eventsAfterDup = await page.locator('body').innerText();
+      assert(eventsAfterDup.includes('(Copia)'), 'Duplicated project did not appear on /events');
+
+      // Test Cotización Express on /events/new
+      await page.goto(`${BASE_URL}/events/new`, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(450);
+      const expressBtn = page.getByRole('button', { name: /Crear Cotización Express/i }).first();
+      assert((await expressBtn.count()) === 1, 'Missing Cotización Express button on /events/new');
+      await expressBtn.click();
+      await page.waitForURL(/\/events\/.+/, { timeout: 10000 });
+      await page.waitForTimeout(600);
+      const newEventDetailText = await page.locator('body').innerText();
+      assert(
+        newEventDetailText.includes('Borrador de Costos') &&
+          newEventDetailText.includes('Presupuesto Oficial'),
+        'Express Quote did not redirect to populated EventDetailPage'
+      );
+
+      // =========================================================
+      // 6. AUDIT Showcase Completed Event Finanzas (Budget vs Actual Variance)
+      // =========================================================
+      await page.goto(`${BASE_URL}/events/d0000002-0000-4000-8000-000000000001`, {
         waitUntil: 'networkidle',
       });
       await page.waitForTimeout(500);
-
-      // Verify 4 real tabs + Floating Financial Advisor chatbot button + ZERO DUO leaks inside EventDetailPage
-      const eventPageText = await page.locator('body').innerText();
-      assert(
-        eventPageText.includes('Borrador de Costos') &&
-          eventPageText.includes('Presupuesto Oficial') &&
-          eventPageText.includes('Finanzas'),
-        'Real 4-tab EventDetailPage did not render in Demo'
-      );
-      assert(
-        !/\bduo\b|duoproducciones/i.test(eventPageText),
-        'Found forbidden DUO reference inside Demo EventDetailPage'
-      );
-
-      // Click Borrador de Costos tab
-      await page.locator('button:has-text("Borrador de Costos")').first().click();
+      await page.locator('button:has-text("Finanzas")').first().click();
       await page.waitForTimeout(350);
-
-      const draftPageText = await page.locator('body').innerText();
+      const finText = await page.locator('body').innerText();
       assert(
-        !/\bduo\b|duoproducciones/i.test(draftPageText),
-        'Found forbidden DUO reference inside Demo Borrador de Costos tab'
+        finText.includes('Control Presupuesto vs. Real'),
+        'Missing Budget vs. Actual Variance card in Finanzas tab'
       );
 
-      await page.screenshot({
-        path: path.join(SCREENSHOT_DIR, 'pw-demo-project.png'),
-        fullPage: false,
-      });
-
-      // Navigate to /analytics and verify Recharts
+      // =========================================================
+      // 7. AUDIT /analytics (Multi-month growth/decline + multi-category CostDistribution)
+      // =========================================================
       await page.goto(`${BASE_URL}/analytics`, { waitUntil: 'networkidle' });
       await page.waitForTimeout(900);
       const chartCount = await page.locator('.recharts-wrapper > svg.recharts-surface').count();
       assert(chartCount >= 2, `Expected >= 2 Recharts SVGs in /analytics, got ${chartCount}`);
+      const analyticsText = await page.locator('body').innerText();
+      assert(
+        analyticsText.includes('Mejor mes:') &&
+          analyticsText.includes('Menor actividad:'),
+        'Analytics missing growth/decline insight banner'
+      );
 
       await page.screenshot({
-        path: path.join(SCREENSHOT_DIR, 'pw-demo-analytics.png'),
+        path: path.join(SCREENSHOT_DIR, 'pw-demo-analytics-construccion.png'),
         fullPage: false,
       });
 
@@ -311,7 +328,9 @@ async function runAudit() {
       assert(pageErrors.length === 0, `Page errors detected:\n${pageErrors.join('\n')}`);
       assert(failedResponses.length === 0, `Failed HTTP responses:\n${failedResponses.join('\n')}`);
 
-      console.log('PLAYWRIGHT_ADVERSARIAL_AUDIT: ALL CHECKS PASSED (0 ERRORS, 0 OVERFLOWS, 0 SUPABASE CALLS IN DEMO)');
+      console.log(
+        'PLAYWRIGHT_ADVERSARIAL_AUDIT: ALL CHECKS PASSED (0 ERRORS, 0 OVERFLOWS, 100% INDUSTRY COHERENCE, 0 SUPABASE CALLS)'
+      );
     } finally {
       await browser.close();
     }

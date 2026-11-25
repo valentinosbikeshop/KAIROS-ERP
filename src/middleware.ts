@@ -41,7 +41,7 @@ export async function middleware(request: NextRequest) {
         pathname.startsWith('/billing') ||
         pathname.startsWith('/security')
       ) {
-        return NextResponse.redirect(new URL('/', request.url));
+        return NextResponse.redirect(new URL('/dashboard', request.url));
       }
       return supabaseResponse;
     }
@@ -91,11 +91,11 @@ export async function middleware(request: NextRequest) {
     }
 
     if (isMfaRoute) {
-      return NextResponse.redirect(new URL('/', request.url));
+      return NextResponse.redirect(new URL('/dashboard', request.url));
     }
 
     if (pathname === '/login' || pathname === '/register') {
-      return NextResponse.redirect(new URL('/', request.url));
+      return NextResponse.redirect(new URL('/dashboard', request.url));
     }
 
     // Check user profile status, role, organization, and onboarding state
@@ -119,7 +119,7 @@ export async function middleware(request: NextRequest) {
       }
 
       if (!isPendingOrUnassigned && isPendingRoute) {
-        return NextResponse.redirect(new URL('/', request.url));
+        return NextResponse.redirect(new URL('/dashboard', request.url));
       }
 
       // Onboarding check (EXEMPT: DUO Producciones, Demo Sandbox, and SuperAdmin)
@@ -139,7 +139,7 @@ export async function middleware(request: NextRequest) {
       if (pathname.startsWith('/governance')) {
         const isNonDemoCompanyAdmin = profile.role === 'admin' && !isDemo;
         if (!isSuperAdmin && !isNonDemoCompanyAdmin) {
-          return NextResponse.redirect(new URL('/', request.url));
+          return NextResponse.redirect(new URL('/dashboard', request.url));
         }
       }
     }

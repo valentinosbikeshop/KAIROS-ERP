@@ -7,6 +7,7 @@ export interface SpotlightRect {
   left: number;
   width: number;
   height: number;
+  isInViewport: boolean;
 }
 
 interface SpotlightOverlayProps {
@@ -28,7 +29,7 @@ export function SpotlightOverlay({
   const [rect, setRect] = useState<SpotlightRect | null>(null);
 
   useEffect(() => {
-    if (!isActive) {
+    if (!isActive || !targetSelector) {
       setRect(null);
       onRectChange?.(null);
       return;
@@ -46,11 +47,20 @@ export function SpotlightOverlay({
       }
 
       const domRect = el.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const isInViewport =
+        domRect.bottom > 0 &&
+        domRect.top < vh &&
+        domRect.right > 0 &&
+        domRect.left < vw;
+
       const nextRect: SpotlightRect = {
-        top: Math.max(0, domRect.top - padding),
-        left: Math.max(0, domRect.left - padding),
+        top: domRect.top - padding,
+        left: domRect.left - padding,
         width: domRect.width + padding * 2,
         height: domRect.height + padding * 2,
+        isInViewport,
       };
 
       setRect(nextRect);
@@ -62,9 +72,10 @@ export function SpotlightOverlay({
       rafId = requestAnimationFrame(updateRect);
     };
 
-    // Initial measurement after smooth scroll settles
     updateRect();
-    const settleTimer = window.setTimeout(updateRect, 350);
+    const t1 = window.setTimeout(updateRect, 120);
+    const t2 = window.setTimeout(updateRect, 400);
+    const t3 = window.setTimeout(updateRect, 750);
 
     const targetEl = document.querySelector<HTMLElement>(targetSelector);
     if (targetEl && typeof ResizeObserver !== 'undefined') {
@@ -77,7 +88,9 @@ export function SpotlightOverlay({
     window.addEventListener('resize', scheduleUpdate);
 
     return () => {
-      window.clearTimeout(settleTimer);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
       if (rafId) cancelAnimationFrame(rafId);
       resizeObserver?.disconnect();
       window.removeEventListener('scroll', scheduleUpdate, true);
@@ -92,14 +105,11 @@ export function SpotlightOverlay({
       className="fixed inset-0 z-[90] pointer-events-none"
       aria-hidden="true"
     >
-      <svg
-        className="w-full h-full"
-        xmlns="http://www.w3.org/2000/svg"
-      >
+      <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <mask id={maskId}>
             <rect x="0" y="0" width="100%" height="100%" fill="white" />
-            {rect && (
+            {rect && rect.isInViewport && (
               <rect
                 x={rect.left}
                 y={rect.top}
@@ -117,15 +127,14 @@ export function SpotlightOverlay({
           y="0"
           width="100%"
           height="100%"
-          className="fill-slate-950/70"
+          className="fill-slate-950/65"
           mask={`url(#${maskId})`}
         />
       </svg>
 
-      {/* Subtle highlight ring around the spotlighted element */}
-      {rect && (
+      {rect && rect.isInViewport && (
         <div
-          className="fixed border-2 border-[#1261E0] shadow-[0_0_0_4px_rgba(18,97,224,0.2)] transition-all duration-200 ease-out pointer-events-none"
+          className="fixed border-2 border-[#1261E0] shadow-[0_0_0_4px_rgba(18,97,224,0.22)] transition-[top,left,width,height] duration-75 ease-out pointer-events-none"
           style={{
             top: rect.top,
             left: rect.left,
