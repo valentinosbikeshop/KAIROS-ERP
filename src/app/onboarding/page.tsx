@@ -585,10 +585,12 @@ export default function OnboardingStudioPage() {
               plans={plans}
               addons={addons}
               isOnboarding={true}
-              currentTier={preselectedPlan}
+              preselectedTier={preselectedPlan}
               currentModules={
                 preselectedModules.length > 0 ? preselectedModules : blueprint.recommendedModules
               }
+              industry={blueprint}
+              industryName={blueprint.shortName}
               khipuReady={khipuReady}
               isSuperAdmin={isSuperAdmin}
               onSelectCheckout={handleCheckout}

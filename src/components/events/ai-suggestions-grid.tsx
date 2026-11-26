@@ -1,8 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import { EventItem, AiSuggestion } from '@/types';
 import { formatCLP, formatPercentage, calculateFinancials, calculateGananciaFromTotal, calculateFinancialsFromMargin } from '@/lib/utils';
+import { computeItemFinancials, computeProjectFinancials, formatMoney } from '@/lib/finance-core';
+import { canUseAi, canUseModule, requiredPlanForModule } from '@/lib/plan-guards';
+import { can } from '@/lib/rbac';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,9 +20,16 @@ import {
   TableRow,
   TableFooter,
 } from '@/components/ui/table';
-import { Check, X, Loader2, Plus, CheckCheck, Trash2, Sparkles, ClipboardList, ChevronDown, ChevronRight, Combine, Copy, Split, GitFork, GripVertical, Undo2, Redo2, Banknote, Receipt, TrendingUp, MapPin } from 'lucide-react';
+import { Check, X, Loader2, Plus, CheckCheck, Trash2, Sparkles, ClipboardList, ChevronDown, ChevronRight, Combine, Split, GitFork, GripVertical, Undo2, Redo2, Banknote, Receipt, TrendingUp, MapPin, Lock } from 'lucide-react';
 import { useDragAutoScroll } from '@/hooks/use-drag-auto-scroll';
 import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
+import { useUser } from '@/hooks/use-user';
+import {
+  GENERIC_VIATICO_ZONES,
+  getBaseQuantityConfig,
+  type ViaticoZoneConfig,
+} from '@/components/events/project-helpers';
+import type { QuoteCurrency, TaxRegime } from '@/types/database';
 import { ConsolidateDialog } from './consolidate-dialog';
 import { DistributeInsumoDialog } from './distribute-insumo-dialog';
 import { FloatingDraftAssistant } from './floating-draft-assistant';
@@ -28,6 +39,13 @@ interface AiSuggestionsGridProps {
   eventId: string;
   onDraftChanged?: () => void;
   hasRetailSales?: boolean;
+  taxRegime?: TaxRegime;
+  initialMermasPct?: number;
+  baseQuantity?: number | null;
+  currency?: QuoteCurrency;
+  exchangeRate?: number;
+  onMermasSaved?: (mermasPct: number) => void;
+  readOnly?: boolean;
 }
 
 const emptySuggestion: AiSuggestion = {
@@ -55,10 +73,33 @@ export function AiSuggestionsGrid({
   eventId,
   onDraftChanged,
   hasRetailSales = false,
+  taxRegime,
+  initialMermasPct = 0,
+  baseQuantity,
+  currency = 'CLP',
+  exchangeRate = 1,
+  onMermasSaved,
+  readOnly = false,
 }: AiSuggestionsGridProps) {
-  const { entitlements, isDuoExempt, isDemo } = useWorkspaceConfig();
-  const canUseAi = isDuoExempt || isDemo || entitlements.modules.mod_ai_suite;
-  const canConsolidate = isDuoExempt || isDemo || entitlements.modules.mod_consolidation_retail;
+  const { entitlements, isDuoExempt, plans, industry, terms, organization } = useWorkspaceConfig();
+  const { profile } = useUser();
+  const aiGuard = canUseAi(entitlements);
+  const canUseAiFlag = isDuoExempt || aiGuard.allowed;
+  const aiPlan = requiredPlanForModule('mod_ai_suite', plans);
+  const canConsolidate =
+    isDuoExempt || canUseModule(entitlements, 'mod_consolidation_retail');
+  const consolidationPlan = requiredPlanForModule('mod_consolidation_retail', plans);
+  const canViewMargins = isDuoExempt || can(profile, 'view_costs_margins', entitlements);
+  const canEditDraft =
+    !readOnly &&
+    !entitlements.isExpiredLock &&
+    (isDuoExempt || can(profile, 'create_edit_quotes', entitlements));
+  const activeTaxRegime: TaxRegime = taxRegime || organization?.tax_regime || 'afecto_iva';
+  const baseQtyCfg = getBaseQuantityConfig(industry.id);
+  const showForeign = currency !== 'CLP' && exchangeRate > 1;
+  const fxRates =
+    currency === 'UF' ? { uf: exchangeRate } : currency === 'USD' ? { usd: exchangeRate } : undefined;
+
   const [editableSuggestions, setEditableSuggestions] = useState<EventItem[]>(draftItems);
   const [manualItem, setManualItem] = useState<AiSuggestion>({ ...emptySuggestion, id: 'manual' });
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -72,8 +113,9 @@ export function AiSuggestionsGrid({
   const [distributeOpen, setDistributeOpen] = useState(false);
   const [distributeItem, setDistributeItem] = useState<EventItem | null>(null);
   const [highlightedIds, setHighlightedIds] = useState<string[]>([]);
-  const [mermas, setMermas] = useState<number>(0);
-  const [targetEventMargin, setTargetEventMargin] = useState<number>(35);
+  const [mermas, setMermas] = useState<number>(initialMermasPct || 0);
+  const [savingMermas, setSavingMermas] = useState(false);
+  const [targetEventMargin, setTargetEventMargin] = useState<number>(industry.targetMarginPct || 35);
   const [isOptimizingWithAi, setIsOptimizingWithAi] = useState(false);
   const [pendingSuggestions, setPendingSuggestions] = useState<Record<string, {
     margen: number;
@@ -85,16 +127,63 @@ export function AiSuggestionsGrid({
   }> | null>(null);
   const [strategyExplanation, setStrategyExplanation] = useState<string | null>(null);
   const [viaticoMenuOpen, setViaticoMenuOpen] = useState(false);
+  const viaticoMenuRef = useRef<HTMLDivElement>(null);
   const [undoStack, setUndoStack] = useState<GridAction[]>([]);
   const [redoStack, setRedoStack] = useState<GridAction[]>([]);
   const [focusedItemState, setFocusedItemState] = useState<EventItem | null>(null);
   const supabase = createClient();
-  
+
   useDragAutoScroll({ isDragging: !!draggedItemId });
 
   useEffect(() => {
     setEditableSuggestions(draftItems);
   }, [draftItems]);
+
+  useEffect(() => {
+    setMermas(initialMermasPct || 0);
+  }, [initialMermasPct]);
+
+  useEffect(() => {
+    setTargetEventMargin(industry.targetMarginPct || 35);
+  }, [industry.targetMarginPct]);
+
+  useEffect(() => {
+    if (!viaticoMenuOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        e.preventDefault();
+        setViaticoMenuOpen(false);
+      }
+    };
+    const handleOutside = (e: MouseEvent) => {
+      if (viaticoMenuRef.current && !viaticoMenuRef.current.contains(e.target as Node)) {
+        setViaticoMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKey, true);
+    document.addEventListener('mousedown', handleOutside);
+    return () => {
+      window.removeEventListener('keydown', handleKey, true);
+      document.removeEventListener('mousedown', handleOutside);
+    };
+  }, [viaticoMenuOpen]);
+
+  const persistMermasPct = async (nextVal: number) => {
+    const clamped = Math.max(0, Math.min(100, Number.isFinite(nextVal) ? nextVal : 0));
+    setMermas(clamped);
+    setSavingMermas(true);
+    try {
+      const { error } = await (supabase.from('events') as any)
+        .update({ mermas_pct: clamped })
+        .eq('id', eventId);
+      if (error && error.code !== 'PGRST204' && !String(error.message || '').includes('mermas_pct')) {
+        console.warn('Error persisting mermas_pct:', error.message);
+      }
+      onMermasSaved?.(clamped);
+    } finally {
+      setSavingMermas(false);
+    }
+  };
 
   const pushUndoAction = useCallback((action: GridAction) => {
     setUndoStack(prev => [...prev, action]);
@@ -175,7 +264,7 @@ export function AiSuggestionsGrid({
   const updateSupabase = async (updatedItem: EventItem) => {
     if (!updatedItem.id) return;
     try {
-      await (supabase.from('event_items') as any).update({
+      const payload: Record<string, unknown> = {
         servicio: updatedItem.servicio,
         detalle: updatedItem.detalle,
         cantidad: updatedItem.cantidad,
@@ -189,9 +278,24 @@ export function AiSuggestionsGrid({
         parent_id: updatedItem.parent_id,
         iva_incluido: updatedItem.iva_incluido ?? true,
         es_insumo: updatedItem.es_insumo ?? false,
-      }).eq('id', updatedItem.id);
+        is_pass_through: Boolean(updatedItem.is_pass_through || updatedItem.es_reembolsable),
+        es_reembolsable: Boolean(updatedItem.es_reembolsable || updatedItem.is_pass_through),
+        es_exento: Boolean(updatedItem.es_exento),
+      };
+      const { error } = await (supabase.from('event_items') as any)
+        .update(payload)
+        .eq('id', updatedItem.id);
+      if (error && (error.code === 'PGRST204' || String(error.message || '').includes('column'))) {
+        const {
+          is_pass_through: _pt,
+          es_reembolsable: _er,
+          es_exento: _ee,
+          ...basePayload
+        } = payload;
+        await (supabase.from('event_items') as any).update(basePayload).eq('id', updatedItem.id);
+      }
     } catch (e) {
-      console.error("Error updating item", e);
+      console.error('Error updating item', e);
     }
   };
 
@@ -221,7 +325,30 @@ export function AiSuggestionsGrid({
     }
 
     const currentTipoDoc = (updatedItem.tipo_doc_costo || 'factura') as 'factura' | 'boleta';
-    const currentIvaIncluido = field === 'iva_incluido' ? newValue : (updatedItem.iva_incluido ?? true);
+    const isExemptByRegime =
+      activeTaxRegime === 'sociedad_profesionales' ||
+      activeTaxRegime === 'exportacion_turismo';
+    const isPassthrough =
+      field === 'is_pass_through'
+        ? Boolean(newValue)
+        : Boolean(updatedItem.is_pass_through || updatedItem.es_reembolsable);
+    if (field === 'is_pass_through') {
+      updatedItem.is_pass_through = isPassthrough;
+      updatedItem.es_reembolsable = isPassthrough;
+      if (isPassthrough) {
+        updatedItem.ganancia = 0;
+        updatedItem.iva_incluido = false;
+        updatedItem.es_exento = true;
+      }
+    }
+    const currentIvaIncluido = isExemptByRegime || isPassthrough
+      ? false
+      : field === 'iva_incluido'
+      ? Boolean(newValue)
+      : (updatedItem.iva_incluido ?? true);
+    if (field === 'iva_incluido') {
+      updatedItem.es_exento = !currentIvaIncluido;
+    }
     const currentEsInsumo = field === 'es_insumo' ? newValue : (updatedItem.es_insumo ?? false);
 
     if (field === 'es_insumo') {
@@ -242,11 +369,11 @@ export function AiSuggestionsGrid({
         currentIvaIncluido,
         currentEsInsumo
       );
-      updatedItem.ganancia = financials.ganancia;
+      updatedItem.ganancia = isPassthrough ? 0 : financials.ganancia;
       updatedItem.valor_neto = financials.valorNeto;
       updatedItem.iva = financials.ivaDebito;
       updatedItem.valor_total = financials.valorTotal;
-      updatedItem.margen = targetMargin;
+      updatedItem.margen = isPassthrough ? 0 : targetMargin;
     } else if (field === 'valor_total') {
       const financials = calculateGananciaFromTotal(updatedItem.costo, updatedItem.valor_total, currentTipoDoc, currentIvaIncluido, currentEsInsumo);
       updatedItem.ganancia = financials.ganancia;
@@ -254,8 +381,7 @@ export function AiSuggestionsGrid({
       updatedItem.iva = financials.ivaDebito;
       updatedItem.margen = financials.margen;
     } else if (field === 'costo' || field === 'costo_total') {
-      // Si el ítem ya tenía un margen positivo explícito, recalculamos preservando el margen
-      if (updatedItem.margen && updatedItem.margen > 0) {
+      if (updatedItem.margen && updatedItem.margen > 0 && !isPassthrough) {
         const financials = calculateFinancialsFromMargin(
           updatedItem.costo,
           updatedItem.margen,
@@ -268,14 +394,14 @@ export function AiSuggestionsGrid({
         updatedItem.iva = financials.ivaDebito;
         updatedItem.valor_total = financials.valorTotal;
       } else {
-        const financials = calculateFinancials(updatedItem.costo, updatedItem.ganancia, currentTipoDoc, currentIvaIncluido, currentEsInsumo);
+        const financials = calculateFinancials(updatedItem.costo, isPassthrough ? 0 : updatedItem.ganancia, currentTipoDoc, currentIvaIncluido, currentEsInsumo);
         updatedItem.valor_neto = financials.valorNeto;
         updatedItem.iva = financials.ivaDebito;
         updatedItem.valor_total = financials.valorTotal;
         updatedItem.margen = financials.margen;
       }
-    } else if (['ganancia', 'sin_ganancia', 'tipo_doc_costo', 'iva_incluido', 'es_insumo'].includes(field)) {
-      const financials = calculateFinancials(updatedItem.costo, updatedItem.ganancia, currentTipoDoc, currentIvaIncluido, currentEsInsumo);
+    } else if (['ganancia', 'sin_ganancia', 'tipo_doc_costo', 'iva_incluido', 'es_insumo', 'is_pass_through'].includes(field)) {
+      const financials = calculateFinancials(updatedItem.costo, isPassthrough ? 0 : updatedItem.ganancia, currentTipoDoc, currentIvaIncluido, currentEsInsumo);
       updatedItem.valor_neto = financials.valorNeto;
       updatedItem.iva = financials.ivaDebito;
       updatedItem.valor_total = financials.valorTotal;
@@ -372,14 +498,18 @@ export function AiSuggestionsGrid({
   };
 
   const handleAddManualToDraft = async () => {
-    if (!manualItem.servicio.trim()) return;
+    if (!manualItem.servicio.trim() || !canEditDraft) return;
 
     const tipoDoc = (manualItem.tipo_doc_costo || 'factura') as 'factura' | 'boleta';
-    const aplicaIva = manualItem.iva_incluido ?? true;
+    const isExemptByRegime =
+      activeTaxRegime === 'sociedad_profesionales' ||
+      activeTaxRegime === 'exportacion_turismo';
+    const aplicaIva = isExemptByRegime ? false : (manualItem.iva_incluido ?? true);
     const esInsumo = manualItem.es_insumo ?? false;
     const financials = calculateFinancials(manualItem.costo, manualItem.ganancia, tipoDoc, aplicaIva, esInsumo);
 
     const newItem = {
+      organization_id: organization?.id,
       event_id: eventId,
       servicio: manualItem.servicio.trim(),
       detalle: manualItem.detalle.trim(),
@@ -410,84 +540,61 @@ export function AiSuggestionsGrid({
     }
   };
 
-  const handleAddAbono = async () => {
-    const abonoStr = window.prompt("Ingresa el monto del Abono (Ingreso/Pago del Cliente):");
-    if (!abonoStr) return;
-    
-    const monto = parseInt(abonoStr.replace(/\D/g, ''));
-    if (isNaN(monto) || monto <= 0) return;
-
-    // Use calculateGananciaFromTotal with 0 cost to back-calculate the net and VAT
-    const financials = calculateGananciaFromTotal(0, monto, 'factura', true, false);
-
-    const newItem = {
-      event_id: eventId,
-      servicio: "Abono Cliente",
-      detalle: "Pago adelantado",
-      tipo_evento: "Abono",
-      cantidad: 1,
-      costo: 0,
-      ganancia: financials.ganancia,
-      valor_neto: financials.valorNeto,
-      iva: financials.ivaDebito,
-      valor_total: financials.valorTotal,
-      margen: 100,
-      tipo_doc_costo: 'factura' as const,
-      iva_incluido: true,
-      es_insumo: false,
-      approved: false,
-    };
-
-    try {
-      const { data, error } = await (supabase.from('event_items') as any).insert(newItem).select().single();
-      if (error) throw error;
-      pushUndoAction({ type: 'ADD', item: data as EventItem });
-      if (onDraftChanged) onDraftChanged();
-    } catch (e) {
-      console.error(e);
-      alert('Error al agregar el abono.');
-    }
-  };
-
-  const handleAddViatico = async (anillo: number) => {
+  const handleAddViatico = async (zone: ViaticoZoneConfig) => {
     setViaticoMenuOpen(false);
-    const configs = [
-      { name: 'Viático Anillo 0 (Rancagua / Machalí / Olivar)', detalle: 'Radio urbano base (0-15 km) - Sin recargo', costo: 0, ganancia: 0 },
-      { name: 'Viático Anillo 1 (Requínoa / Mostazal / Rengo / Coya)', detalle: 'Traslado y logística intermedia (15-35 km)', costo: 20000, ganancia: 10000 },
-      { name: 'Viático Anillo 2 (San Fernando / Colchagua / Buin / Paine)', detalle: 'Traslado interurbano y peajes (35-70 km)', costo: 45000, ganancia: 20000 },
-      { name: 'Viático Anillo 3 (Stgo Oriente / Viña / Casablanca)', detalle: 'Logística de larga distancia y peajes TAG (>70 km)', costo: 65000, ganancia: 30000 },
-    ];
-
-    const viatico = configs[anillo] || configs[1];
-    const financials = calculateFinancials(viatico.costo, viatico.ganancia, 'factura', false, false);
+    const isExemptByRegime =
+      activeTaxRegime === 'sociedad_profesionales' ||
+      activeTaxRegime === 'exportacion_turismo';
+    const appliesIva = !isExemptByRegime;
+    const financials = calculateFinancials(zone.costo, zone.ganancia, 'factura', appliesIva, false);
 
     const newItem = {
       event_id: eventId,
-      servicio: viatico.name,
-      detalle: viatico.detalle,
-      tipo_evento: "Logística",
+      servicio: zone.title,
+      detalle: zone.detail,
+      tipo_evento: 'Logística',
       cantidad: 1,
-      costo: viatico.costo,
-      ganancia: viatico.ganancia,
+      costo: zone.costo,
+      ganancia: zone.ganancia,
       valor_neto: financials.valorNeto,
       iva: financials.ivaDebito,
       valor_total: financials.valorTotal,
       margen: financials.margen,
       tipo_doc_costo: 'factura' as const,
-      iva_incluido: false,
+      iva_incluido: appliesIva,
       es_insumo: false,
       approved: false,
     };
 
     try {
-      const { data, error } = await (supabase.from('event_items') as any).insert(newItem).select().single();
+      const { data, error } = await (supabase.from('event_items') as any)
+        .insert(newItem)
+        .select()
+        .single();
       if (error) throw error;
       pushUndoAction({ type: 'ADD', item: data as EventItem });
       if (onDraftChanged) onDraftChanged();
     } catch (e) {
       console.error(e);
-      alert('Error al agregar el viático geográfico.');
+      alert('Error al agregar el viático de traslado.');
     }
+  };
+
+  const handleAddCustomViatico = async () => {
+    setViaticoMenuOpen(false);
+    const zoneLabel = window.prompt('Ciudad o zona de destino (ej. Viña del Mar / Antofagasta / Zona Sur):');
+    if (!zoneLabel || !zoneLabel.trim()) return;
+    const costoStr = window.prompt(`Costo estimado de traslado / viático para ${zoneLabel.trim()} (CLP):`, '45000');
+    if (costoStr === null) return;
+    const costo = Math.max(0, parseInt(costoStr.replace(/\D/g, ''), 10) || 0);
+    const ganancia = Math.round(costo * 0.25);
+    await handleAddViatico({
+      id: 'custom',
+      title: `Viático / Traslado (${zoneLabel.trim()})`,
+      detail: 'Desplazamiento, peajes y logística a destino especificado',
+      costo,
+      ganancia,
+    });
   };
 
   // Aplicar margen directo uniforme a todos los ítems (modo previsualización)
@@ -517,7 +624,14 @@ export function AiSuggestionsGrid({
 
   // Optimización inteligente de márgenes con IA
   const handleOptimizeMarginsWithAi = async () => {
-    const nonInsumos = editableSuggestions.filter(it => !it.es_insumo);
+    if (!canUseAiFlag) {
+      alert(
+        aiGuard.reason ||
+          `La optimización con IA requiere ${aiPlan.name} ($${aiPlan.price_clp.toLocaleString('es-CL')}/mes).`
+      );
+      return;
+    }
+    const nonInsumos = editableSuggestions.filter(it => !it.es_insumo && !it.is_pass_through && !it.es_reembolsable);
     if (nonInsumos.length === 0) {
       alert('No hay servicios de venta en el borrador para optimizar márgenes.');
       return;
@@ -771,7 +885,7 @@ export function AiSuggestionsGrid({
 
     const isTargetConsolidated = targetParent.tipo_evento?.toLowerCase() === 'consolidado' || editableSuggestions.some(s => s.parent_id === targetParentId);
     if (!canConsolidate) {
-      alert('La consolidación y agrupación de ítems requiere el Plan Crecimiento IA o el módulo Consolidación & Retail en Suscripción.');
+      alert(`La consolidación y agrupación de ítems requiere el Plan ${consolidationPlan.name} o el módulo Consolidación & Retail.`);
       return;
     }
     if (!isTargetConsolidated) {
@@ -912,7 +1026,7 @@ export function AiSuggestionsGrid({
 
   const handleConsolidateClick = () => {
     if (!canConsolidate) {
-      alert('La consolidación de ítems requiere el Plan Crecimiento IA o el módulo Consolidación & Retail en Suscripción.');
+      alert(`La consolidación de ítems requiere el Plan ${consolidationPlan.name} o el módulo Consolidación & Retail.`);
       return;
     }
     if (selectedIds.length < 2) return;
@@ -921,7 +1035,7 @@ export function AiSuggestionsGrid({
 
   const handleOpenDistribute = (item: EventItem) => {
     if (!canConsolidate) {
-      alert('El prorrateo de insumos y recetas requiere el Plan Crecimiento IA o el módulo Consolidación & Retail en Suscripción.');
+      alert(`El prorrateo de insumos y recetas requiere el Plan ${consolidationPlan.name} o el módulo Consolidación & Retail.`);
       return;
     }
     setDistributeItem(item);
@@ -1796,47 +1910,37 @@ export function AiSuggestionsGrid({
     { costo: 0 }
   );
 
-  const costoTotalGlobal = totalesFacturables.costo + totalesInsumos.costo;
-  const totalVentaCliente = totalesFacturables.valor_total;
+  const projectFin = computeProjectFinancials(editableSuggestions, {
+    taxRegime: activeTaxRegime,
+    honorariosPolicy: organization?.honorarios_retention_policy || 'contractor',
+  });
+
+  const costoInsumosParaMerma = editableSuggestions.reduce((sum, it) => {
+    if (it.es_insumo || it.parent_id) {
+      const f = computeItemFinancials(it, { taxRegime: activeTaxRegime });
+      return sum + f.costoNeto;
+    }
+    return sum;
+  }, 0);
+  const baseMerma = costoInsumosParaMerma > 0 ? costoInsumosParaMerma : projectFin.costoNetoTotal;
+  const montoMermas = mermas > 0 ? Math.round(baseMerma * (mermas / 100)) : 0;
+
+  const costoTotalGlobal = projectFin.costoBrutoTotal;
+  const totalVentaCliente = projectFin.facturacionBruta;
   const cashInmediato = totalVentaCliente - costoTotalGlobal;
 
-  const ivaDebitoTotal = totalesFacturables.iva;
-  const computeItemIvaCredito = (item: EventItem): number => {
-    const children = editableSuggestions.filter(c => c.parent_id === item.id);
-    if (children.length > 0) {
-      return children.reduce((sum, child) => {
-        const cFin = calculateFinancials(
-          child.costo,
-          0,
-          (child.tipo_doc_costo || 'factura') as 'factura' | 'boleta',
-          child.iva_incluido ?? true,
-          true
-        );
-        return sum + (cFin.ivaCredito * (child.cantidad || 1));
-      }, 0);
-    }
-    const fin = calculateFinancials(
-      item.costo,
-      item.ganancia,
-      (item.tipo_doc_costo || 'factura') as 'factura' | 'boleta',
-      item.iva_incluido ?? true,
-      item.es_insumo ?? false
-    );
-    return fin.ivaCredito * (item.cantidad || 1);
-  };
-  const ivaCreditoTotal =
-    facturables.reduce((acc, item) => acc + computeItemIvaCredito(item), 0) +
-    insumos.reduce((acc, item) => acc + computeItemIvaCredito(item), 0);
+  const ivaDebitoTotal = projectFin.ivaDebito;
+  const ivaCreditoTotal = projectFin.ivaCredito;
 
-  const provisionIvaSII = Math.max(0, ivaDebitoTotal - ivaCreditoTotal);
-  const remanenteIvaFavor = Math.max(0, ivaCreditoTotal - ivaDebitoTotal);
+  const provisionIvaSII = projectFin.ivaNetoF29;
+  const remanenteIvaFavor = projectFin.remanenteIvaF29;
 
-  const utilidadNeta = totalesFacturables.ganancia - totalesInsumos.costo;
-  const montoMermas = Math.max(0, utilidadNeta * (mermas / 100));
   const cashTrasMermas = cashInmediato - montoMermas;
-  const gananciaNetaLimpia = cashTrasMermas - provisionIvaSII;
-  const utilidadFinal = gananciaNetaLimpia;
-  const margenFinal = costoTotalGlobal > 0 ? (gananciaNetaLimpia / costoTotalGlobal) * 100 : 0;
+  const gananciaNetaLimpia = projectFin.utilidadNeta - montoMermas;
+  const margenFinal =
+    projectFin.facturacionNeta > 0
+      ? Math.round((gananciaNetaLimpia / projectFin.facturacionNeta) * 1000) / 10
+      : 0;
 
   const renderRow = (item: EventItem, index: number, isChild: boolean = false) => {
     const isSelected = selectedIds.includes(item.id!);
@@ -1848,6 +1952,7 @@ export function AiSuggestionsGrid({
     const isConsolidated = hasChildren || item.tipo_evento?.toLowerCase() === 'consolidado';
     const isHighlighted = highlightedIds.includes(item.id!);
     const hasPendingSuggestion = !!(pendingSuggestions && pendingSuggestions[item.id!]);
+    const rowFin = computeItemFinancials(item, { taxRegime: activeTaxRegime });
 
     return (
       <TableRow 
@@ -2025,6 +2130,7 @@ export function AiSuggestionsGrid({
         
         {/* EGRESOS */}
         <TableCell className="p-2 bg-red-50/30">
+          {canViewMargins ? (
           <div className="flex flex-col gap-1 w-full">
             <Input
               type="number"
@@ -2034,12 +2140,13 @@ export function AiSuggestionsGrid({
               onFocus={() => handleFocus(item.id!)}
               onBlur={(e) => handleBlur(item.id!, e)}
               className="h-8 text-sm w-full px-2"
-              disabled={hasChildren}
+              disabled={hasChildren || !canEditDraft}
               title={hasChildren ? "Costo unitario resultante (Total insumos ÷ Unidades a la venta)" : "Costo unitario"}
             />
             <div className="flex items-center gap-1 w-full">
               <button
                 type="button"
+                disabled={!canEditDraft}
                 onClick={() => handleInputChange(item.id!, "tipo_doc_costo", item.tipo_doc_costo === "boleta" ? "factura" : "boleta", true)}
                 className={`flex-1 text-[9px] px-1.5 py-0.5 rounded cursor-pointer border font-bold uppercase tracking-wider text-center transition-colors ${
                   item.tipo_doc_costo === "boleta"
@@ -2052,9 +2159,14 @@ export function AiSuggestionsGrid({
               </button>
             </div>
           </div>
+          ) : (
+            <span className="text-xs text-muted-foreground italic">Restringido</span>
+          )}
         </TableCell>
         <TableCell className="p-2 align-top text-right font-bold text-red-700 bg-red-50/30 border-r">
-          {hasChildren ? (
+          {!canViewMargins ? (
+            '—'
+          ) : hasChildren ? (
             <span>{formatCLP(item.costo * item.cantidad)}</span>
           ) : (
             <Input
@@ -2064,6 +2176,7 @@ export function AiSuggestionsGrid({
               onChange={(e) => handleInputChange(item.id!, "costo_total", e.target.value)}
               onFocus={() => handleFocus(item.id!)}
               onBlur={(e) => handleBlur(item.id!, e)}
+              disabled={!canEditDraft}
               className="h-8 text-sm w-full px-1 text-right font-bold text-red-700"
               title="Costo total (Modificar para recalcular el Costo Unitario)"
             />
@@ -2080,6 +2193,7 @@ export function AiSuggestionsGrid({
         ) : (
           <>
             <TableCell className="p-2 align-top bg-emerald-50/30">
+              {canViewMargins ? (
               <div className="flex flex-col gap-1 w-full">
                 <Input
                   type="number"
@@ -2088,10 +2202,12 @@ export function AiSuggestionsGrid({
                   onChange={(e) => handleInputChange(item.id!, "ganancia", e.target.value)}
                   onFocus={() => handleFocus(item.id!)}
                   onBlur={(e) => handleBlur(item.id!, e)}
+                  disabled={!canEditDraft || rowFin.isPassthrough}
                   className="h-8 text-sm w-full px-2"
                 />
                 <button
                   type="button"
+                  disabled={!canEditDraft || rowFin.isPassthrough}
                   onClick={() => handleInputChange(item.id!, "sin_ganancia", item.ganancia !== 0, true)}
                   className={`text-[9px] px-1.5 py-0.5 rounded cursor-pointer border font-semibold uppercase tracking-wider text-center w-full transition-colors ${(item.ganancia === 0 && item.costo > 0) ? "bg-zinc-100 text-zinc-500 border-zinc-200 hover:bg-zinc-200" : "bg-green-100 text-green-700 border-green-200 hover:bg-green-200"}`}
                 >
@@ -2103,28 +2219,49 @@ export function AiSuggestionsGrid({
                   </span>
                 )}
               </div>
+              ) : (
+                <span className="text-xs text-muted-foreground italic">—</span>
+              )}
             </TableCell>
             <TableCell className="p-2 align-top text-center bg-emerald-50/30">
               <div className="flex flex-col items-center gap-1">
                 <Input
                   type="number"
-                  value={item.valor_total || ""}
+                  value={rowFin.ventaTotalUnit || ""}
                   onChange={(e) => handleInputChange(item.id!, "valor_total", e.target.value)}
                   onFocus={() => handleFocus(item.id!)}
                   onBlur={(e) => handleBlur(item.id!, e)}
+                  disabled={!canEditDraft}
                   className="h-8 text-sm w-full px-2 font-semibold border-emerald-200 focus:border-emerald-500"
                 />
-                <button
-                  type="button"
-                  onClick={() => handleInputChange(item.id!, "iva_incluido", !(item.iva_incluido ?? true), true)}
-                  className={`text-[8px] px-1 rounded font-bold uppercase transition-colors ${
-                    (item.iva_incluido ?? true)
-                      ? "text-blue-700 bg-blue-50 border border-blue-200"
-                      : "text-zinc-500 bg-zinc-100"
-                  }`}
-                >
-                  {(item.iva_incluido ?? true) ? "CON IVA" : "SIN IVA"}
-                </button>
+                <div className="flex items-center gap-1 flex-wrap justify-center">
+                  <button
+                    type="button"
+                    disabled={!canEditDraft || rowFin.isPassthrough}
+                    onClick={() => handleInputChange(item.id!, "iva_incluido", !(item.iva_incluido ?? true), true)}
+                    className={`text-[8px] px-1 rounded font-bold uppercase transition-colors ${
+                      !rowFin.isExemptSale
+                        ? "text-blue-700 bg-blue-50 border border-blue-200"
+                        : "text-zinc-600 bg-zinc-100 border border-zinc-200"
+                    }`}
+                    title="Alternar Afecto IVA 19% / Exento"
+                  >
+                    {!rowFin.isExemptSale ? "CON IVA" : "EXENTO"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!canEditDraft}
+                    onClick={() => handleInputChange(item.id!, "is_pass_through", !rowFin.isPassthrough, true)}
+                    className={`text-[8px] px-1 rounded font-bold uppercase transition-colors ${
+                      rowFin.isPassthrough
+                        ? "text-purple-700 bg-purple-100 border border-purple-300"
+                        : "text-muted-foreground bg-background border border-border/60 hover:bg-muted"
+                    }`}
+                    title="Marcar como Gasto Reembolsable / Pass-Through (al costo, 0% IVA y sin castigar margen)"
+                  >
+                    {rowFin.isPassthrough ? "REEMB." : "Normal"}
+                  </button>
+                </div>
                 {hasPendingSuggestion && (
                   <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100/80 px-1 py-0.5 rounded border border-emerald-200 text-center">
                     Sugerido: {formatCLP(pendingSuggestions[item.id!].valor_total)}
@@ -2132,12 +2269,19 @@ export function AiSuggestionsGrid({
                 )}
               </div>
             </TableCell>
-            <TableCell className="p-2 align-top text-right font-bold text-emerald-700 bg-emerald-50/30 border-r">{formatCLP(item.valor_total * item.cantidad)}</TableCell>
+            <TableCell className="p-2 align-top text-right font-bold text-emerald-700 bg-emerald-50/30 border-r">
+              <div>{formatCLP(rowFin.ventaTotal)}</div>
+              {showForeign && (
+                <div className="text-[10px] font-normal text-muted-foreground">
+                  {formatMoney(rowFin.ventaTotal, currency, fxRates)}
+                </div>
+              )}
+            </TableCell>
           </>
         )}
         {/* RESUMEN Y ACCIONES */}
         <TableCell className="p-2 align-top text-center">
-          {(item.es_insumo ?? false) ? (
+          {(item.es_insumo ?? false) || !canViewMargins ? (
             <span className="text-xs text-muted-foreground italic">—</span>
           ) : (
             <div className="flex flex-col items-center gap-1">
@@ -2149,14 +2293,18 @@ export function AiSuggestionsGrid({
                   onChange={(e) => handleInputChange(item.id!, 'margen', e.target.value)}
                   onFocus={() => handleFocus(item.id!)}
                   onBlur={(e) => handleBlur(item.id!, e)}
+                  disabled={!canEditDraft || rowFin.isPassthrough}
                   className="h-8 w-14 text-center text-xs font-bold px-1 border-indigo-200/80 focus:border-indigo-500 bg-background shadow-2xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   min="0"
                   max="500"
                   step="1"
-                  title="Margen neto sobre costo (%) - Escribe para recalcular ganancia y precio"
+                  title="Markup sobre costo neto (%) - Escriba para recalcular ganancia y precio"
                 />
                 <span className="text-[10px] text-muted-foreground font-semibold">%</span>
               </div>
+              <span className="text-[9px] text-muted-foreground whitespace-nowrap">
+                M. Venta: {formatPercentage(rowFin.margenVentaPct)}
+              </span>
               {pendingSuggestions && pendingSuggestions[item.id!] && (
                 <button
                   type="button"
@@ -2216,23 +2364,23 @@ export function AiSuggestionsGrid({
   return (
     <div className="space-y-4">
       {/* Resumen Ejecutivo de Cash & Rentabilidad Real en Borrador */}
-      {editableSuggestions.length > 0 && (
+      {editableSuggestions.length > 0 && canViewMargins && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2">
           <div className="p-3.5 rounded-xl glass-card border-[#467366]/25">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-[#2E5248] uppercase tracking-wider flex items-center gap-1.5">
                 <Banknote className="h-4 w-4 text-[#467366]" />
-                Cash en Mano Estimado
+                Flujo Bruto Estimado
               </span>
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#467366]/15 text-[#2E5248]">
-                Al Terminar Evento
+                Al Cierre
               </span>
             </div>
             <div className="text-2xl font-bold tabular-nums text-[#2E5248] mt-2">
               {formatCLP(cashInmediato)}
             </div>
             <p className="text-[11px] text-muted-foreground mt-1">
-              Dinero líquido en bolsillo/cuenta: Cobro <span className="font-medium text-foreground">{formatCLP(totalVentaCliente)}</span> - Costos <span className="font-medium text-foreground">{formatCLP(costoTotalGlobal)}</span>.
+              Cobro c/IVA <span className="font-medium text-foreground">{formatCLP(totalVentaCliente)}</span> - Costos brutos <span className="font-medium text-foreground">{formatCLP(costoTotalGlobal)}</span>.
             </p>
           </div>
 
@@ -2250,7 +2398,7 @@ export function AiSuggestionsGrid({
               {provisionIvaSII > 0 ? formatCLP(provisionIvaSII) : `${formatCLP(remanenteIvaFavor)} (a favor)`}
             </div>
             <p className="text-[11px] text-muted-foreground mt-1">
-              IVA Débito ({formatCLP(ivaDebitoTotal)}) menos IVA Crédito ({formatCLP(ivaCreditoTotal)}).
+              IVA Débito ({formatCLP(ivaDebitoTotal)}) menos IVA Crédito real ({formatCLP(ivaCreditoTotal)}).
             </p>
           </div>
 
@@ -2258,17 +2406,18 @@ export function AiSuggestionsGrid({
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-[#3B4F66] uppercase tracking-wider flex items-center gap-1.5">
                 <TrendingUp className="h-4 w-4 text-[#4A607A]" />
-                Ganancia Neta Real
+                Utilidad Neta Real (ex-IVA)
               </span>
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#4A607A]/12 text-[#3B4F66]">
-                Margen: {formatPercentage(margenFinal)}
+                Margen s/ Venta: {formatPercentage(margenFinal)}
               </span>
             </div>
             <div className={`text-2xl font-bold tabular-nums mt-2 ${gananciaNetaLimpia >= 0 ? "text-[#3B4F66]" : "text-rose-700"}`}>
               {formatCLP(gananciaNetaLimpia)}
             </div>
             <p className="text-[11px] text-muted-foreground mt-1">
-              Utilidad neta limpia definitiva tras deducir IVA F29 y mermas.
+              Venta Neta ({formatCLP(projectFin.facturacionNeta)}) - Costo Neto ({formatCLP(projectFin.costoNetoTotal)})
+              {montoMermas > 0 ? ` - Mermas (${formatCLP(montoMermas)})` : ''}.
             </p>
           </div>
         </div>
@@ -2288,16 +2437,17 @@ export function AiSuggestionsGrid({
               </Badge>
             </h3>
             <p className="text-xs text-muted-foreground">
-              Añade servicios manualmente o mediante IA. Revisa y aprueba cada ítem para transferirlo al presupuesto oficial.
+              Añada partidas manualmente o con asistencia IA. Apruebe cada línea para incorporarla al presupuesto oficial.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {hasRetailSales && selectedIds.length >= 2 && (
             <Button
               size="sm"
               onClick={handleConsolidateClick}
+              disabled={!canEditDraft}
               className="h-8 text-xs gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-xs animate-in fade-in zoom-in"
             >
               <Combine className="h-3.5 w-3.5" />
@@ -2305,64 +2455,51 @@ export function AiSuggestionsGrid({
             </Button>
           )}
 
-          {editableSuggestions.length > 0 && (
+          {editableSuggestions.length > 0 && canEditDraft && (
             <>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleAddAbono}
-                className="h-8 text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200 gap-1 font-semibold shadow-xs"
-              >
-                <Banknote className="h-3.5 w-3.5" />
-                Agregar Abono
-              </Button>
-              <div className="relative inline-block text-left">
+              <div className="relative inline-block text-left" ref={viaticoMenuRef}>
                 <Button
                   size="sm"
                   variant="outline"
+                  aria-haspopup="menu"
+                  aria-expanded={viaticoMenuOpen}
                   onClick={() => setViaticoMenuOpen(prev => !prev)}
                   className="h-8 text-xs text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200 gap-1 font-semibold shadow-xs"
                 >
                   <MapPin className="h-3.5 w-3.5" />
-                  Viático Geográfico
+                  Viático / Traslado
                   <ChevronDown className="h-3 w-3 ml-0.5 opacity-60" />
                 </Button>
                 {viaticoMenuOpen && (
-                  <div className="absolute right-0 mt-1 w-64 bg-popover text-popover-foreground border border-border rounded-lg shadow-xl z-50 py-1.5 text-xs animate-in fade-in-50 zoom-in-95">
+                  <div
+                    role="menu"
+                    aria-label="Zonas de viático y traslado"
+                    className="absolute right-0 mt-1 w-72 bg-popover text-popover-foreground border border-border rounded-lg shadow-xl z-50 py-1.5 text-xs animate-in fade-in-50 zoom-in-95"
+                  >
                     <div className="px-3 py-1 font-semibold text-muted-foreground uppercase tracking-wider text-[10px] border-b border-border/50">
-                      Calculadora de Viáticos
+                      Calculadora de Traslados &amp; Viáticos
                     </div>
+                    {GENERIC_VIATICO_ZONES.map((zone) => (
+                      <button
+                        key={zone.id}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => handleAddViatico(zone)}
+                        className="w-full text-left px-3 py-2 hover:bg-muted/70 flex flex-col transition-colors border-b border-border/40 cursor-pointer"
+                      >
+                        <span className="font-semibold text-foreground">
+                          {zone.title} ({formatCLP(zone.costo + zone.ganancia)} Neto)
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">{zone.detail}</span>
+                      </button>
+                    ))}
                     <button
                       type="button"
-                      onClick={() => handleAddViatico(0)}
-                      className="w-full text-left px-3 py-2 hover:bg-muted/70 flex flex-col transition-colors cursor-pointer"
+                      role="menuitem"
+                      onClick={handleAddCustomViatico}
+                      className="w-full text-left px-3 py-2 hover:bg-primary/5 flex items-center justify-between transition-colors cursor-pointer text-primary font-semibold"
                     >
-                      <span className="font-semibold text-foreground">Anillo 0 ($0 Neto / $0 Total)</span>
-                      <span className="text-[11px] text-muted-foreground">Rancagua, Machalí, Olivar (0-15 km)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleAddViatico(1)}
-                      className="w-full text-left px-3 py-2 hover:bg-muted/70 flex flex-col transition-colors border-t border-border/40 cursor-pointer"
-                    >
-                      <span className="font-semibold text-foreground">Anillo 1 ($30.000 Neto / $35.700 Total)</span>
-                      <span className="text-[11px] text-muted-foreground">Requínoa, Mostazal, Rengo, Coya (15-35 km)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleAddViatico(2)}
-                      className="w-full text-left px-3 py-2 hover:bg-muted/70 flex flex-col transition-colors border-t border-border/40 cursor-pointer"
-                    >
-                      <span className="font-semibold text-foreground">Anillo 2 ($65.000 Neto / $77.350 Total)</span>
-                      <span className="text-[11px] text-muted-foreground">San Fernando, Colchagua, Buin, Paine (35-70 km)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleAddViatico(3)}
-                      className="w-full text-left px-3 py-2 hover:bg-muted/70 flex flex-col transition-colors border-t border-border/40 cursor-pointer"
-                    >
-                      <span className="font-semibold text-foreground">Anillo 3 ($95.000 Neto / $113.050 Total)</span>
-                      <span className="text-[11px] text-muted-foreground">Stgo Oriente, Viña del Mar, Casablanca (&gt;70 km)</span>
+                      <span>+ Viático / Ciudad Personalizada...</span>
                     </button>
                   </div>
                 )}
@@ -2413,7 +2550,7 @@ export function AiSuggestionsGrid({
       </div>
 
       {/* SIMULADOR Y OPTIMIZADOR DE MARGEN OBJETIVO */}
-      {editableSuggestions.length > 0 && (
+      {editableSuggestions.length > 0 && canViewMargins && canEditDraft && (
         <div className="glass-card rounded-xl p-3.5 space-y-2.5">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
@@ -2422,20 +2559,22 @@ export function AiSuggestionsGrid({
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-foreground">Optimizador de Margen del Evento</span>
+                  <span className="text-xs font-bold text-foreground">
+                    Optimizador de Margen del {terms.projectSingular}
+                  </span>
                   <Badge variant="outline" className="text-[10px] font-bold bg-white/80 text-[#3B4F66] border-[#4A607A]/30">
-                    Actual: {formatPercentage(costoTotalGlobal > 0 ? (totalesFacturables.ganancia / costoTotalGlobal) * 100 : 0)}
+                    Actual s/ Venta: {formatPercentage(margenFinal)}
                   </Badge>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Fija el margen neto deseado para todo el evento o para cada servicio individual en la tabla.
+                  Fije el markup/margen objetivo para este {terms.projectSingular.toLowerCase()} (Meta rubro {industry.shortName}: {industry.targetMarginPct}%).
                 </p>
               </div>
             </div>
 
             {/* Controles de Margen */}
             <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
-              <span className="text-[11px] font-semibold text-muted-foreground mr-1">Margen Objetivo:</span>
+              <span className="text-[11px] font-semibold text-muted-foreground mr-1">Objetivo:</span>
               {[20, 25, 30, 35, 40, 50].map((pct) => (
                 <button
                   key={pct}
@@ -2458,7 +2597,7 @@ export function AiSuggestionsGrid({
                   value={targetEventMargin || ''}
                   onChange={(e) => setTargetEventMargin(Math.max(0, parseFloat(e.target.value) || 0))}
                   className="w-10 text-center text-xs font-bold bg-transparent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  placeholder="35"
+                  placeholder={String(industry.targetMarginPct || 35)}
                 />
                 <span className="text-[10px] font-bold text-muted-foreground">%</span>
               </div>
@@ -2468,25 +2607,38 @@ export function AiSuggestionsGrid({
                 variant="outline"
                 onClick={() => handleApplyDirectMargin(targetEventMargin)}
                 className="h-7 text-xs font-semibold gap-1 bg-white/85 hover:bg-white text-[#3B4F66] border-slate-200 ml-1 shadow-2xs"
-                title="Aplica este margen directamente a todos los servicios de venta"
+                title="Aplica este markup directamente a todos los servicios de venta"
               >
                 <span>Calcular Directo</span>
               </Button>
 
-              <Button
-                size="sm"
-                onClick={handleOptimizeMarginsWithAi}
-                disabled={isOptimizingWithAi}
-                className="h-7 text-xs font-semibold gap-1 bg-[#467366] hover:bg-[#3A6155] text-white shadow-2xs"
-                title="La IA distribuye los márgenes estratégicamente según el rubro de cada servicio para alcanzar el objetivo global"
-              >
-                {isOptimizingWithAi ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Sparkles className="h-3.5 w-3.5" />
-                )}
-                <span>Optimizar con IA</span>
-              </Button>
+              {canUseAiFlag ? (
+                <Button
+                  size="sm"
+                  onClick={handleOptimizeMarginsWithAi}
+                  disabled={isOptimizingWithAi}
+                  className="h-7 text-xs font-semibold gap-1 bg-[#467366] hover:bg-[#3A6155] text-white shadow-2xs"
+                  title="La IA distribuye los márgenes estratégicamente según el rubro para alcanzar el objetivo"
+                >
+                  {isOptimizingWithAi ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5" />
+                  )}
+                  <span>Optimizar con IA</span>
+                </Button>
+              ) : (
+                <Link href="/billing" title={`Disponible desde ${aiPlan.name}`}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs font-semibold gap-1 border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
+                  >
+                    <Lock className="h-3 w-3 text-amber-700" />
+                    <span>IA ({aiPlan.name})</span>
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
 
@@ -2788,7 +2940,7 @@ export function AiSuggestionsGrid({
             })}
           </TableBody>
 
-          {editableSuggestions.length > 0 && (
+          {editableSuggestions.length > 0 && canViewMargins && (
             <TableFooter>
               {/* Fila 1: Productos Facturables */}
               <TableRow className="bg-emerald-50/10 font-semibold border-b text-xs">
@@ -2817,40 +2969,45 @@ export function AiSuggestionsGrid({
                 </TableRow>
               )}
 
-              {/* Fila 3: Mermas */}
+              {/* Fila 3: Mermas sobre costo de insumos (persistida en BD) */}
               <TableRow className="bg-amber-50/20 font-semibold border-b text-xs">
                 <TableCell colSpan={5} className="font-bold text-right border-r text-amber-900/80">
                   <div className="flex items-center justify-end gap-2">
-                    <span>(-) Descuento por Mermas / Imprevistos:</span>
+                    <span>(-) Mermas / Reposición s/ Costo de Insumos:</span>
                     <div className="flex items-center">
                       <Input
                         type="number"
                         min="0"
                         max="100"
-                        value={mermas || ""}
-                        onChange={(e) => setMermas(Number(e.target.value))}
+                        disabled={!canEditDraft}
+                        value={mermas === 0 ? '' : mermas}
+                        onChange={(e) => setMermas(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
+                        onBlur={(e) => persistMermasPct(Number(e.target.value) || 0)}
                         className="h-7 w-14 text-xs px-1 text-center font-bold"
                         placeholder="0"
                       />
                       <span className="text-xs ml-1 text-amber-800">%</span>
+                      {savingMermas && <Loader2 className="h-3 w-3 animate-spin ml-1 text-amber-700" />}
                     </div>
                   </div>
                 </TableCell>
                 <TableCell className="bg-red-50/20"></TableCell>
-                <TableCell className="bg-red-50/20 border-r"></TableCell>
+                <TableCell className="bg-red-50/20 border-r text-right text-[11px] text-muted-foreground">
+                  Base: {formatCLP(baseMerma)}
+                </TableCell>
                 <TableCell colSpan={2} className="bg-amber-50/30 text-right text-amber-900 pr-3">
-                  Monto Mermas: <span className="font-bold">{formatCLP(montoMermas)}</span>
+                  Monto Mermas: <span className="font-bold">-{formatCLP(montoMermas)}</span>
                 </TableCell>
                 <TableCell className="bg-amber-50/30 border-r"></TableCell>
                 <TableCell colSpan={2}></TableCell>
               </TableRow>
 
-              {/* Fila 4: Cash en Mano Inmediato */}
+              {/* Fila 4: Flujo Bruto Proyectado */}
               <TableRow className="bg-emerald-500/15 dark:bg-emerald-950/40 font-bold border-t-2 border-emerald-600/30 text-xs">
                 <TableCell colSpan={5} className="text-right border-r uppercase tracking-wider text-emerald-900 dark:text-emerald-200">
                   <div className="flex items-center justify-end gap-1.5">
                     <Banknote className="h-4 w-4 text-emerald-600" />
-                    <span>💵 DINERO EN MANO (Cobro Total - Costos Totales):</span>
+                    <span>Flujo Bruto (Cobro Total - Costos Totales):</span>
                   </div>
                 </TableCell>
                 <TableCell className="bg-red-50/40"></TableCell>
@@ -2859,7 +3016,7 @@ export function AiSuggestionsGrid({
                 </TableCell>
                 
                 <TableCell colSpan={2} className="bg-emerald-50/60 dark:bg-emerald-950/60 text-right text-emerald-950 dark:text-emerald-100 pr-3">
-                  Cash Inmediato en Mano: 
+                  Flujo Bruto: 
                   <span className={`ml-2 text-sm font-black ${cashInmediato >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-red-600"}`}>
                     {formatCLP(cashInmediato)}
                   </span>
@@ -2869,7 +3026,7 @@ export function AiSuggestionsGrid({
                 </TableCell>
                 
                 <TableCell className="text-center font-black text-emerald-700 dark:text-emerald-300 text-xs border-r">
-                  {formatPercentage(costoTotalGlobal > 0 ? (cashInmediato / costoTotalGlobal) * 100 : 0)}
+                  {formatPercentage(projectFin.markupCostoPct)}
                 </TableCell>
                 <TableCell colSpan={1}></TableCell>
               </TableRow>
@@ -2879,7 +3036,7 @@ export function AiSuggestionsGrid({
                 <TableCell colSpan={5} className="text-right border-r uppercase tracking-wider text-amber-900 dark:text-amber-200">
                   <div className="flex items-center justify-end gap-1.5">
                     <Receipt className="h-3.5 w-3.5 text-amber-600" />
-                    <span>🏛️ Reserva Tributaria IVA (F29 SII):</span>
+                    <span>Reserva Tributaria IVA (F29 SII):</span>
                   </div>
                 </TableCell>
                 <TableCell colSpan={2} className="border-r text-center text-amber-800 dark:text-amber-300">
@@ -2900,25 +3057,25 @@ export function AiSuggestionsGrid({
                 <TableCell colSpan={1}></TableCell>
               </TableRow>
 
-              {/* Fila 6: Gran Total / Ganancia Real Limpia */}
+              {/* Fila 6: Gran Total / Utilidad Neta Real */}
               <TableRow className="bg-muted/80 font-bold border-t-2 border-black/20 text-xs">
                 <TableCell colSpan={5} className="text-right border-r uppercase tracking-wider text-foreground">
                   <div className="flex items-center justify-end gap-1.5">
                     <TrendingUp className="h-4 w-4 text-blue-600" />
-                    <span>💎 TU GANANCIA LIMPIA DE BOLSILLO:</span>
+                    <span>Utilidad Neta Real (ex-IVA):</span>
                   </div>
                 </TableCell>
                 <TableCell className="bg-red-50/40"></TableCell>
-                <TableCell className="bg-red-50/40 border-r text-right text-red-800 font-bold">{formatCLP(costoTotalGlobal)}</TableCell>
+                <TableCell className="bg-red-50/40 border-r text-right text-red-800 font-bold">{formatCLP(projectFin.costoNetoTotal)}</TableCell>
                 
                 <TableCell colSpan={2} className="bg-blue-50/50 dark:bg-blue-950/40 text-right text-blue-950 dark:text-blue-100 pr-3">
-                  Utilidad 100% Definitiva: 
+                  Utilidad Neta: 
                   <span className={`ml-2 text-sm font-black ${gananciaNetaLimpia >= 0 ? "text-blue-700 dark:text-blue-400" : "text-red-600"}`}>
                     {formatCLP(gananciaNetaLimpia)}
                   </span>
                 </TableCell>
                 <TableCell className="bg-blue-50/50 dark:bg-blue-950/40 border-r text-right font-black text-blue-800 dark:text-blue-300 text-sm">
-                  {formatCLP(totalVentaCliente)}
+                  {formatCLP(projectFin.facturacionNeta)} <span className="text-[10px] font-normal text-muted-foreground">Neto</span>
                 </TableCell>
                 
                 <TableCell className="text-center font-black text-blue-700 dark:text-blue-300 text-xs border-r">{formatPercentage(margenFinal)}</TableCell>
@@ -2937,6 +3094,7 @@ export function AiSuggestionsGrid({
         }}
         selectedItems={editableSuggestions.filter(s => selectedIds.includes(s.id!))}
         initialName={consolidationName}
+        defaultQuantity={baseQuantity}
         onConsolidate={handlePerformConsolidate}
       />
 
@@ -2949,7 +3107,7 @@ export function AiSuggestionsGrid({
       />
 
       {/* Barra flotante para consolidación rápida y directa */}
-      {selectedIds.length >= 2 && (
+      {selectedIds.length >= 2 && canEditDraft && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 sm:gap-3 px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl bg-card/95 backdrop-blur-xl border border-primary/40 shadow-2xl shadow-black/30 animate-in slide-in-from-bottom-5 duration-300 ring-1 ring-primary/20">
           <div className="flex items-center gap-2 pl-1 pr-2 border-r border-border/60 shrink-0">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 font-bold text-xs shadow-2xs">
@@ -2964,7 +3122,7 @@ export function AiSuggestionsGrid({
           <div className="flex items-center gap-2">
             <Input
               type="text"
-              placeholder="Nombre del consolidado (ej. Piscolas)..."
+              placeholder={`Nombre partida consolidada (${terms.projectSingular})...`}
               value={consolidationName}
               onChange={(e) => setConsolidationName(e.target.value)}
               onKeyDown={(e) => {
@@ -3004,7 +3162,7 @@ export function AiSuggestionsGrid({
         </div>
       )}
 
-      {canUseAi && (
+      {canUseAiFlag && canEditDraft && (
         <FloatingDraftAssistant 
           draftItems={editableSuggestions} 
           onApplyActions={handleAssistantActions} 

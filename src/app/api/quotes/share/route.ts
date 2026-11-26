@@ -2,7 +2,9 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createAdminClient, getAuthenticatedContext } from '@/lib/supabase/admin';
-import { isDuoProducciones, resolveOrgEntitlements } from '@/lib/entitlements';
+import { resolveOrgEntitlements } from '@/lib/entitlements';
+import { computeProjectFinancials } from '@/lib/finance-core';
+import { canUseModule } from '@/lib/plan-guards';
 import { fetchPlansAndAddonsServer, hydrateOrganizationSaas } from '@/lib/saas-storage';
 import type { Event, EventItem, Organization } from '@/types/database';
 
@@ -41,11 +43,11 @@ export async function POST(req: NextRequest) {
     const { plans, addons } = await fetchPlansAndAddonsServer();
     const entitlements = resolveOrgEntitlements(org, plans, addons);
 
-    if (!entitlements.modules.mod_pdf_quotes) {
+    if (!canUseModule(entitlements, 'mod_pdf_quotes')) {
       return NextResponse.json(
         {
           error:
-            'El Portal Web Interactivo de Cotización requiere el Plan Operación Esencial o el módulo Cotizaciones PDF.',
+            'El Portal Web Interactivo de Cotización requiere el Plan Operación Esencial ($34.990/mes) o el módulo Cotizaciones PDF.',
           upgradeRequired: true,
         },
         { status: 403 }
@@ -82,21 +84,20 @@ export async function POST(req: NextRequest) {
         i.servicio !== 'GASTO_REAL'
     );
 
-    const totalCostoNeto = quoteItems.reduce((sum, i) => {
-      const unitCostoNeto =
-        i.tipo_doc_costo === 'boleta' ? Number(i.costo || 0) : Math.round(Number(i.costo || 0) / 1.19);
-      return sum + unitCostoNeto * (Number(i.cantidad) || 1);
-    }, 0);
-
-    const totalGanancia = quoteItems.reduce(
-      (sum, i) => sum + (i.es_insumo ? 0 : Number(i.ganancia || 0)) * (Number(i.cantidad) || 1),
-      0
-    );
-
-    const projectMargin = totalCostoNeto > 0 ? (totalGanancia / totalCostoNeto) * 100 : 100;
+    const projectFin = computeProjectFinancials(quoteItems, {
+      taxRegime: event.tax_regime || org.tax_regime,
+      onlyApproved: true,
+    });
+    const projectMargin =
+      projectFin.facturacionNetaSinReembolsables > 0
+        ? projectFin.margenOperacionalPct
+        : 100;
     const minMarginFloor = org.min_margin_pct ?? 15;
     const isAdminUser =
-      ctx.profile.role === 'admin' || Boolean(ctx.profile.is_super_admin);
+      ctx.profile.role === 'admin' ||
+      ctx.profile.role === 'owner' ||
+      ctx.profile.role === 'finanzas' ||
+      Boolean(ctx.profile.is_super_admin);
 
     if (
       !isAdminUser &&

@@ -1,17 +1,17 @@
 # Graph Report - resilient-volta  (2026-11-26)
 
 ## Corpus Check
-- 155 files · ~145,884 words
+- 169 files · ~184,016 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 4 file(s) not represented in the graph (top: (none) 2, .css 1, .tsbuildinfo 1)
 
 ## Summary
-- 830 nodes · 3385 edges · 33 communities (24 shown, 9 thin omitted)
-- Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 1 edges (avg confidence: 0.85)
+- 992 nodes · 4426 edges · 37 communities (30 shown, 7 thin omitted)
+- Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 2 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `91565e8c`
+- Built from commit: `ba4c40b1`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -20,8 +20,8 @@
 - package.json
 - cn
 - ai-optimizer.ts
-- createAdminClient
 - next
+- createAdminClient
 - 01 · Estrategia de Marca & Posicionamiento — FIGURA
 - compilerOptions
 - dependencies
@@ -31,78 +31,82 @@
 - next.config.mjs
 - autonomous_execution.md
 - vercel.json
-- admin/plans/route.ts
+- register-owner/route.ts
 - database.ts
 - devDependencies
-- pay-deposit/route.ts
-- entitlements.ts
+- admin.ts
+- industry-demo-datasets.ts
 - allowScripts
 - scripts
 - companies/route.ts
 - react
-- [token]/page.tsx
+- useWorkspaceConfig
 - adversarial-playwright-audit.mjs
-- LocalQueryBuilder
+- createAdminClient
 - constants.ts
-- Badge
-- tailwind.config.ts
+- LocalQueryBuilder
+- bank-reconciler.tsx
+- floating-draft-assistant.tsx
+- Event
+- audit.ts
+- local-demo-client.ts
 
 ## God Nodes (most connected - your core abstractions)
-1. `Button` - 102 edges
-2. `cn()` - 92 edges
-3. `react` - 67 edges
-4. `formatCLP()` - 62 edges
-5. `Badge()` - 57 edges
-6. `lucide-react` - 56 edges
-7. `next` - 55 edges
-8. `createClient()` - 53 edges
-9. `CardContent` - 51 edges
-10. `Card` - 49 edges
+1. `Button` - 110 edges
+2. `cn()` - 100 edges
+3. `react` - 72 edges
+4. `useWorkspaceConfig()` - 72 edges
+5. `Badge()` - 70 edges
+6. `formatCLP()` - 64 edges
+7. `next` - 63 edges
+8. `lucide-react` - 61 edges
+9. `createClient()` - 57 edges
+10. `CardContent` - 53 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `FloatingDraftAssistantProps` --references--> `EventItem`  [EXTRACTED]
   src/components/events/floating-draft-assistant.tsx → src/types/database.ts
-- `TableCaption` --calls--> `cn()`  [EXTRACTED]
-  src/components/ui/table.tsx → src/lib/utils.ts
 - `LoginPage()` --calls--> `LoginForm()`  [EXTRACTED]
   src/app/(auth)/login/page.tsx → src/components/auth/login-form.tsx
-- `MfaChallengePage()` --calls--> `Button`  [EXTRACTED]
-  src/app/(auth)/mfa-challenge/page.tsx → src/components/ui/button.tsx
 - `MfaChallengePage()` --calls--> `Input`  [EXTRACTED]
   src/app/(auth)/mfa-challenge/page.tsx → src/components/ui/input.tsx
+- `MfaChallengePage()` --calls--> `Label`  [EXTRACTED]
+  src/app/(auth)/mfa-challenge/page.tsx → src/components/ui/label.tsx
+- `MfaChallengePage()` --calls--> `createClient()`  [EXTRACTED]
+  src/app/(auth)/mfa-challenge/page.tsx → src/lib/supabase/client.ts
 
 ## Import Cycles
-- None detected.
+- 3-file cycle: `src/lib/cost-metadata.ts -> src/lib/utils.ts -> src/lib/finance-core.ts -> src/lib/cost-metadata.ts`
 
-## Communities (33 total, 9 thin omitted)
+## Communities (37 total, 7 thin omitted)
 
 ### Community 0 - "(dashboard)/layout.tsx"
-Cohesion: 0.10
-Nodes (28): canvas-confetti, framer-motion, computePopoverPosition(), FiguraGuideBot(), FiguraMascot(), MascotMood, FIGURA_TOUR_STORAGE_KEY, FiguraTourContext (+20 more)
+Cohesion: 0.09
+Nodes (38): canvas-confetti, framer-motion, DashboardLayout(), FiguraGuideBot, TierWorkspaceBanner(), computePopoverPosition(), FiguraGuideBot(), FiguraMascot() (+30 more)
 
 ### Community 1 - "package.json"
 Cohesion: 0.10
-Nodes (19): name, private, version, autoprefixer, class-variance-authority, clsx, eslint, eslint-config-next (+11 more)
+Nodes (20): name, private, version, autoprefixer, clsx, eslint, eslint-config-next, html2canvas (+12 more)
 
 ### Community 2 - "cn"
-Cohesion: 0.10
-Nodes (64): lucide-react, recharts, xlsx, LoginPage(), MfaChallengePage(), PendingPage(), RegisterPage(), BillingPageContent() (+56 more)
+Cohesion: 0.11
+Nodes (67): class-variance-authority, react, recharts, LoginPage(), MfaChallengePage(), PendingPage(), RegisterPage(), BillingPageContent() (+59 more)
 
 ### Community 3 - "ai-optimizer.ts"
 Cohesion: 0.11
-Nodes (33): @google/genai, POST(), runtime, POST(), runtime, POST(), runtime, ALLOWED_EXTENSIONS (+25 more)
+Nodes (36): @google/genai, DELETE(), POST(), runtime, POST(), runtime, POST(), runtime (+28 more)
 
-### Community 4 - "createAdminClient"
-Cohesion: 0.12
-Nodes (32): next, GET(), isAuthorizedSuperAdmin(), PATCH(), PATCH(), POST(), DELETE(), dynamic (+24 more)
+### Community 4 - "next"
+Cohesion: 0.14
+Nodes (13): next, @supabase/ssr, GET(), dynamic, runtime, dynamic, metadata, WelcomeLandingPage() (+5 more)
 
-### Community 5 - "next"
-Cohesion: 0.12
-Nodes (20): dynamic, generateInviteCode(), POST(), RegisterOwnerSchema, runtime, slugify(), dynamic, GET() (+12 more)
+### Community 5 - "createAdminClient"
+Cohesion: 0.10
+Nodes (39): zod, PATCH(), dynamic, isAuthorizedSuperAdmin(), PATCH(), PatchBodySchema, runtime, UpdateAddonSchema (+31 more)
 
 ### Community 6 - "01 · Estrategia de Marca & Posicionamiento — FIGURA"
 Cohesion: 0.04
-Nodes (43): 01 · Estrategia de Marca & Posicionamiento — FIGURA, 1. Génesis del Nombre (Identidad del Fundador), 2. Declaración de Posicionamiento, 3. Territorio de Marca & Arquetipo, 4. Los 9 Verticales Oficiales de FIGURA, 5. Tono de Voz & Reglas Editoriales (Cero "AI Slop"), Lista Negra de Clichés ("AI Slop" Prohibido), Principios de Redacción (+35 more)
+Nodes (41): 01 · Estrategia de Marca & Posicionamiento — FIGURA, 1. Génesis del Nombre (Identidad del Fundador), 2. Declaración de Posicionamiento, 3. Territorio de Marca & Arquetipo, 4. Los 9 Verticales Oficiales de FIGURA, 5. Tono de Voz & Reglas Editoriales (Cero "AI Slop"), Lista Negra de Clichés ("AI Slop" Prohibido), Principios de Redacción (+33 more)
 
 ### Community 7 - "compilerOptions"
 Cohesion: 0.10
@@ -113,28 +117,32 @@ Cohesion: 0.10
 Nodes (21): dependencies, canvas-confetti, class-variance-authority, clsx, framer-motion, @google/genai, html2canvas, jspdf (+13 more)
 
 ### Community 9 - "saas-storage.ts"
-Cohesion: 0.12
-Nodes (27): CheckoutSchema, dynamic, POST(), runtime, dynamic, POST(), runtime, VerifyBillingSchema (+19 more)
+Cohesion: 0.13
+Nodes (16): CheckoutSchema, dynamic, runtime, dynamic, POST(), runtime, VerifyBillingSchema, dynamic (+8 more)
 
 ### Community 10 - "app/layout.tsx"
 Cohesion: 0.33
 Nodes (3): instrumentSerif, metadata, plusJakarta
 
-### Community 18 - "admin/plans/route.ts"
-Cohesion: 0.12
-Nodes (16): zod, dynamic, isAuthorizedSuperAdmin(), PatchBodySchema, runtime, UpdateAddonSchema, UpdateOrgSubscriptionSchema, UpdatePlanSchema (+8 more)
+### Community 18 - "register-owner/route.ts"
+Cohesion: 0.19
+Nodes (13): dynamic, generateInviteCode(), POST(), RegisterOwnerSchema, runtime, slugify(), AcceptQuoteSchema, dynamic (+5 more)
 
 ### Community 19 - "database.ts"
 Cohesion: 0.07
-Nodes (60): BillingPage(), INDUSTRY_ICONS, WelcomeLandingPage(), ALL_MODULES_ORDER, MODULE_DESCRIPTIONS, PERSUASIVE_PITCH, PlanDetailModal(), PlanDetailModalProps (+52 more)
+Nodes (79): lucide-react, BillingPage(), OnboardingStudioPage(), BeforeAfterSection(), BeforeAfterSectionProps, TICKET_STEPS, BenchmarkAndEnterpriseSection(), BenchmarkAndEnterpriseSectionProps (+71 more)
 
 ### Community 20 - "devDependencies"
 Cohesion: 0.15
 Nodes (13): devDependencies, autoprefixer, eslint, eslint-config-next, playwright-core, postcss, tailwindcss, @types/canvas-confetti (+5 more)
 
-### Community 22 - "entitlements.ts"
+### Community 21 - "admin.ts"
 Cohesion: 0.19
-Nodes (12): dynamic, OnboardingSchema, POST(), runtime, ALL_MODULE_KEYS, buildModulesRecord(), calculateCheckoutAmountClp(), calculateCustomPriceClp() (+4 more)
+Nodes (12): CompanyRow, UserRow, CompanyBrandingDialogProps, PlansAdminTabProps, AiGuardResult, AuthenticatedContext, DEMO_ORG_LABELS, resolveDemoIndustryFromRequest() (+4 more)
+
+### Community 22 - "industry-demo-datasets.ts"
+Cohesion: 0.19
+Nodes (13): CostResourceType, StaffModality, DemoCostSeed, IndustryStarterCost, buildIndustryDemoDataset(), INDUSTRY_DATASETS, IndustrySeedBlueprint, RawCostSpec (+5 more)
 
 ### Community 23 - "allowScripts"
 Cohesion: 0.33
@@ -145,52 +153,72 @@ Cohesion: 0.33
 Nodes (6): scripts, build, dev, lint, start, test:e2e
 
 ### Community 25 - "companies/route.ts"
-Cohesion: 0.20
-Nodes (11): BankInfoSchema, CreateCompanySchema, dynamic, EXTRA_STARTER_COSTS, generateInviteCode(), POST(), runtime, SafeLogoUrlSchema (+3 more)
+Cohesion: 0.17
+Nodes (14): BankInfoSchema, CreateCompanySchema, dynamic, EXTRA_STARTER_COSTS, generateInviteCode(), GET(), isAuthorizedSuperAdmin(), POST() (+6 more)
 
 ### Community 26 - "react"
 Cohesion: 0.08
-Nodes (98): jspdf, react, @tanstack/react-table, CostsPage(), EventDetailPage(), GovernancePage(), UsersManagementSection(), OnboardingStudioPage() (+90 more)
+Nodes (76): jspdf, CostsPage(), CostFormDialog(), CostFormDialogProps, CostsTableProps, buildDuoPresetOverride(), buildProposalRow(), currIsBoleta() (+68 more)
 
-### Community 27 - "[token]/page.tsx"
-Cohesion: 0.27
-Nodes (9): POST(), PublicQuoteData, PublicQuoteItem, PublicQuotePortalPage(), LOCAL_DEMO_STORAGE_KEY, formatRutCL(), validateRutCL(), QuoteCurrency (+1 more)
+### Community 27 - "useWorkspaceConfig"
+Cohesion: 0.06
+Nodes (117): @tanstack/react-table, xlsx, AnalyticsPage(), DashboardData, DashboardPage(), ShowcaseEvent, EventDetailPage(), ReportPage() (+109 more)
 
 ### Community 28 - "adversarial-playwright-audit.mjs"
 Cohesion: 0.31
 Nodes (5): playwright-core, assert(), findBrowserExecutable(), runAudit(), waitForServer()
 
+### Community 29 - "createAdminClient"
+Cohesion: 0.17
+Nodes (18): CreateUserSchema, dynamic, GET(), getAuthFlags(), GRANULAR_ONLY_ROLES, PATCH(), POST(), resolveTargetOrgEntitlements() (+10 more)
+
 ### Community 30 - "constants.ts"
-Cohesion: 0.06
-Nodes (39): @supabase/ssr, @supabase/supabase-js, GET(), dynamic, GET(), runtime, POST(), runtime (+31 more)
+Cohesion: 0.08
+Nodes (36): @supabase/supabase-js, dynamic, POST(), runtime, SwitchCompanySchema, dynamic, GET(), runtime (+28 more)
 
-### Community 31 - "Badge"
-Cohesion: 0.07
-Nodes (58): AnalyticsPage(), EventsPage(), DashboardLayout(), FiguraGuideBot, EventTreasurySummary, DemoEntryContent(), DemoEntryRedirectPage(), FeatureLockCard() (+50 more)
+### Community 31 - "LocalQueryBuilder"
+Cohesion: 0.10
+Nodes (4): evaluateSingleCondition(), getColumnValue(), LocalQueryBuilder, matchLikePattern()
 
-### Community 32 - "tailwind.config.ts"
-Cohesion: 0.50
-Nodes (3): tailwindcss, tailwindcss-animate, config
+### Community 32 - "bank-reconciler.tsx"
+Cohesion: 0.33
+Nodes (8): BankReconciler(), ExpenseDocMode, normalizeChileanDate(), normalizeChileanNumber(), ParsedMovementRow, ReconcileKind, scoreEventMatch(), honorariosGrossUp()
+
+### Community 33 - "floating-draft-assistant.tsx"
+Cohesion: 0.36
+Nodes (6): react-dom, FloatingDraftAssistant(), FloatingDraftAssistantProps, Message, FormattedChatText(), renderInlineTokens()
+
+### Community 34 - "Event"
+Cohesion: 0.24
+Nodes (12): EventTreasurySummary, BankReconcilerProps, ConsolidateDialogProps, DistributeInsumoDialogProps, EditEventDialogProps, EventCardProps, FloatingFinancialAdvisorProps, DateConflict (+4 more)
+
+### Community 35 - "audit.ts"
+Cohesion: 0.15
+Nodes (18): appendLocalDemoAuditLog(), AUDIT_ACTION_LABELS, AUDIT_ENTITY_LABELS, AuditAction, AuditActorContext, AuditEntityRef, AuditEntityType, AuditLogQueryFilters (+10 more)
+
+### Community 36 - "local-demo-client.ts"
+Cohesion: 0.18
+Nodes (20): DemoEntryContent(), DemoEntryRedirectPage(), buildInitialDemoDatabase(), enableLocalDemoMode(), getLocalDemoStats(), INDUSTRY_DEMO_COMPANIES, loadDb(), LOCAL_DEMO_CONSENT_KEY (+12 more)
 
 ## Knowledge Gaps
 - **12 isolated node(s):** `next/core-web-vitals`, `html2canvas`, `@types/canvas-confetti`, `@types/node`, `@types/pdf-parse` (+7 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 306 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **9 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 338 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **7 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `next` connect `createAdminClient` to `(dashboard)/layout.tsx`, `package.json`, `cn`, `ai-optimizer.ts`, `next`, `saas-storage.ts`, `app/layout.tsx`, `admin/plans/route.ts`, `database.ts`, `pay-deposit/route.ts`, `entitlements.ts`, `companies/route.ts`, `react`, `[token]/page.tsx`, `constants.ts`, `Badge`?**
-  _High betweenness centrality (0.159) - this node is a cross-community bridge._
+- **Why does `next` connect `next` to `(dashboard)/layout.tsx`, `package.json`, `cn`, `ai-optimizer.ts`, `local-demo-client.ts`, `createAdminClient`, `saas-storage.ts`, `app/layout.tsx`, `register-owner/route.ts`, `database.ts`, `admin.ts`, `companies/route.ts`, `react`, `useWorkspaceConfig`, `createAdminClient`, `constants.ts`?**
+  _High betweenness centrality (0.145) - this node is a cross-community bridge._
 - **What connects `next/core-web-vitals`, `html2canvas`, `@types/canvas-confetti` to the rest of the system?**
   _12 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `(dashboard)/layout.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.10338680926916222 - nodes in this community are weakly interconnected._
-- **Why does `react` connect `react` to `(dashboard)/layout.tsx`, `package.json`, `cn`, `database.ts`, `[token]/page.tsx`, `Badge`?**
-  _High betweenness centrality (0.064) - this node is a cross-community bridge._
+  _Cohesion score 0.08599033816425121 - nodes in this community are weakly interconnected._
+- **Why does `react` connect `cn` to `(dashboard)/layout.tsx`, `package.json`, `bank-reconciler.tsx`, `floating-draft-assistant.tsx`, `local-demo-client.ts`, `database.ts`, `react`, `useWorkspaceConfig`?**
+  _High betweenness centrality (0.056) - this node is a cross-community bridge._
 - **Should `package.json` be split into smaller, more focused modules?**
-  _Cohesion score 0.1 - nodes in this community are weakly interconnected._
-- **Why does `dependencies` connect `dependencies` to `package.json`?**
-  _High betweenness centrality (0.043) - this node is a cross-community bridge._
+  _Cohesion score 0.09523809523809523 - nodes in this community are weakly interconnected._
+- **Why does `lucide-react` connect `database.ts` to `(dashboard)/layout.tsx`, `package.json`, `cn`, `bank-reconciler.tsx`, `local-demo-client.ts`, `floating-draft-assistant.tsx`, `react`, `useWorkspaceConfig`?**
+  _High betweenness centrality (0.038) - this node is a cross-community bridge._
 - **Should `cn` be split into smaller, more focused modules?**
-  _Cohesion score 0.09816849816849817 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.11136079900124844 - nodes in this community are weakly interconnected._

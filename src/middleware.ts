@@ -134,13 +134,14 @@ export async function middleware(request: NextRequest) {
           : Boolean(org?.bank_info?.__saas_config?.onboarding_completed);
 
       if (!isPendingOrUnassigned && !isDuo && !isDemo && !isSuperAdmin && !onboardingCompleted) {
-        if (!isOnboardingRoute && profile.role === 'admin') {
+        if (!isOnboardingRoute && (profile.role === 'owner' || profile.role === 'admin')) {
           return NextResponse.redirect(new URL('/onboarding', request.url));
         }
       }
 
       if (pathname.startsWith('/governance')) {
-        const isNonDemoCompanyAdmin = profile.role === 'admin' && !isDemo;
+        const isNonDemoCompanyAdmin =
+          (profile.role === 'owner' || profile.role === 'admin') && !isDemo;
         if (!isSuperAdmin && !isNonDemoCompanyAdmin) {
           return NextResponse.redirect(new URL('/dashboard', request.url));
         }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useUser } from '@/hooks/use-user';
 import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
 import { FeatureLockCard } from '@/components/billing/feature-gate';
 import { KpiCards } from '@/components/analytics/kpi-cards';
@@ -12,11 +13,23 @@ import { Badge } from '@/components/ui/badge';
 import { FinancialSummary, MonthlyData, CostCategory, Event, EventItem } from '@/types';
 import { COST_CATEGORIES } from '@/lib/constants';
 import { formatCLP, getMonthName, parseDateSafe } from '@/lib/utils';
+import {
+  applyRetentionPolicy,
+  computeF29Projection,
+  computeItemFinancials,
+  computePortfolioFinancials,
+  computeProjectFinancials,
+  isBoletaHonorariosItem,
+  isBudgetLineItem,
+} from '@/lib/finance-core';
+import { canUseAnalytics } from '@/lib/plan-guards';
+import { can } from '@/lib/rbac';
 import { Loader2, Download, TrendingUp, TrendingDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function AnalyticsPage() {
-  const { entitlements, isDuoExempt, isDemo, terms, industry } = useWorkspaceConfig();
+  const { profile } = useUser();
+  const { organization, entitlements, terms, industry } = useWorkspaceConfig();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState('0');
   const [loading, setLoading] = useState(true);
@@ -29,6 +42,13 @@ export default function AnalyticsPage() {
     margenPromedio: 0,
     ivaDebitoFiscal: 0,
   });
+  const [taxMetrics, setTaxMetrics] = useState({
+    ivaCreditoFiscal: 0,
+    ivaNetoF29: 0,
+    remanenteIvaF29: 0,
+    retencionHonorarios: 0,
+    totalF29Estimado: 0,
+  });
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [costDistribution, setCostDistribution] = useState<CostCategory[]>([]);
   const [filteredEventsRaw, setFilteredEventsRaw] = useState<(Event & { event_items: EventItem[] })[]>([]);
@@ -39,6 +59,10 @@ export default function AnalyticsPage() {
     lowVentas: number;
     momPct: number | null;
   } | null>(null);
+
+  const orgTaxRegime = organization?.bank_info?.__saas_config?.tax_regime;
+  const honorariosPolicy =
+    organization?.bank_info?.__saas_config?.honorarios_retention_policy || 'contractor';
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -51,7 +75,11 @@ export default function AnalyticsPage() {
         name,
         client_company,
         event_date,
+        month,
+        year,
         location,
+        status,
+        tax_regime,
         event_items (*)
       `)
       .eq('status', 'completed')
@@ -68,6 +96,13 @@ export default function AnalyticsPage() {
         margenPromedio: 0,
         ivaDebitoFiscal: 0,
       });
+      setTaxMetrics({
+        ivaCreditoFiscal: 0,
+        ivaNetoF29: 0,
+        remanenteIvaF29: 0,
+        retencionHonorarios: 0,
+        totalF29Estimado: 0,
+      });
       setMonthlyData([]);
       setCostDistribution([]);
       setTrendInsight(null);
@@ -76,87 +111,94 @@ export default function AnalyticsPage() {
       return;
     }
 
-    let totalIngresosBrutos = 0;
-    let facturacionNeta = 0;
-    let costosOperativos = 0;
-    let utilidadNeta = 0;
-    let ivaDebitoFiscal = 0;
-    let margenSum = 0;
-    let itemCount = 0;
-
-    const monthlyMap = new Map<number, { month: string; ventas: number; costos: number }>();
-    const costMap = new Map<string, number>();
-    const validEvents: typeof events = [];
-
-    events.forEach((event) => {
-      if (!event.event_date) return;
-
-      const parsed = parseDateSafe(event.event_date);
-      const year = parsed.year.toString();
-      const monthNum = parsed.month;
-
-      if (year !== selectedYear) return;
-      if (selectedMonth !== '0' && monthNum.toString() !== selectedMonth) return;
-
-      validEvents.push(event);
-
-      if (!monthlyMap.has(monthNum)) {
-        monthlyMap.set(monthNum, { month: getMonthName(monthNum), ventas: 0, costos: 0 });
+    const validEvents = events.filter((event) => {
+      let year = Number(event.year) || 0;
+      let monthNum = Number(event.month) || 0;
+      if (event.event_date) {
+        const parsed = parseDateSafe(event.event_date);
+        if (parsed.year) year = parsed.year;
+        if (parsed.month) monthNum = parsed.month;
       }
+      if (!year || String(year) !== selectedYear) return false;
+      if (selectedMonth !== '0' && String(monthNum) !== selectedMonth) return false;
+      return true;
+    });
 
-      event.event_items.forEach((item: any) => {
-        if (
-          !item.approved ||
-          item.es_insumo ||
-          item.tipo_evento === 'ABONO_CLIENTE' ||
-          item.tipo_evento === 'GASTO_REAL'
-        ) {
-          return;
+    const portfolio = computePortfolioFinancials(validEvents, {
+      taxRegime: orgTaxRegime,
+      honorariosPolicy,
+      includeStatuses: ['completed'],
+      onlyApprovedItems: true,
+    });
+
+    let totalRetencionHonorarios = 0;
+    const costMap = new Map<string, number>();
+
+    validEvents.forEach((event) => {
+      const items = event.event_items || [];
+      const childrenMap = new Map<string, EventItem[]>();
+      items.forEach((it) => {
+        if (it.parent_id && isBudgetLineItem(it)) {
+          const list = childrenMap.get(it.parent_id) || [];
+          list.push(it);
+          childrenMap.set(it.parent_id, list);
         }
-        const qty = item.cantidad || 1;
-        const vTotal = (item.valor_total || 0) * qty;
-        const vNeto = (item.valor_neto || 0) * qty;
-        const costo = (item.costo || 0) * qty;
-        const ganancia = (item.ganancia || 0) * qty;
-        const iva = (item.iva || 0) * qty;
+      });
 
-        totalIngresosBrutos += vTotal;
-        facturacionNeta += vNeto;
-        costosOperativos += costo;
-        utilidadNeta += ganancia;
-        ivaDebitoFiscal += iva;
+      const evTaxRegime = event.tax_regime || orgTaxRegime;
 
-        if (item.margen) {
-          margenSum += item.margen;
-          itemCount++;
-        }
+      items.forEach((item) => {
+        if (item.parent_id || !item.approved || !isBudgetLineItem(item)) return;
+        const children = childrenMap.get(item.id) || [];
+        const costLines = children.length > 0 ? children : [item];
 
-        const mData = monthlyMap.get(monthNum)!;
-        mData.ventas += vTotal;
-        mData.costos += costo;
-
-        const categoryOptions: Record<string, string> =
-          typeof COST_CATEGORIES === 'object' ? COST_CATEGORIES : {};
-        const category =
-          (item.tipo_evento && item.tipo_evento.trim()) ||
-          categoryOptions[item.servicio] ||
-          'Operación General';
-        costMap.set(category, (costMap.get(category) || 0) + costo);
+        costLines.forEach((line) => {
+          const lineFin = computeItemFinancials(line, { taxRegime: evTaxRegime });
+          if (isBoletaHonorariosItem(line)) {
+            totalRetencionHonorarios += applyRetentionPolicy(
+              lineFin.costoBruto,
+              honorariosPolicy
+            ).retencionTotal;
+          }
+          const category =
+            (line.tipo_evento && line.tipo_evento.trim()) ||
+            (item.tipo_evento && item.tipo_evento.trim()) ||
+            COST_CATEGORIES[line.servicio] ||
+            industry.categories[0] ||
+            'Operación General';
+          costMap.set(category, (costMap.get(category) || 0) + lineFin.costoNeto);
+        });
       });
     });
 
-    setSummary({
-      totalIngresosBrutos,
-      facturacionNeta,
-      costosOperativos,
-      utilidadNeta,
-      margenPromedio: itemCount > 0 ? margenSum / itemCount : 0,
-      ivaDebitoFiscal,
+    const f29 = computeF29Projection({
+      ivaDebito: portfolio.ivaDebito,
+      ivaCredito: portfolio.ivaCredito,
+      retencionHonorarios: totalRetencionHonorarios,
     });
 
-    const sortedMonthly = Array.from(monthlyMap.entries())
-      .sort(([a], [b]) => a - b)
-      .map(([, d]) => d);
+    setSummary({
+      totalIngresosBrutos: portfolio.facturacionBruta,
+      facturacionNeta: portfolio.facturacionNeta,
+      costosOperativos: portfolio.costosNetos,
+      utilidadNeta: portfolio.utilidadNeta,
+      margenPromedio: portfolio.margenPromedioVentaPct,
+      ivaDebitoFiscal: portfolio.ivaDebito,
+    });
+
+    setTaxMetrics({
+      ivaCreditoFiscal: portfolio.ivaCredito,
+      ivaNetoF29: f29.ivaAPagar,
+      remanenteIvaF29: f29.remanenteIva,
+      retencionHonorarios: f29.retencionHonorarios,
+      totalF29Estimado: f29.totalF29Estimado,
+    });
+
+    const sortedMonthly: MonthlyData[] = portfolio.monthlySeries.map((m) => ({
+      month: getMonthName(m.monthNumber),
+      ventas: m.ventasNetas,
+      costos: m.costosNetos,
+    }));
     setMonthlyData(sortedMonthly);
 
     if (sortedMonthly.length > 0) {
@@ -192,7 +234,7 @@ export default function AnalyticsPage() {
 
     setFilteredEventsRaw(validEvents);
     setLoading(false);
-  }, [selectedYear, selectedMonth]);
+  }, [selectedYear, selectedMonth, orgTaxRegime, honorariosPolicy, industry.categories]);
 
   useEffect(() => {
     fetchData();
@@ -224,56 +266,101 @@ export default function AnalyticsPage() {
 
   const handleExportExcel = async () => {
     const XLSX = await import('xlsx');
+    const periodName =
+      selectedMonth === '0'
+        ? `Año ${selectedYear}`
+        : `${months.find((m) => m.value === selectedMonth)?.label} ${selectedYear}`;
 
     const wsResumen = XLSX.utils.json_to_sheet([
       {
-        Período:
-          selectedMonth === '0'
-            ? `Año ${selectedYear}`
-            : `${months.find((m) => m.value === selectedMonth)?.label} ${selectedYear}`,
-        'Total Ingresos Brutos': summary.totalIngresosBrutos,
-        'Facturación Neta': summary.facturacionNeta,
-        'Costos Operativos': summary.costosOperativos,
-        'Utilidad Neta (Ganancia)': summary.utilidadNeta,
+        Período: periodName,
+        'Total Ingresos Brutos (c/IVA)': summary.totalIngresosBrutos,
+        'Facturación Neta (ex-IVA)': summary.facturacionNeta,
+        'Costos Operativos Netos (ex-IVA)': summary.costosOperativos,
+        'Utilidad Neta Real (ex-IVA)': summary.utilidadNeta,
+        'Margen s/ Venta Neta (%)': Number(summary.margenPromedio.toFixed(1)),
         'IVA Débito Fiscal': summary.ivaDebitoFiscal,
-        'Margen Promedio (%)': summary.margenPromedio.toFixed(2),
+        'IVA Crédito Fiscal': taxMetrics.ivaCreditoFiscal,
+        'IVA Neto F29 (a pagar)': taxMetrics.ivaNetoF29,
+        'Remanente IVA a Favor': taxMetrics.remanenteIvaF29,
+        'Retención Honorarios 15,25%': taxMetrics.retencionHonorarios,
+        'Total F29 Estimado': taxMetrics.totalF29Estimado,
       },
     ]);
 
-    const eventosExport = filteredEventsRaw.map((ev) => ({
-      ID: ev.id,
-      Nombre: ev.name,
-      Cliente: ev.client_company,
-      Fecha: ev.event_date,
-      Lugar: ev.location,
-      'Ítems Totales': ev.event_items.length,
-    }));
+    const eventosExport = filteredEventsRaw.map((ev) => {
+      const evFin = computeProjectFinancials(ev.event_items || [], {
+        taxRegime: ev.tax_regime || orgTaxRegime,
+        honorariosPolicy,
+        onlyApproved: true,
+      });
+      const evF29 = computeF29Projection({
+        ivaDebito: evFin.ivaDebito,
+        ivaCredito: evFin.ivaCredito,
+        retencionHonorarios: evFin.retencionHonorariosEstimada,
+      });
+      return {
+        ID: ev.id,
+        Proyecto: ev.name,
+        Cliente: ev.client_company || '',
+        Fecha: ev.event_date || '',
+        Lugar: ev.location || '',
+        'Facturación Neta': evFin.facturacionNeta,
+        'Costos Netos': evFin.costoNetoTotal,
+        'Utilidad Neta': evFin.utilidadNeta,
+        'Margen s/ Venta (%)': evFin.margenVentaPct,
+        'IVA Débito': evFin.ivaDebito,
+        'IVA Crédito': evFin.ivaCredito,
+        'Retención Honorarios 15,25%': evFin.retencionHonorariosEstimada,
+        'F29 Estimado': evF29.totalF29Estimado,
+      };
+    });
     const wsEventos = XLSX.utils.json_to_sheet(eventosExport);
 
-    const itemsExport: any[] = [];
+    const itemsExport: Record<string, string | number>[] = [];
     filteredEventsRaw.forEach((ev) => {
-      ev.event_items
-        .filter(
-          (item: any) =>
-            item.approved &&
-            !item.es_insumo &&
-            item.tipo_evento !== 'ABONO_CLIENTE' &&
-            item.tipo_evento !== 'GASTO_REAL'
-        )
-        .forEach((item: any) => {
+      const evTaxRegime = ev.tax_regime || orgTaxRegime;
+      const childrenParentIds = new Set(
+        (ev.event_items || [])
+          .filter((it) => it.parent_id && isBudgetLineItem(it))
+          .map((it) => it.parent_id as string)
+      );
+
+      (ev.event_items || [])
+        .filter((item) => item.approved && isBudgetLineItem(item))
+        .forEach((item) => {
+          const fin = computeItemFinancials(item, { taxRegime: evTaxRegime });
+          const isParentWithChildren = childrenParentIds.has(item.id);
+          const effectiveIvaCredito = isParentWithChildren ? 0 : fin.ivaCredito;
+          const effectiveCostoNeto = isParentWithChildren ? 0 : fin.costoNeto;
+          const retencionHon =
+            !isParentWithChildren && isBoletaHonorariosItem(item)
+              ? applyRetentionPolicy(fin.costoBruto, honorariosPolicy).retencionTotal
+              : 0;
+          const f29Linea = Math.max(0, fin.ivaDebito - effectiveIvaCredito) + retencionHon;
+
           itemsExport.push({
             Proyecto: ev.name,
+            Rol_Partida: item.parent_id
+              ? 'Subpartida Hijo'
+              : isParentWithChildren
+              ? 'Consolidado Padre'
+              : 'Partida Directa',
             Servicio: item.servicio,
-            Categoría: item.tipo_evento,
-            Detalle: item.detalle,
-            Cantidad: item.cantidad,
-            'Costo Unit.': item.costo,
-            'Ganancia Unit.': item.ganancia,
-            'Valor Neto': item.valor_neto,
-            IVA: item.iva,
-            'Valor Total': item.valor_total,
-            'Margen (%)': item.margen,
-            'Tipo Doc. Costo': item.tipo_doc_costo,
+            Categoría: item.tipo_evento || 'General',
+            Detalle: item.detalle || '',
+            Cantidad: fin.cantidad,
+            'Costo Unit. Bruto': fin.costoBrutoUnit,
+            'Costos Netos Total': effectiveCostoNeto,
+            'Valor Neto Total': item.es_insumo || item.parent_id ? 0 : fin.ventaNeta,
+            'IVA Débito': item.es_insumo || item.parent_id ? 0 : fin.ivaDebito,
+            'IVA Crédito': effectiveIvaCredito,
+            'Retención Honorarios (15,25%)': retencionHon,
+            'F29 Estimado': f29Linea,
+            'Valor Total Cliente': item.es_insumo || item.parent_id ? 0 : fin.ventaTotal,
+            'Margen Venta (%)': item.es_insumo || item.parent_id ? 0 : fin.margenVentaPct,
+            'Tipo Doc. Compra': fin.tipoDocCompra,
+            'Exento IVA Venta': fin.isExemptSale ? 'Sí' : 'No',
             'URL Factura': item.factura_url || 'No adjunta',
           });
         });
@@ -281,18 +368,18 @@ export default function AnalyticsPage() {
     const wsItems = XLSX.utils.json_to_sheet(itemsExport);
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen Financiero');
-    XLSX.utils.book_append_sheet(wb, wsEventos, 'Proyectos Completados');
-    XLSX.utils.book_append_sheet(wb, wsItems, 'Detalle de Costos');
+    XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen_Financiero_F29');
+    XLSX.utils.book_append_sheet(wb, wsEventos, 'Proyectos_Completados');
+    XLSX.utils.book_append_sheet(wb, wsItems, 'Detalle_Partidas');
 
-    const fileName = `Reporte_Contable_${selectedYear}_${
-      selectedMonth === '0' ? 'Anual' : selectedMonth
-    }.xlsx`;
+    const periodSlug =
+      selectedMonth === '0' ? 'Anual' : getMonthName(Number(selectedMonth));
+    const fileName = `FIGURA_Analitica_Contable_${selectedYear}_${periodSlug}.xlsx`;
     XLSX.writeFile(wb, fileName);
   };
 
   const analyticsLocked =
-    !isDuoExempt && !isDemo && !entitlements.modules.mod_analytics_excel;
+    !canUseAnalytics(entitlements) || !can(profile, 'view_costs_margins', entitlements);
 
   return (
     <div className="space-y-6">
@@ -359,10 +446,20 @@ export default function AnalyticsPage() {
                   Menor actividad: {trendInsight.lowMonth} ({formatCLP(trendInsight.lowVentas)})
                 </Badge>
               </div>
-              <div className="text-muted-foreground">
-                Margen promedio{' '}
-                <strong className="text-foreground">{summary.margenPromedio.toFixed(1)}%</strong>{' '}
-                vs meta {industry.shortName} (<strong>{industry.targetMarginPct}%</strong>)
+              <div className="flex flex-wrap items-center gap-3 text-muted-foreground tabular-nums">
+                <span>
+                  IVA Crédito: <strong className="text-foreground">{formatCLP(taxMetrics.ivaCreditoFiscal)}</strong>
+                </span>
+                <span>·</span>
+                <span>
+                  F29 est.: <strong className="text-amber-800">{formatCLP(taxMetrics.totalF29Estimado)}</strong>
+                </span>
+                <span>·</span>
+                <span>
+                  Margen s/ venta{' '}
+                  <strong className="text-foreground">{summary.margenPromedio.toFixed(1)}%</strong>{' '}
+                  vs meta {industry.shortName} (<strong>{industry.targetMarginPct}%</strong>)
+                </span>
               </div>
             </div>
           )}

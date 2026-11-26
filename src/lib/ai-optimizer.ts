@@ -336,6 +336,7 @@ export interface AiGuardResult {
   response?: NextResponse;
   org: Organization;
   industryPrompt: string;
+  targetMarginPct: number;
   isExempt: boolean;
   isDemoMode: boolean;
   consumeCredit: () => Promise<void>;
@@ -362,6 +363,7 @@ export async function guardAiEndpoint(
       allowed: true,
       org: hydratedOrg,
       industryPrompt: blueprint.aiDomainPrompt,
+      targetMarginPct: blueprint.targetMarginPct,
       isExempt: true,
       isDemoMode: false,
       consumeCredit: async () => {},
@@ -380,6 +382,7 @@ export async function guardAiEndpoint(
         allowed: false,
         org: hydratedOrg,
         industryPrompt: blueprint.aiDomainPrompt,
+        targetMarginPct: blueprint.targetMarginPct,
         isExempt: false,
         isDemoMode: true,
         consumeCredit: async () => {},
@@ -398,6 +401,7 @@ export async function guardAiEndpoint(
       allowed: true,
       org: hydratedOrg,
       industryPrompt: blueprint.aiDomainPrompt,
+      targetMarginPct: blueprint.targetMarginPct,
       isExempt: false,
       isDemoMode: true,
       consumeCredit: async () => {
@@ -419,6 +423,7 @@ export async function guardAiEndpoint(
       allowed: false,
       org: hydratedOrg,
       industryPrompt: blueprint.aiDomainPrompt,
+      targetMarginPct: blueprint.targetMarginPct,
       isExempt: false,
       isDemoMode: false,
       consumeCredit: async () => {},
@@ -426,7 +431,7 @@ export async function guardAiEndpoint(
         {
           error: entitlements.isExpiredLock
             ? 'Tu suscripción está vencida. Tus datos están seguros; reactiva tu plan en Suscripción para volver a usar la Suite IA.'
-            : 'Tu plan actual no incluye la Suite IA. Activa el Plan Crecimiento Inteligente o añade el módulo Suite IA en Suscripción.',
+            : 'Tu plan actual no incluye la Suite IA. Activa Operación Esencial ($34.990/mes) o añade el módulo Suite IA en Suscripción.',
           upgradeRequired: true,
           module: 'mod_ai_suite',
         },
@@ -441,6 +446,7 @@ export async function guardAiEndpoint(
       allowed: false,
       org: hydratedOrg,
       industryPrompt: blueprint.aiDomainPrompt,
+      targetMarginPct: blueprint.targetMarginPct,
       isExempt: false,
       isDemoMode: false,
       consumeCredit: async () => {},
@@ -474,6 +480,7 @@ export async function guardAiEndpoint(
       allowed: false,
       org: hydratedOrg,
       industryPrompt: blueprint.aiDomainPrompt,
+      targetMarginPct: blueprint.targetMarginPct,
       isExempt: false,
       isDemoMode: false,
       consumeCredit: async () => {},
@@ -481,8 +488,9 @@ export async function guardAiEndpoint(
         {
           error: `Alcanzaste el límite de ${entitlements.aiCallsLimit} consultas IA de este mes. Puedes ampliar tu plan en la sección Suscripción.`,
           quotaExceeded: true,
+          upgradeRequired: true,
         },
-        { status: 429 }
+        { status: 402 }
       ),
     };
   }
@@ -491,6 +499,7 @@ export async function guardAiEndpoint(
     allowed: true,
     org: hydratedOrg,
     industryPrompt: blueprint.aiDomainPrompt,
+    targetMarginPct: blueprint.targetMarginPct,
     isExempt: false,
     isDemoMode: false,
     consumeCredit: async () => {

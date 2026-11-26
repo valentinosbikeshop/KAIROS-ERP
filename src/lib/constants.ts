@@ -7,9 +7,12 @@ export const DEMO_USER_EMAIL = 'demo@duoproducciones-erp.cl';
 
 // Tasa legal vigente de retención Boleta de Honorarios en Chile (Ley N° 21.133 · año 2026)
 export const CHILE_HONORARIOS_RETENTION_2026 = 0.1525;
+export const CHILE_IVA_RATE = 0.19;
+export const DEFAULT_UF_RATE_CLP = 41405;
+export const DEFAULT_USD_RATE_CLP = 1025;
 
-export const DEMO_MAX_EVENTS = 8;
-export const DEMO_MAX_COSTS = 15;
+export const DEMO_MAX_EVENTS = 10;
+export const DEMO_MAX_COSTS = 25;
 export const DEMO_MAX_ITEMS = 120;
 export const DEMO_RETENTION_HOURS = 24;
 

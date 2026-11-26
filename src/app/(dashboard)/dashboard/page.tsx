@@ -7,7 +7,10 @@ import { useWorkspaceConfig } from '@/hooks/use-workspace-config'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { RevenueChart } from '@/components/analytics/revenue-chart'
-import { formatCLP, getMonthName, parseDateSafe } from '@/lib/utils'
+import { formatCLP, getMonthName } from '@/lib/utils'
+import { computePortfolioFinancials } from '@/lib/finance-core'
+import { canUseAnalytics } from '@/lib/plan-guards'
+import { can } from '@/lib/rbac'
 import type { MonthlyData } from '@/types'
 import {
   Calendar,
@@ -43,9 +46,13 @@ interface DashboardData {
   eventsApproved: number
   eventsCompleted: number
   totalRevenue: number
+  totalRevenueBruto: number
   totalCosts: number
   netProfit: number
+  ivaDebito: number
+  ivaCredito: number
   ivaNetoF29: number
+  remanenteIvaF29: number
   avgMarginPct: number
   momChangePct: number | null
   monthlySeries: MonthlyData[]
@@ -56,16 +63,21 @@ interface DashboardData {
 }
 
 export default function DashboardPage() {
-  const { organization, isAdmin, isDemo } = useUser()
+  const { organization, profile, isAdmin, isDemo } = useUser()
   const { terms, industry, isDuoExempt, entitlements } = useWorkspaceConfig()
+  const canViewMargins = can(profile, 'view_costs_margins', entitlements)
   const [data, setData] = useState<DashboardData>({
     eventsPlanning: 0,
     eventsApproved: 0,
     eventsCompleted: 0,
     totalRevenue: 0,
+    totalRevenueBruto: 0,
     totalCosts: 0,
     netProfit: 0,
+    ivaDebito: 0,
+    ivaCredito: 0,
     ivaNetoF29: 0,
+    remanenteIvaF29: 0,
     avgMarginPct: 0,
     momChangePct: null,
     monthlySeries: [],
@@ -76,6 +88,10 @@ export default function DashboardPage() {
   })
   const [loading, setLoading] = useState(true)
 
+  const taxRegime = organization?.bank_info?.__saas_config?.tax_regime
+  const honorariosPolicy =
+    organization?.bank_info?.__saas_config?.honorarios_retention_policy || 'contractor'
+
   const fetchData = useCallback(async () => {
     setLoading(true)
     const supabase = createClient()
@@ -83,90 +99,44 @@ export default function DashboardPage() {
     try {
       const { data: eventsData, error: eventsError } = await supabase
         .from('events')
-        .select('id, name, status, event_date, has_retail_sales, event_items(*)')
+        .select('id, name, status, event_date, month, year, tax_regime, has_retail_sales, event_items(*)')
         .is('deleted_at', null)
 
       if (eventsError) throw eventsError
 
       const events = (eventsData as any[]) || []
 
-      let planning = 0
-      let approved = 0
-      let completed = 0
-      let revenue = 0
-      let costs = 0
-      let ivaDebito = 0
-      let ivaCredito = 0
-      let marginSum = 0
-      let marginCount = 0
-
       let completedShowcase: ShowcaseEvent | null = null
       let consolidatedShowcase: ShowcaseEvent | null = null
       let planningShowcase: ShowcaseEvent | null = null
 
-      const monthlyMap = new Map<number, { month: string; ventas: number; costos: number }>()
-
       events.forEach((e) => {
-        if (e.status === 'planning') {
-          planning++
-          if (!planningShowcase) planningShowcase = e
-        } else if (e.status === 'approved') {
-          approved++
-          if (e.has_retail_sales && !consolidatedShowcase) consolidatedShowcase = e
+        if (e.status === 'planning' && !planningShowcase) {
+          planningShowcase = e
+        } else if (e.status === 'approved' && e.has_retail_sales && !consolidatedShowcase) {
+          consolidatedShowcase = e
         } else if (e.status === 'completed') {
-          completed++
           completedShowcase = e
         }
-
-        if (e.status !== 'completed') return
-
-        const parsed = e.event_date ? parseDateSafe(e.event_date) : null
-        const monthNum = parsed?.month || 0
-        if (monthNum > 0 && !monthlyMap.has(monthNum)) {
-          monthlyMap.set(monthNum, { month: getMonthName(monthNum), ventas: 0, costos: 0 })
-        }
-
-        const items = Array.isArray(e.event_items) ? e.event_items : []
-        items.forEach((item: any) => {
-          if (
-            !item.approved ||
-            item.es_insumo ||
-            item.tipo_evento === 'ABONO_CLIENTE' ||
-            item.tipo_evento === 'GASTO_REAL'
-          ) {
-            return
-          }
-          const qty = item.cantidad || 1
-          const vTotal = (item.valor_total || 0) * qty
-          const itemCost = (item.costo || 0) * qty
-          const itemIva = (item.iva || 0) * qty
-
-          revenue += vTotal
-          costs += itemCost
-          ivaDebito += itemIva
-          if (item.tipo_doc_costo === 'factura') {
-            ivaCredito += Math.round(itemCost * 0.19)
-          }
-          if (typeof item.margen === 'number' && item.margen > 0) {
-            marginSum += item.margen
-            marginCount++
-          }
-
-          if (monthNum > 0) {
-            const mEntry = monthlyMap.get(monthNum)!
-            mEntry.ventas += vTotal
-            mEntry.costos += itemCost
-          }
-        })
       })
 
       if (!consolidatedShowcase) {
-        consolidatedShowcase = events.find((e) => e.has_retail_sales) || events.find((e) => e.status === 'approved') || null
+        consolidatedShowcase =
+          events.find((e) => e.has_retail_sales) || events.find((e) => e.status === 'approved') || null
       }
 
-      const sortedSeries = Array.from(monthlyMap.entries())
-        .sort(([a], [b]) => a - b)
-        .map(([, val]) => val)
+      const portfolio = computePortfolioFinancials(events, {
+        taxRegime,
+        honorariosPolicy,
+        includeStatuses: ['completed'],
+        onlyApprovedItems: true,
+      })
+
+      const sortedSeries: MonthlyData[] = portfolio.monthlySeries.map((m) => ({
+        month: getMonthName(m.monthNumber),
+        ventas: m.ventasNetas,
+        costos: m.costosNetos,
+      }))
 
       let momChangePct: number | null = null
       if (sortedSeries.length >= 2) {
@@ -187,14 +157,18 @@ export default function DashboardPage() {
       }
 
       setData({
-        eventsPlanning: planning,
-        eventsApproved: approved,
-        eventsCompleted: completed,
-        totalRevenue: revenue,
-        totalCosts: costs,
-        netProfit: Math.max(0, revenue - costs),
-        ivaNetoF29: Math.max(0, ivaDebito - ivaCredito),
-        avgMarginPct: marginCount > 0 ? marginSum / marginCount : 0,
+        eventsPlanning: portfolio.planningCount,
+        eventsApproved: portfolio.approvedCount,
+        eventsCompleted: portfolio.completedCount,
+        totalRevenue: portfolio.facturacionNeta,
+        totalRevenueBruto: portfolio.facturacionBruta,
+        totalCosts: portfolio.costosNetos,
+        netProfit: portfolio.utilidadNeta,
+        ivaDebito: portfolio.ivaDebito,
+        ivaCredito: portfolio.ivaCredito,
+        ivaNetoF29: portfolio.ivaNetoF29,
+        remanenteIvaF29: portfolio.remanenteIvaF29,
+        avgMarginPct: portfolio.margenPromedioVentaPct,
         momChangePct,
         monthlySeries: sortedSeries,
         pendingUsers: pendingCount,
@@ -207,7 +181,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [isAdmin, isDemo])
+  }, [isAdmin, isDemo, taxRegime, honorariosPolicy])
 
   useEffect(() => {
     fetchData()
@@ -345,23 +319,31 @@ export default function DashboardPage() {
             <div className="text-2xl font-semibold font-mono tabular-nums">
               <AnimatedNumber value={data.ivaNetoF29} format="clp" duration={600} />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {data.eventsCompleted} {terms.projectPlural.toLowerCase()} cerrados
+            <p className="text-xs text-muted-foreground mt-1 tabular-nums">
+              {data.remanenteIvaF29 > 0
+                ? `Remanente a favor: ${formatCLP(data.remanenteIvaF29)}`
+                : `Débito ${formatCLP(data.ivaDebito)} − Créd. ${formatCLP(data.ivaCredito)}`}
             </p>
           </CardContent>
         </Card>
 
         <Card data-tour-id="kpi-ebitda" className="glass-card spotlight-card animate-reveal-up">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ingresos Totales (Cerrados)</CardTitle>
+            <CardTitle className="text-sm font-medium">Facturación Neta (ex-IVA)</CardTitle>
             <DollarSign className="h-4 w-4 text-[#0D8A72]" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold font-mono tabular-nums">
               <AnimatedNumber value={data.totalRevenue} format="clp" duration={700} />
             </div>
-            <p className="text-xs text-[#0D8A72] font-medium mt-1 tabular-nums">
-              Utilidad neta: {formatCLP(data.netProfit)} · Margen {data.avgMarginPct.toFixed(1)}%
+            <p
+              className={`text-xs font-medium mt-1 tabular-nums ${
+                data.netProfit >= 0 ? 'text-[#0D8A72]' : 'text-rose-700'
+              }`}
+            >
+              {canViewMargins
+                ? `Utilidad neta: ${formatCLP(data.netProfit)} · Margen ${data.avgMarginPct.toFixed(1)}%`
+                : `${data.eventsCompleted} ${terms.projectPlural.toLowerCase()} cerrados`}
             </p>
           </CardContent>
         </Card>
@@ -387,7 +369,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Gráfico de Evolución Mensual (Crecimiento y Caídas Estacionales) */}
-      {data.monthlySeries.length > 0 && (
+      {canViewMargins && data.monthlySeries.length > 0 && (
         <div data-tour-id="dashboard-trend" className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
           <div className="lg:col-span-2">
             <RevenueChart data={data.monthlySeries} />
@@ -406,13 +388,13 @@ export default function DashboardPage() {
             </div>
             <div className="space-y-3 text-xs border-t border-slate-200/75 pt-4">
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Costos Operativos Cerrados</span>
+                <span className="text-muted-foreground">Costos Netos Cerrados (ex-IVA)</span>
                 <span className="font-semibold font-mono tabular-nums text-rose-700">
                   {formatCLP(data.totalCosts)}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Margen Promedio vs Meta ({industry.targetMarginPct}%)</span>
+                <span className="text-muted-foreground">Margen s/ Venta vs Meta ({industry.targetMarginPct}%)</span>
                 <span className="font-semibold font-mono tabular-nums text-[#0D8A72]">
                   {data.avgMarginPct.toFixed(1)}%
                 </span>
@@ -555,7 +537,7 @@ export default function DashboardPage() {
               Ver {terms.catalogLabel}
             </Button>
           </Link>
-          <Link href={entitlements.modules.mod_analytics_excel || isDuoExempt || isDemo ? '/analytics' : '/billing'}>
+          <Link href={canUseAnalytics(entitlements) ? '/analytics' : '/billing'}>
             <Button variant="outline" className="tactile-press">
               <BarChart className="mr-2 h-4 w-4" />
               {terms.analyticsLabel}

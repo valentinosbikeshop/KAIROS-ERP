@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Upload, File, X, Loader2 } from 'lucide-react';
+import { Upload, File, X, Loader2, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
+import { canUseAi, requiredPlanForModule } from '@/lib/plan-guards';
 
 interface FileUploadProps {
   onParsed: (text: string) => void;
@@ -11,6 +13,12 @@ interface FileUploadProps {
 }
 
 export function FileUpload({ onParsed, disabled }: FileUploadProps) {
+  const { entitlements, plans, isDuoExempt } = useWorkspaceConfig();
+  const aiCheck = canUseAi(entitlements);
+  const aiAllowed = isDuoExempt || aiCheck.allowed;
+  const aiPlan = requiredPlanForModule('mod_ai_suite', plans);
+  const effectiveDisabled = Boolean(disabled) || !aiAllowed;
+
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -19,7 +27,7 @@ export function FileUpload({ onParsed, disabled }: FileUploadProps) {
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    if (!disabled) setIsDragging(true);
+    if (!effectiveDisabled) setIsDragging(true);
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
@@ -28,6 +36,14 @@ export function FileUpload({ onParsed, disabled }: FileUploadProps) {
   };
 
   const processFile = async (selectedFile: File) => {
+    if (!aiAllowed) {
+      setError(
+        aiCheck.reason ||
+          `La lectura documental IA/OCR está disponible desde ${aiPlan.name}.`
+      );
+      return;
+    }
+
     setFile(selectedFile);
     setLoading(true);
     setError(null);
@@ -42,7 +58,14 @@ export function FileUpload({ onParsed, disabled }: FileUploadProps) {
       });
 
       if (!res.ok) {
-        throw new Error('Error al procesar el archivo');
+        const errBody = await res.json().catch(() => ({}));
+        if (res.status === 403 || res.status === 402) {
+          throw new Error(
+            errBody.error ||
+              `Acceso bloqueado (${res.status}). Requiere ${aiPlan.name} o créditos IA disponibles.`
+          );
+        }
+        throw new Error(errBody.error || `Error al procesar el archivo (HTTP ${res.status})`);
       }
 
       const data = await res.json();
@@ -58,8 +81,8 @@ export function FileUpload({ onParsed, disabled }: FileUploadProps) {
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    if (disabled) return;
-    
+    if (effectiveDisabled) return;
+
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const droppedFile = e.dataTransfer.files[0];
       await processFile(droppedFile);
@@ -81,23 +104,34 @@ export function FileUpload({ onParsed, disabled }: FileUploadProps) {
 
   return (
     <div className="w-full">
-      {!file ? (
+      {!aiAllowed ? (
+        <div className="border-2 border-dashed border-amber-300/80 rounded-lg p-6 text-center bg-amber-50/50 space-y-2">
+          <Lock className="w-7 h-7 text-amber-600 mx-auto" />
+          <p className="font-medium text-xs text-amber-950">
+            Lectura OCR de PDF, Excel e Imágenes bloqueada
+          </p>
+          <p className="text-[11px] text-amber-900/80">
+            {aiCheck.reason ||
+              `Disponible desde ${aiPlan.name} ($${aiPlan.price_clp.toLocaleString('es-CL')}/mes).`}
+          </p>
+        </div>
+      ) : !file ? (
         <div
           className={cn(
-            "border-2 border-dashed rounded-lg p-8 text-center transition-colors flex flex-col items-center justify-center gap-4 cursor-pointer",
-            isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:bg-muted/50",
-            disabled && "opacity-50 cursor-not-allowed"
+            'border-2 border-dashed rounded-lg p-8 text-center transition-colors flex flex-col items-center justify-center gap-4 cursor-pointer',
+            isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:bg-muted/50',
+            effectiveDisabled && 'opacity-50 cursor-not-allowed'
           )}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          onClick={() => !disabled && fileInputRef.current?.click()}
+          onClick={() => !effectiveDisabled && fileInputRef.current?.click()}
         >
           <Upload className="w-10 h-10 text-muted-foreground" />
           <div>
-            <p className="font-medium text-sm">Haz clic o arrastra un archivo aquí</p>
+            <p className="font-medium text-sm">Haga clic o arrastre un archivo aquí</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Soporta Imágenes, PDF, Excel, CSV (Max. 10MB)
+              Soporta Imágenes, PDF, Excel, CSV (Máx. 10MB)
             </p>
           </div>
           <input
@@ -106,7 +140,7 @@ export function FileUpload({ onParsed, disabled }: FileUploadProps) {
             className="hidden"
             accept=".pdf,.xlsx,.xls,.csv,image/*"
             onChange={handleFileChange}
-            disabled={disabled}
+            disabled={effectiveDisabled}
           />
         </div>
       ) : (
@@ -130,7 +164,9 @@ export function FileUpload({ onParsed, disabled }: FileUploadProps) {
         </div>
       )}
       {error && (
-        <p className="text-sm text-destructive mt-2">{error}</p>
+        <p role="alert" className="text-xs font-medium text-destructive mt-2">
+          {error}
+        </p>
       )}
     </div>
   );

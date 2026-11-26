@@ -6,6 +6,7 @@ import { SUPER_ADMIN_EMAIL, DUO_ORG_SLUG } from '@/lib/constants';
 import { calculateFinancials } from '@/lib/utils';
 import { COMPANY_COST_TEMPLATES, formatCostMetadata } from '@/lib/cost-metadata';
 import { isDuoProducciones, resolveOrgEntitlements } from '@/lib/entitlements';
+import { brandingCapabilities } from '@/lib/plan-guards';
 import { fetchPlansAndAddonsServer, hydrateOrganizationSaas, updateOrganizationSaasConfig } from '@/lib/saas-storage';
 import type { Organization } from '@/types/database';
 
@@ -51,6 +52,15 @@ const CreateCompanySchema = z.object({
   adminPassword: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres').optional().or(z.literal('')),
 });
 
+const SecondaryAccountSchema = z.object({
+  banco: z.string().trim().max(100).optional(),
+  tipo_cuenta: z.string().trim().max(100).optional(),
+  numero_cuenta: z.string().trim().max(100).optional(),
+  titular: z.string().trim().max(150).optional(),
+  rut: z.string().trim().max(40).optional(),
+  email: z.string().trim().max(150).optional(),
+});
+
 const UpdateCompanySchema = z.object({
   id: z.string().uuid(),
   is_active: z.boolean().optional(),
@@ -67,6 +77,11 @@ const UpdateCompanySchema = z.object({
   min_margin_pct: z.coerce.number().min(0).max(95).optional(),
   uf_rate_clp: z.coerce.number().min(1000).max(500000).optional(),
   usd_rate_clp: z.coerce.number().min(100).max(10000).optional(),
+  honorarios_retention_policy: z.enum(['company', 'contractor', 'split_50_50']).optional(),
+  tax_regime: z.enum(['afecto_iva', 'sociedad_profesionales', 'exportacion_turismo']).optional(),
+  white_label_footer: z.string().trim().max(400).optional().nullable(),
+  hide_figura_branding: z.boolean().optional(),
+  secondary_accounts: z.array(SecondaryAccountSchema).max(5).optional(),
 });
 
 function isAuthorizedSuperAdmin(ctx: Awaited<ReturnType<typeof getAuthenticatedContext>>) {
@@ -322,18 +337,29 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const { id, min_margin_pct, uf_rate_clp, usd_rate_clp, ...rawUpdates } = parsed.data;
+    const {
+      id,
+      min_margin_pct,
+      uf_rate_clp,
+      usd_rate_clp,
+      honorarios_retention_policy,
+      tax_regime,
+      white_label_footer,
+      hide_figura_branding,
+      secondary_accounts,
+      ...rawUpdates
+    } = parsed.data;
     const isSuper = isAuthorizedSuperAdmin(ctx);
     const isOwnCompanyAdmin =
       Boolean(ctx?.profile) &&
       ctx?.profile?.status === 'active' &&
-      ctx?.profile?.role === 'admin' &&
+      (ctx?.profile?.role === 'admin' || ctx?.profile?.role === 'owner') &&
       ctx?.profile?.organization_id === id &&
       !ctx?.organization?.is_demo;
 
     if (!isSuper && !isOwnCompanyAdmin) {
       return NextResponse.json(
-        { error: 'No tienes permisos para editar la configuración de esta empresa.' },
+        { error: 'No tiene permisos para editar la configuración de esta empresa.' },
         { status: 403 }
       );
     }
@@ -348,7 +374,7 @@ export async function PATCH(req: NextRequest) {
 
     const admin = createAdminClient();
 
-    // Cargar organización completa para preservar __saas_config y validar permisos de marca blanca
+    // Cargar organización completa para preservar __saas_config y validar capacidades por plan
     const { data: targetOrgRaw } = await admin
       .from('organizations')
       .select('*')
@@ -368,42 +394,84 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    // Gate mod_team_branding solo si realmente modifican logo_url o datos bancarios visibles
+    const logoChanged =
+      updates.logo_url !== undefined &&
+      (updates.logo_url || null) !== (targetOrgRaw.logo_url || null);
+
+    const bankChanged = (() => {
+      if (!updates.bank_info) return false;
+      const prevBank = (targetOrgRaw.bank_info || {}) as Record<string, unknown>;
+      const nextBank = updates.bank_info as Record<string, unknown>;
+      const keys = ['banco', 'tipo_cuenta', 'numero_cuenta', 'titular', 'rut', 'email'];
+      return keys.some((k) => String(nextBank[k] ?? '') !== String(prevBank[k] ?? ''));
+    })();
+
+    const whiteLabelChanged =
+      (white_label_footer !== undefined &&
+        (white_label_footer || null) !== (targetOrg.white_label_footer || null)) ||
+      (hide_figura_branding !== undefined &&
+        Boolean(hide_figura_branding) !== Boolean(targetOrg.hide_figura_branding)) ||
+      secondary_accounts !== undefined;
+
     if (!isSuper && !isDuoProducciones(targetOrg) && !targetOrg.is_demo) {
-      const logoChanged =
-        updates.logo_url !== undefined &&
-        (updates.logo_url || null) !== (targetOrgRaw.logo_url || null);
+      const { plans, addons } = await fetchPlansAndAddonsServer();
+      const entitlements = resolveOrgEntitlements(targetOrg, plans, addons);
+      const caps = brandingCapabilities(entitlements);
 
-      const bankChanged = (() => {
-        if (!updates.bank_info) return false;
-        const prevBank = (targetOrgRaw.bank_info || {}) as Record<string, unknown>;
-        const nextBank = updates.bank_info as Record<string, unknown>;
-        const keys = ['banco', 'tipo_cuenta', 'numero_cuenta', 'titular', 'rut', 'email'];
-        return keys.some((k) => String(nextBank[k] ?? '') !== String(prevBank[k] ?? ''));
-      })();
+      if (bankChanged && !caps.bankInfo) {
+        return NextResponse.json(
+          {
+            error:
+              'Guardar datos bancarios para cotizaciones y transferencias requiere el Plan Operación Esencial ($34.990/mes) o el módulo Cotizador PDF.',
+            upgradeRequired: true,
+            requiredPlan: caps.requiredPlanForBankInfo,
+            blockedField: 'bank_info',
+          },
+          { status: 403 }
+        );
+      }
 
-      if (logoChanged || bankChanged) {
-        const { plans, addons } = await fetchPlansAndAddonsServer();
-        const entitlements = resolveOrgEntitlements(targetOrg, plans, addons);
-        if (!entitlements.modules.mod_team_branding) {
-          return NextResponse.json(
-            {
-              error:
-                'La personalización de logo y datos bancarios de marca blanca requiere el módulo Equipo & Marca Blanca o el Plan Corporativo.',
-              upgradeRequired: true,
-            },
-            { status: 403 }
-          );
-        }
+      if (logoChanged && !caps.logo) {
+        return NextResponse.json(
+          {
+            error:
+              'El logo corporativo propio en PDF y Portal requiere el Plan Crecimiento Inteligente IA ($69.990/mes) o superior.',
+            upgradeRequired: true,
+            requiredPlan: caps.requiredPlanForLogo,
+            blockedField: 'logo_url',
+          },
+          { status: 403 }
+        );
+      }
+
+      if (whiteLabelChanged && !caps.whiteLabel) {
+        return NextResponse.json(
+          {
+            error:
+              'La Marca Blanca 100% (sin huella FIGURA, pie legal propio y multi-cuenta) requiere el Plan Corporativo & Escala ($119.990/mes) o el módulo Marca Blanca.',
+            upgradeRequired: true,
+            requiredPlan: caps.requiredPlanForWhiteLabel,
+            blockedField: 'white_label',
+          },
+          { status: 403 }
+        );
       }
     }
 
-    // Preservar siempre bank_info.__saas_config para no perder configuración SaaS en modo fallback
-    if (updates.bank_info && targetOrgRaw.bank_info?.__saas_config) {
-      (updates as any).bank_info = {
-        ...updates.bank_info,
-        __saas_config: targetOrgRaw.bank_info.__saas_config,
+    // Preservar siempre bank_info.__saas_config y espejar branding white-label en bank_info
+    if (updates.bank_info || whiteLabelChanged) {
+      const baseBank = (targetOrgRaw.bank_info || {}) as Record<string, unknown>;
+      const mergedBank: Record<string, unknown> = {
+        ...baseBank,
+        ...(updates.bank_info || {}),
       };
+      if (white_label_footer !== undefined) mergedBank.white_label_footer = white_label_footer;
+      if (hide_figura_branding !== undefined) mergedBank.hide_figura_branding = hide_figura_branding;
+      if (secondary_accounts !== undefined) mergedBank.secondary_accounts = secondary_accounts;
+      if (targetOrgRaw.bank_info?.__saas_config) {
+        mergedBank.__saas_config = targetOrgRaw.bank_info.__saas_config;
+      }
+      (updates as any).bank_info = mergedBank;
     }
 
     let updatedCompany: Organization = targetOrgRaw as Organization;
@@ -424,14 +492,26 @@ export async function PATCH(req: NextRequest) {
     if (
       min_margin_pct !== undefined ||
       uf_rate_clp !== undefined ||
-      usd_rate_clp !== undefined
+      usd_rate_clp !== undefined ||
+      honorarios_retention_policy !== undefined ||
+      tax_regime !== undefined ||
+      white_label_footer !== undefined ||
+      hide_figura_branding !== undefined ||
+      secondary_accounts !== undefined
     ) {
-      const saasPatch: Record<string, number> = {};
+      const saasPatch: Record<string, unknown> = {};
       if (min_margin_pct !== undefined) saasPatch.min_margin_pct = Math.round(min_margin_pct * 10) / 10;
       if (uf_rate_clp !== undefined) saasPatch.uf_rate_clp = Math.round(uf_rate_clp);
       if (usd_rate_clp !== undefined) saasPatch.usd_rate_clp = Math.round(usd_rate_clp);
+      if (honorarios_retention_policy !== undefined) {
+        saasPatch.honorarios_retention_policy = honorarios_retention_policy;
+      }
+      if (tax_regime !== undefined) saasPatch.tax_regime = tax_regime;
+      if (white_label_footer !== undefined) saasPatch.white_label_footer = white_label_footer;
+      if (hide_figura_branding !== undefined) saasPatch.hide_figura_branding = hide_figura_branding;
+      if (secondary_accounts !== undefined) saasPatch.secondary_accounts = secondary_accounts;
 
-      const updatedSaas = await updateOrganizationSaasConfig(id, saasPatch);
+      const updatedSaas = await updateOrganizationSaasConfig(id, saasPatch as any);
       if (updatedSaas) {
         updatedCompany = updatedSaas;
       }

@@ -1,5 +1,6 @@
 import { calculateFinancials } from '@/lib/utils';
 import { CHILE_HONORARIOS_RETENTION_2026 } from '@/lib/constants';
+import type { HonorariosRetentionPolicy } from '@/types/database';
 
 export type CostResourceType = 'servicio' | 'personal' | 'insumo' | 'logistica';
 export type StaffModality = 'honorarios' | 'turno' | 'factura_subcontrato';
@@ -105,7 +106,7 @@ const INSUMO_KEYWORDS = [
 export const RESOURCE_TYPE_LABELS: Record<CostResourceType, string> = {
   servicio: 'Servicio / Equipo',
   personal: 'Personal / RR.HH.',
-  insumo: 'Banquetería / Insumos',
+  insumo: 'Insumos / Materiales',
   logistica: 'Logística / Montaje',
 };
 
@@ -242,35 +243,52 @@ export function formatCostMetadata(meta: ParsedCostMeta): string {
   return clean ? `${prefix} ${clean}` : prefix;
 }
 
-export function computeCostTaxBreakdown(cost: {
-  servicio?: string | null;
-  costo: number;
-  ganancia: number;
-  valor_neto?: number;
-  valor_total?: number;
-  tipo_doc_costo?: 'factura' | 'boleta' | string | null;
-  tiempo_detalle?: string | null;
-  tipo_evento?: string | null;
-}): CostTaxBreakdown {
+export function computeCostTaxBreakdown(
+  cost: {
+    servicio?: string | null;
+    costo: number;
+    ganancia: number;
+    valor_neto?: number;
+    valor_total?: number;
+    tipo_doc_costo?: 'factura' | 'boleta' | 'exento' | string | null;
+    tiempo_detalle?: string | null;
+    tipo_evento?: string | null;
+  },
+  retentionPolicy: HonorariosRetentionPolicy = 'contractor'
+): CostTaxBreakdown {
   const meta = parseCostMetadata(cost.tiempo_detalle, cost.tipo_evento, cost.servicio);
   const tipoDocCompra: 'factura' | 'boleta' =
-    cost.tipo_doc_costo === 'boleta' ? 'boleta' : 'factura';
+    cost.tipo_doc_costo === 'boleta' || cost.tipo_doc_costo === 'exento' ? 'boleta' : 'factura';
 
   const fin = calculateFinancials(
     Number(cost.costo) || 0,
     Number(cost.ganancia) || 0,
-    tipoDocCompra,
+    cost.tipo_doc_costo === 'exento' ? 'exento' : tipoDocCompra,
     meta.aplicaIvaVenta,
     false
   );
 
   const costoBruto = Number(cost.costo) || 0;
-  const retencionHonorarios =
-    meta.resourceType === 'personal' && meta.staffModality === 'honorarios'
-      ? Math.round(costoBruto * CHILE_HONORARIOS_RETENTION_2026)
-      : 0;
-  const liquidoHonorarios =
-    retencionHonorarios > 0 ? Math.max(0, costoBruto - retencionHonorarios) : costoBruto;
+  const isHonorarios =
+    meta.resourceType === 'personal' && meta.staffModality === 'honorarios';
+
+  let retencionHonorarios = 0;
+  let liquidoHonorarios = costoBruto;
+
+  if (isHonorarios && costoBruto > 0) {
+    if (retentionPolicy === 'company') {
+      const brutoGrossUp = Math.round(costoBruto / (1 - CHILE_HONORARIOS_RETENTION_2026));
+      retencionHonorarios = Math.max(0, brutoGrossUp - costoBruto);
+      liquidoHonorarios = costoBruto;
+    } else if (retentionPolicy === 'split_50_50') {
+      retencionHonorarios = Math.round(costoBruto * CHILE_HONORARIOS_RETENTION_2026);
+      const descuentoPrestador = retencionHonorarios - Math.round(retencionHonorarios / 2);
+      liquidoHonorarios = Math.max(0, costoBruto - descuentoPrestador);
+    } else {
+      retencionHonorarios = Math.round(costoBruto * CHILE_HONORARIOS_RETENTION_2026);
+      liquidoHonorarios = Math.max(0, costoBruto - retencionHonorarios);
+    }
+  }
 
   return {
     costoBruto,

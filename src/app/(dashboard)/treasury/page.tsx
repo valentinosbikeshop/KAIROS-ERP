@@ -13,14 +13,28 @@ import {
   FileSpreadsheet,
   Landmark,
   Loader2,
+  Lock,
   Receipt,
   TrendingUp,
   Wallet,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { useUser } from '@/hooks/use-user';
 import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
 import { CHILE_HONORARIOS_RETENTION_2026, EVENT_STATUS_LABELS } from '@/lib/constants';
 import { cn, formatCLP, formatDateCL, getMonthName, parseDateSafe } from '@/lib/utils';
+import {
+  applyRetentionPolicy,
+  computeF29Projection,
+  computeProjectFinancials,
+  extractIvaFromGross,
+  isBoletaHonorariosItem,
+  isItemExempt,
+  normalizePurchaseDocType,
+  retentionFromGross,
+} from '@/lib/finance-core';
+import { canExportExcelF29, canUseTreasury } from '@/lib/plan-guards';
+import { can } from '@/lib/rbac';
 import { FeatureLockCard } from '@/components/billing/feature-gate';
 import { BankReconciler } from '@/components/events/bank-reconciler';
 import { ResourceCalendar, detectScheduleConflicts } from '@/components/events/resource-calendar';
@@ -59,19 +73,22 @@ interface EventTreasurySummary {
 }
 
 export default function TreasuryPage() {
-  const { entitlements, isDuoExempt, isDemo, terms, loading: workspaceLoading } = useWorkspaceConfig();
+  const { profile } = useUser();
+  const { organization, entitlements, terms, loading: workspaceLoading } = useWorkspaceConfig();
   const [activeTab, setActiveTab] = useState<TreasuryTab>('cashflow');
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<(Event & { event_items?: EventItem[] })[]>([]);
   const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
   const [selectedMonth, setSelectedMonth] = useState(String(new Date().getMonth() + 1));
 
-  const treasuryLocked =
-    !workspaceLoading &&
-    !isDuoExempt &&
-    !isDemo &&
-    !entitlements.modules.mod_transactions_sii &&
-    !entitlements.modules.mod_analytics_excel;
+  const hasTreasuryPlan = canUseTreasury(entitlements);
+  const rbacTreasuryAllowed = can(profile, 'view_treasury', entitlements);
+  const treasuryLocked = !workspaceLoading && (!hasTreasuryPlan || !rbacTreasuryAllowed);
+  const canDownloadF29Excel =
+    canExportExcelF29(entitlements) && can(profile, 'export_f29_excel', entitlements);
+  const orgTaxRegime = organization?.bank_info?.__saas_config?.tax_regime;
+  const honorariosPolicy =
+    organization?.bank_info?.__saas_config?.honorarios_retention_policy || 'contractor';
 
   const fetchTreasuryData = useCallback(async (silent = false) => {
     if (!silent) {
@@ -112,32 +129,18 @@ export default function TreasuryPage() {
       .filter((e) => !e.deleted_at && e.quote_status !== 'rejected')
       .map((ev) => {
         const items = ev.event_items || [];
-        let presupuestadoVenta = 0;
-        let presupuestadoNeto = 0;
-        let presupuestadoIvaDebito = 0;
-        let presupuestadoCostoTotal = 0;
-        let abonosRecibidos = 0;
-        let gastosReales = 0;
-
-        items.forEach((item) => {
-          if (item.tipo_evento === 'ABONO_CLIENTE') {
-            abonosRecibidos += Number(item.valor_total || 0);
-            return;
-          }
-          if (item.tipo_evento === 'GASTO_REAL') {
-            gastosReales += Number(item.valor_total || 0);
-            return;
-          }
-          if (!item.approved || item.parent_id) return;
-
-          const qty = Number(item.cantidad) || 1;
-          presupuestadoCostoTotal += Number(item.costo || 0) * qty;
-          if (!item.es_insumo) {
-            presupuestadoVenta += Number(item.valor_total || 0) * qty;
-            presupuestadoNeto += Number(item.valor_neto || 0) * qty;
-            presupuestadoIvaDebito += Number(item.iva || 0) * qty;
-          }
+        const fin = computeProjectFinancials(items, {
+          taxRegime: ev.tax_regime || orgTaxRegime,
+          honorariosPolicy,
+          onlyApproved: true,
         });
+
+        const presupuestadoVenta = fin.facturacionBruta;
+        const presupuestadoNeto = fin.facturacionNeta;
+        const presupuestadoIvaDebito = fin.ivaDebito;
+        const presupuestadoCostoTotal = fin.costoBrutoTotal;
+        const abonosRecibidos = fin.executed.abonosBrutos;
+        const gastosReales = fin.executed.gastosBrutos;
 
         let daysUntilEvent: number | null = null;
         if (ev.event_date) {
@@ -164,7 +167,7 @@ export default function TreasuryPage() {
           daysUntilEvent,
         };
       });
-  }, [events, nowDate]);
+  }, [events, nowDate, orgTaxRegime, honorariosPolicy]);
 
   const kpis = useMemo(() => {
     let cxcConfirmada = 0;
@@ -242,9 +245,11 @@ export default function TreasuryPage() {
     let ventasNetasDevengadas = 0;
     let ivaDebitoDevengado = 0;
     let ivaCreditoProyectado = 0;
+    let retencionHonorariosDevengada = 0;
 
     summaries.forEach((s) => {
       const ev = s.event;
+      const evTaxRegime = ev.tax_regime || orgTaxRegime;
       const evDateParsed = ev.event_date ? parseDateSafe(ev.event_date) : null;
       const eventMatchesPeriod =
         evDateParsed &&
@@ -253,26 +258,15 @@ export default function TreasuryPage() {
 
       // Base Devengada (proyectos aprobados/completados en el período)
       if (eventMatchesPeriod && (ev.status === 'approved' || ev.status === 'completed')) {
-        (ev.event_items || []).forEach((item) => {
-          if (
-            !item.approved ||
-            item.parent_id ||
-            item.tipo_evento === 'ABONO_CLIENTE' ||
-            item.tipo_evento === 'GASTO_REAL'
-          ) {
-            return;
-          }
-          const qty = Number(item.cantidad) || 1;
-          const costoBruto = Number(item.costo || 0) * qty;
-          const costoNeto =
-            item.tipo_doc_costo === 'boleta' ? costoBruto : Math.round(costoBruto / 1.19);
-          ivaCreditoProyectado += Math.max(0, costoBruto - costoNeto);
-
-          if (!item.es_insumo) {
-            ventasNetasDevengadas += Number(item.valor_neto || 0) * qty;
-            ivaDebitoDevengado += Number(item.iva || 0) * qty;
-          }
+        const devFin = computeProjectFinancials(ev.event_items || [], {
+          taxRegime: evTaxRegime,
+          honorariosPolicy,
+          onlyApproved: true,
         });
+        ventasNetasDevengadas += devFin.facturacionNeta;
+        ivaDebitoDevengado += devFin.ivaDebito;
+        ivaCreditoProyectado += devFin.ivaCredito;
+        retencionHonorariosDevengada += devFin.retencionHonorariosEstimada;
       }
 
       // Base Flujo Real (movimientos contabilizados con su fecha individual)
@@ -284,25 +278,39 @@ export default function TreasuryPage() {
         if (monthNum !== 0 && p.month !== monthNum) return;
 
         movCount += 1;
+        const qty = Math.max(1, Number(item.cantidad) || 1);
         if (item.tipo_evento === 'ABONO_CLIENTE') {
-          ventasNetasReales += Number(item.valor_neto || 0);
-          ivaDebitoReales += Number(item.iva || 0);
+          const gross = Math.round((Number(item.valor_total) || Number(item.ganancia) || 0) * qty);
+          const exempt = isItemExempt(item, evTaxRegime);
+          const { net, iva } = exempt ? { net: gross, iva: 0 } : extractIvaFromGross(gross);
+          ventasNetasReales += net;
+          ivaDebitoReales += iva;
         } else {
-          comprasNetasReales += Number(item.valor_neto || 0);
-          ivaCreditoReales += Number(item.iva || 0);
-          const isHon = item.servicio.toLowerCase().includes('honorario');
-          if (isHon) {
-            retencionHonorarios += Math.round(
-              Number(item.valor_total || 0) * CHILE_HONORARIOS_RETENTION_2026
-            );
+          const gross = Math.round((Number(item.costo) || Number(item.valor_total) || 0) * qty);
+          const docType = normalizePurchaseDocType(item.tipo_doc_costo, item.es_exento_compra);
+          const { net, iva } = docType === 'factura' ? extractIvaFromGross(gross) : { net: gross, iva: 0 };
+          comprasNetasReales += net;
+          ivaCreditoReales += iva;
+
+          if (isBoletaHonorariosItem(item)) {
+            const storedBruto = Number(item.costo) || 0;
+            const storedTotal = Number(item.valor_total) || 0;
+            // Si ya viene grossed-up desde BankReconciler (costo bruto > valor_total líquido), usar retención directa sobre bruto
+            const retencion =
+              storedBruto > storedTotal && storedTotal > 0
+                ? retentionFromGross(gross).retencion
+                : applyRetentionPolicy(gross, honorariosPolicy).retencionTotal;
+            retencionHonorarios += retencion;
           }
         }
       });
     });
 
-    const ivaAPagarReal = Math.max(0, ivaDebitoReales - ivaCreditoReales);
-    const remanenteCreditoReal = Math.max(0, ivaCreditoReales - ivaDebitoReales);
-    const totalF29Estimado = ivaAPagarReal + retencionHonorarios;
+    const f29 = computeF29Projection({
+      ivaDebito: ivaDebitoReales,
+      ivaCredito: ivaCreditoReales,
+      retencionHonorarios,
+    });
 
     return {
       ventasNetasReales,
@@ -310,15 +318,16 @@ export default function TreasuryPage() {
       comprasNetasReales,
       ivaCreditoReales,
       retencionHonorarios,
-      ivaAPagarReal,
-      remanenteCreditoReal,
-      totalF29Estimado,
+      ivaAPagarReal: f29.ivaAPagar,
+      remanenteCreditoReal: f29.remanenteIva,
+      totalF29Estimado: f29.totalF29Estimado,
       movCount,
       ventasNetasDevengadas,
       ivaDebitoDevengado,
       ivaCreditoProyectado,
+      retencionHonorariosDevengada,
     };
-  }, [summaries, selectedYear, selectedMonth]);
+  }, [summaries, selectedYear, selectedMonth, orgTaxRegime, honorariosPolicy]);
 
   const cxcList = useMemo(
     () =>
@@ -338,14 +347,23 @@ export default function TreasuryPage() {
   );
 
   const handleExportF29Excel = async () => {
+    if (!canDownloadF29Excel) return;
     const XLSX = await import('xlsx');
     const periodLabel =
       Number(selectedMonth) === 0
         ? `Anual_${selectedYear}`
         : `${getMonthName(Number(selectedMonth))}_${selectedYear}`;
 
+    const policyLabel =
+      honorariosPolicy === 'company'
+        ? 'Empresa asume 15,25% (Gross-up)'
+        : honorariosPolicy === 'split_50_50'
+        ? 'Reparto 50/50 (7,625% c/u)'
+        : 'Prestador asume 15,25%';
+
     const resumenRows = [
       { Concepto: 'Período Tributario SII F29', Monto_CLP: periodLabel },
+      { Concepto: 'Política Retención Honorarios 2026', Monto_CLP: policyLabel },
       { Concepto: 'Ventas Netas (Abonos Reales con IVA)', Monto_CLP: f29Consolidado.ventasNetasReales },
       { Concepto: 'IVA Débito Fiscal (Abonos Reales)', Monto_CLP: f29Consolidado.ivaDebitoReales },
       { Concepto: 'Compras Netas (Gastos con Factura/Boleta)', Monto_CLP: f29Consolidado.comprasNetasReales },
@@ -544,16 +562,30 @@ export default function TreasuryPage() {
                       <CardTitle className="text-base font-semibold">
                         Consolidado SII F29 Global
                       </CardTitle>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleExportF29Excel}
-                        className="gap-1.5 text-xs"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        Excel F29
-                      </Button>
+                      {canDownloadF29Excel ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleExportF29Excel}
+                          className="gap-1.5 text-xs"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          Excel F29
+                        </Button>
+                      ) : (
+                        <Link href="/billing" title="Disponible desde Plan Crecimiento Inteligente IA">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5 text-xs text-muted-foreground border-dashed"
+                          >
+                            <Lock className="h-3.5 w-3.5 text-amber-600" />
+                            Excel F29 (Growth)
+                          </Button>
+                        </Link>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <Select
@@ -604,12 +636,24 @@ export default function TreasuryPage() {
                         {formatCLP(f29Consolidado.totalF29Estimado)}
                       </span>
                     </div>
-                    <div className="rounded-lg bg-muted/40 p-2.5 text-[11px] text-muted-foreground space-y-0.5 mt-2">
-                      <p className="font-semibold text-foreground">
-                        Referencia Devengada en Período ({f29Consolidado.movCount} movs caja):
-                      </p>
+                    <div className="rounded-lg bg-muted/40 p-2.5 text-[11px] text-muted-foreground space-y-1 mt-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-foreground">
+                          Referencia Devengada ({f29Consolidado.movCount} movs caja)
+                        </span>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                          {honorariosPolicy === 'company'
+                            ? 'Ret. 15,25%: Empresa'
+                            : honorariosPolicy === 'split_50_50'
+                            ? 'Ret. 15,25%: 50/50'
+                            : 'Ret. 15,25%: Prestador'}
+                        </Badge>
+                      </div>
                       <p>
                         IVA Débito Presupuestado: {formatCLP(f29Consolidado.ivaDebitoDevengado)} · Crédito: {formatCLP(f29Consolidado.ivaCreditoProyectado)}
+                        {f29Consolidado.retencionHonorariosDevengada > 0
+                          ? ` · Ret. Hon. Est.: ${formatCLP(f29Consolidado.retencionHonorariosDevengada)}`
+                          : ''}
                       </p>
                     </div>
                   </CardContent>

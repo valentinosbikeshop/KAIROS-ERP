@@ -36,14 +36,15 @@ export function RegisterForm() {
   const urlPlan = searchParams.get('plan');
   const urlIndustry = searchParams.get('industry');
   const urlModules = searchParams.get('modules');
+  const urlInvite = searchParams.get('invite');
 
-  const [mode, setMode] = useState<RegisterMode>('owner');
+  const [mode, setMode] = useState<RegisterMode>(urlInvite ? 'invite' : 'owner');
   const [companyName, setCompanyName] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
+  const [inviteCode, setInviteCode] = useState((urlInvite || '').toUpperCase());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -71,8 +72,8 @@ export function RegisterForm() {
     setError(null);
     setSuccessMessage(null);
 
-    if (password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres.');
+    if (password.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres.');
       setLoading(false);
       return;
     }

@@ -183,13 +183,14 @@ export function TierWorkspaceBanner({
         {entitlements.maxProjects !== null && typeof projectCount === 'number' && (
           <span
             className={cn(
-              'font-mono text-[11px] px-2 py-0.5 rounded-md border',
+              'font-mono text-[11px] px-2 py-0.5 rounded-md border tabular-nums',
               isDark
                 ? 'bg-white/10 border-white/15 text-slate-200'
                 : 'bg-white border-slate-200 text-slate-700'
             )}
           >
-            Proyectos: {projectCount}/{entitlements.maxProjects}
+            {entitlements.effectiveTier === 'essential' ? 'Proyectos mes' : 'Proyectos activos'}:{' '}
+            {projectCount}/{entitlements.maxProjects}
           </span>
         )}
 

@@ -3,14 +3,23 @@
 import React, { useState } from 'react';
 import { EventItem } from '@/types';
 import { formatCLP, formatPercentage, calculateFinancials, calculateGananciaFromTotal } from '@/lib/utils';
+import {
+  computeItemFinancials,
+  computeProjectFinancials,
+  formatMoney,
+} from '@/lib/finance-core';
+import { canUseModule, requiredPlanForModule } from '@/lib/plan-guards';
+import { can } from '@/lib/rbac';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Trash2, Loader2, FileUp, ExternalLink, ChevronDown, ChevronRight, Combine, Split, GitFork, X, Sparkles, GripVertical, Undo2, Banknote, Receipt, TrendingUp, Wallet, ShieldCheck } from 'lucide-react';
+import { Trash2, Loader2, FileUp, ExternalLink, ChevronDown, ChevronRight, Combine, Split, GitFork, X, Sparkles, GripVertical, Undo2, Banknote, Receipt, TrendingUp } from 'lucide-react';
 import { useDragAutoScroll } from '@/hooks/use-drag-auto-scroll';
 import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
+import { useUser } from '@/hooks/use-user';
 import { ConsolidateDialog } from './consolidate-dialog';
 import { DistributeInsumoDialog } from './distribute-insumo-dialog';
+import type { QuoteCurrency, TaxRegime } from '@/types/database';
 import {
   Table,
   TableBody,
@@ -28,11 +37,36 @@ interface EventItemsTableProps {
   isCompleted?: boolean;
   hasRetailSales?: boolean;
   isDemo?: boolean;
+  taxRegime?: TaxRegime;
+  mermasPct?: number;
+  baseQuantity?: number | null;
+  currency?: QuoteCurrency;
+  exchangeRate?: number;
 }
 
-export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, hasRetailSales = false, isDemo = false }: EventItemsTableProps) {
-  const { entitlements, isDuoExempt } = useWorkspaceConfig();
-  const canConsolidate = isDuoExempt || isDemo || entitlements.modules.mod_consolidation_retail;
+export function EventItemsTable({
+  items,
+  onItemDeleted,
+  eventId,
+  isCompleted,
+  hasRetailSales = false,
+  isDemo = false,
+  taxRegime,
+  mermasPct = 0,
+  baseQuantity,
+  currency = 'CLP',
+  exchangeRate = 1,
+}: EventItemsTableProps) {
+  const { entitlements, isDuoExempt, plans, organization, terms } = useWorkspaceConfig();
+  const { profile } = useUser();
+  const canConsolidate =
+    isDuoExempt || canUseModule(entitlements, 'mod_consolidation_retail');
+  const consolidationPlan = requiredPlanForModule('mod_consolidation_retail', plans);
+  const canViewMargins = isDuoExempt || can(profile, 'view_costs_margins', entitlements);
+  const effectiveCompleted = Boolean(isCompleted) || entitlements.isExpiredLock || !(isDuoExempt || can(profile, 'create_edit_quotes', entitlements));
+  const activeTaxRegime = taxRegime || organization?.tax_regime || 'afecto_iva';
+  const showForeign = currency !== 'CLP' && exchangeRate > 1;
+  const fxRates = currency === 'UF' ? { uf: exchangeRate } : currency === 'USD' ? { usd: exchangeRate } : undefined;
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [returningId, setReturningId] = useState<string | null>(null);
   const [returningMultiple, setReturningMultiple] = useState(false);
@@ -237,7 +271,7 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
 
   const handleConsolidateClick = () => {
     if (!canConsolidate) {
-      alert('La consolidación de ítems requiere el Plan Crecimiento IA o el módulo Consolidación & Retail en Suscripción.');
+      alert(`La consolidación de ítems requiere el Plan ${consolidationPlan.name} o el módulo Consolidación & Retail.`);
       return;
     }
     if (selectedIds.length < 2) return;
@@ -247,7 +281,7 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
   const handleDropItem = async (draggedId: string, targetId: string) => {
     if (draggedId === targetId) return;
     if (!canConsolidate) {
-      alert('La consolidación por arrastre requiere el Plan Crecimiento IA o el módulo Consolidación & Retail en Suscripción.');
+      alert(`La consolidación por arrastre requiere el Plan ${consolidationPlan.name} o el módulo Consolidación & Retail.`);
       return;
     }
 
@@ -331,7 +365,7 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
 
   const handleOpenDistribute = (item: EventItem) => {
     if (!canConsolidate) {
-      alert('El prorrateo de insumos requiere el Plan Crecimiento IA o el módulo Consolidación & Retail en Suscripción.');
+      alert(`El prorrateo de insumos requiere el Plan ${consolidationPlan.name} o el módulo Consolidación & Retail.`);
       return;
     }
     setDistributeItem(item);
@@ -727,30 +761,36 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
     { costo: 0 }
   );
 
-  const costoTotalGlobal = totalesFacturables.costo + totalesInsumos.costo;
-  const totalVentaCliente = totalesFacturables.valor_total;
+  const projectFin = computeProjectFinancials(localItems, {
+    taxRegime: activeTaxRegime,
+    honorariosPolicy: organization?.honorarios_retention_policy || 'contractor',
+    onlyApproved: true,
+  });
 
-  // 1. Dinero en mano / Cash Flow Inmediato (Pre-Impuestos / Terminando el evento):
-  // Es la diferencia real entre todo lo cobrado al cliente y todo lo pagado a compras y proveedores
+  const costoInsumosParaMerma = localItems.reduce((sum, it) => {
+    if (it.es_insumo || it.parent_id) {
+      const f = computeItemFinancials(it, { taxRegime: activeTaxRegime });
+      return sum + f.costoNeto;
+    }
+    return sum;
+  }, 0);
+  const baseMerma = costoInsumosParaMerma > 0 ? costoInsumosParaMerma : projectFin.costoNetoTotal;
+  const montoMermas = mermasPct > 0 ? Math.round(baseMerma * (mermasPct / 100)) : 0;
+
+  const costoTotalGlobal = projectFin.costoBrutoTotal;
+  const totalVentaCliente = projectFin.facturacionBruta;
   const cashInmediato = totalVentaCliente - costoTotalGlobal;
 
-  // 2. Desglose Tributario (IVA Débito vs IVA Crédito):
-  const ivaDebitoTotal = totalesFacturables.iva;
-  const ivaCreditoTotal = facturables.reduce((acc, item) => {
-    const fin = calculateFinancials(item.costo, item.ganancia, item.tipo_doc_costo || 'factura', item.iva_incluido ?? true);
-    return acc + (fin.ivaCredito * item.cantidad);
-  }, 0) + insumos.reduce((acc, item) => {
-    const fin = calculateFinancials(item.costo, 0, item.tipo_doc_costo || 'factura', item.iva_incluido ?? true, true);
-    return acc + (fin.ivaCredito * item.cantidad);
-  }, 0);
+  const ivaDebitoTotal = projectFin.ivaDebito;
+  const ivaCreditoTotal = projectFin.ivaCredito;
+  const provisionIvaSII = projectFin.ivaNetoF29;
+  const remanenteIvaFavor = projectFin.remanenteIvaF29;
 
-  // Provisión o Reserva estimada para pagar al SII por concepto de IVA (F29):
-  const provisionIvaSII = Math.max(0, ivaDebitoTotal - ivaCreditoTotal);
-  const remanenteIvaFavor = Math.max(0, ivaCreditoTotal - ivaDebitoTotal);
-
-  // 3. Ganancia Neta Real (Dinero limpio final después de cumplir la provisión de IVA):
-  const gananciaNetaLimpia = cashInmediato - provisionIvaSII;
-  const margenReal = costoTotalGlobal > 0 ? (gananciaNetaLimpia / costoTotalGlobal) * 100 : 0;
+  const gananciaNetaLimpia = projectFin.utilidadNeta - montoMermas;
+  const margenReal =
+    projectFin.facturacionNeta > 0
+      ? Math.round((gananciaNetaLimpia / projectFin.facturacionNeta) * 1000) / 10
+      : 0;
 
   const renderRow = (item: EventItem, isChild: boolean = false) => {
     const isSelected = selectedIds.includes(item.id!);
@@ -760,6 +800,7 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
     const isTarget = dragOverTargetId === item.id;
     const isDragged = draggedItemId === item.id;
     const isConsolidated = hasChildren || item.tipo_evento?.toLowerCase() === 'consolidado';
+    const rowFin = computeItemFinancials(item, { taxRegime: activeTaxRegime });
 
     return (
       <TableRow 
@@ -809,7 +850,7 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
             : ''
         }`}
       >
-        {!isCompleted ? (
+        {!effectiveCompleted ? (
           <TableCell className="w-[50px] text-center p-2">
             {!isChild ? (
               <div className="flex items-center justify-center gap-1">
@@ -875,7 +916,7 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
         <TableCell className="text-muted-foreground text-xs p-2">{item.detalle}</TableCell>
         <TableCell className="text-xs p-2">{item.tipo_evento}</TableCell>
         <TableCell className="p-2 border-r">
-          {isCompleted ? (
+          {effectiveCompleted ? (
             <span className="text-sm px-2">{item.cantidad}</span>
           ) : (
             <div className="flex items-center gap-1.5 justify-center">
@@ -895,7 +936,7 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
                   </span>
                 )}
               </div>
-              {!isChild && !hasChildren && (item.cantidad || 0) > 1 && !isCompleted && (
+              {!isChild && !hasChildren && (item.cantidad || 0) > 1 && !effectiveCompleted && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -913,24 +954,28 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
         
         {/* EGRESOS (COSTOS) */}
         <TableCell className="p-2 bg-red-50/30">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-sm font-medium">
-              {formatCLP(item.costo)}
-            </span>
-            <div className="flex items-center gap-1">
-              <span className={`text-[9px] px-1 py-0.2 rounded border font-bold uppercase tracking-wider text-center w-max ${item.tipo_doc_costo === "boleta" ? "bg-orange-100 text-orange-800 border-orange-200" : "bg-blue-100 text-blue-800 border-blue-200"}`}>
-                {item.tipo_doc_costo || "factura"}
+          {canViewMargins ? (
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium">
+                {formatCLP(item.costo)}
               </span>
-              {item.tipo_doc_costo === "factura" && (
-                <span className="text-[9px] text-muted-foreground">
-                  (Neto {formatCLP(Math.round(item.costo / 1.19))})
+              <div className="flex items-center gap-1">
+                <span className={`text-[9px] px-1 py-0.2 rounded border font-bold uppercase tracking-wider text-center w-max ${item.tipo_doc_costo === "boleta" ? "bg-orange-100 text-orange-800 border-orange-200" : "bg-blue-100 text-blue-800 border-blue-200"}`}>
+                  {item.tipo_doc_costo || "factura"}
                 </span>
-              )}
+                {item.tipo_doc_costo === "factura" && (
+                  <span className="text-[9px] text-muted-foreground">
+                    (Neto {formatCLP(rowFin.costoNetoUnit)})
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
+          ) : (
+            <span className="text-xs text-muted-foreground italic">Restringido</span>
+          )}
         </TableCell>
         <TableCell className={`p-2 text-right font-bold bg-red-50/30 border-r ${isChild ? "text-red-700/60" : "text-red-700"}`}>
-          {formatCLP(item.costo * item.cantidad)}
+          {canViewMargins ? formatCLP(item.costo * item.cantidad) : '—'}
         </TableCell>
 
         {/* INGRESOS (VENTA) */}
@@ -943,29 +988,38 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
         ) : (
           <>
             <TableCell className={`p-2 text-sm bg-emerald-50/30 ${isChild ? "text-emerald-900/60" : "text-emerald-900/80 font-medium"}`}>
-              {formatCLP(item.ganancia)}
+              {canViewMargins ? formatCLP(item.ganancia) : '—'}
             </TableCell>
             <TableCell className="p-2 text-center bg-emerald-50/30">
               <div className="flex flex-col items-center">
                 <span className="text-sm font-semibold text-emerald-900">
-                  {formatCLP(item.valor_total)}
+                  {formatCLP(rowFin.ventaTotalUnit)}
                 </span>
                 <span className={`text-[8px] px-1 rounded font-bold uppercase ${
-                  (item.iva_incluido ?? true)
+                  rowFin.isPassthrough
+                    ? "text-purple-700 bg-purple-50 border border-purple-200"
+                    : !rowFin.isExemptSale
                     ? "text-blue-700 bg-blue-50 border border-blue-200"
-                    : "text-zinc-500 bg-zinc-100"
+                    : "text-zinc-600 bg-zinc-100 border border-zinc-200"
                 }`}>
-                  {(item.iva_incluido ?? true) ? "IVA inc." : "Sin IVA"}
+                  {rowFin.isPassthrough ? "Reemb. 0%" : !rowFin.isExemptSale ? "IVA inc." : "Exento"}
                 </span>
               </div>
             </TableCell>
             <TableCell className={`p-2 text-right font-bold bg-emerald-50/30 border-r ${isChild ? "text-emerald-700/60" : "text-emerald-700"}`}>
-              {formatCLP(item.valor_total * item.cantidad)}
+              <div>{formatCLP(rowFin.ventaTotal)}</div>
+              {showForeign && (
+                <div className="text-[10px] font-normal text-muted-foreground">
+                  {formatMoney(rowFin.ventaTotal, currency, fxRates)}
+                </div>
+              )}
             </TableCell>
           </>
         )}
         {/* RESUMEN */}
-        <TableCell className={`p-2 text-center text-xs font-semibold ${isChild ? 'text-muted-foreground/60' : 'text-muted-foreground'}`}>{formatPercentage(item.margen)}</TableCell>
+        <TableCell className={`p-2 text-center text-xs font-semibold ${isChild ? 'text-muted-foreground/60' : 'text-muted-foreground'}`}>
+          {canViewMargins && !(item.es_insumo ?? false) ? formatPercentage(rowFin.margenVentaPct) : '—'}
+        </TableCell>
         <TableCell className="p-2 text-center">
           {item.tipo_doc_costo === 'factura' && (
             item.factura_url && /^https:\/\//i.test(item.factura_url.trim()) ? (
@@ -994,7 +1048,7 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
                   variant="outline"
                   className="h-8 w-8 text-muted-foreground hover:text-primary border-dashed"
                   onClick={() => document.getElementById(`file-${item.id}`)?.click()}
-                  disabled={uploadingId === item.id || isCompleted}
+                  disabled={uploadingId === item.id || effectiveCompleted}
                   title="Subir Factura"
                 >
                   {uploadingId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
@@ -1003,7 +1057,7 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
             ) : null
           )}
         </TableCell>
-        {!isCompleted && (
+        {!effectiveCompleted && (
           <TableCell className="p-2 text-center">
             <div className="flex items-center justify-center gap-1">
               <Button
@@ -1051,13 +1105,14 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
 
   return (
     <div className="space-y-4">
-      {/* Resumen Ejecutivo de Cash & Rentabilidad Real (Explicación Simple) */}
+      {/* Resumen Ejecutivo de Cash & Rentabilidad Real */}
+      {canViewMargins && (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="p-4 rounded-xl glass-card border-[#467366]/25">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-[#2E5248] uppercase tracking-wider flex items-center gap-1.5">
               <Banknote className="h-4 w-4 text-[#467366]" />
-              Dinero en Mano (Al Terminar)
+              Flujo Bruto Proyectado
             </span>
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#467366]/15 text-[#2E5248]">
               Cash Inmediato
@@ -1067,7 +1122,7 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
             {formatCLP(cashInmediato)}
           </div>
           <p className="text-[11px] text-muted-foreground mt-1">
-            Total que cobras <span className="font-semibold text-foreground">({formatCLP(totalVentaCliente)})</span> menos lo que pagas en compras <span className="font-semibold text-foreground">({formatCLP(costoTotalGlobal)})</span>.
+            Cobro c/IVA <span className="font-semibold text-foreground">({formatCLP(totalVentaCliente)})</span> menos costos brutos <span className="font-semibold text-foreground">({formatCLP(costoTotalGlobal)})</span>.
           </p>
         </div>
 
@@ -1086,8 +1141,8 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
           </div>
           <p className="text-[11px] text-muted-foreground mt-1">
             {provisionIvaSII > 0
-              ? `Guarda este monto: IVA cobrado (${formatCLP(ivaDebitoTotal)}) menos IVA compras (-${formatCLP(ivaCreditoTotal)}).`
-              : "Tienes más crédito fiscal en compras que IVA por pagar. No pagarás IVA por este evento."}
+              ? `IVA Débito (${formatCLP(ivaDebitoTotal)}) menos IVA Crédito real (-${formatCLP(ivaCreditoTotal)}).`
+              : `Crédito fiscal en compras (${formatCLP(ivaCreditoTotal)}) supera al IVA Débito (${formatCLP(ivaDebitoTotal)}).`}
           </p>
         </div>
 
@@ -1095,21 +1150,23 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-[#3B4F66] uppercase tracking-wider flex items-center gap-1.5">
               <TrendingUp className="h-4 w-4 text-[#4A607A]" />
-              Tu Ganancia Limpia de Bolsillo
+              Utilidad Neta Real (ex-IVA)
             </span>
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#4A607A]/12 text-[#3B4F66]">
-              Margen: {formatPercentage(margenReal)}
+              Margen s/ Venta: {formatPercentage(margenReal)}
             </span>
           </div>
           <div className={`text-2xl font-bold tabular-nums mt-2 ${gananciaNetaLimpia >= 0 ? "text-[#3B4F66]" : "text-rose-700"}`}>
             {formatCLP(gananciaNetaLimpia)}
           </div>
           <p className="text-[11px] text-muted-foreground mt-1">
-            Utilidad real definitiva 100% tuya tras pagar costos y apartar el IVA.
+            Venta Neta ({formatCLP(projectFin.facturacionNeta)}) - Costo Neto ({formatCLP(projectFin.costoNetoTotal)})
+            {montoMermas > 0 ? ` - Mermas (${formatCLP(montoMermas)})` : ''}.
           </p>
         </div>
       </div>
-      {!isCompleted && (
+      )}
+      {!effectiveCompleted && (
         <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-muted/30 border rounded-lg">
           <div className="flex flex-wrap items-center gap-2">
             {someSelected ? (
@@ -1175,11 +1232,11 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
               <TableHead colSpan={5} className="text-center font-bold text-muted-foreground border-r">INFORMACIÓN DEL SERVICIO</TableHead>
               <TableHead colSpan={2} className="text-center font-bold text-red-700 bg-red-50/50 border-r">COSTOS (PAGOS PROVEEDOR)</TableHead>
               <TableHead colSpan={3} className="text-center font-bold text-emerald-700 bg-emerald-50/50 border-r">VENTA CLIENTE (COBROS)</TableHead>
-              <TableHead colSpan={isCompleted ? 2 : 3} className="text-center font-bold text-muted-foreground">GESTIÓN</TableHead>
+              <TableHead colSpan={effectiveCompleted ? 2 : 3} className="text-center font-bold text-muted-foreground">GESTIÓN</TableHead>
             </TableRow>
             <TableRow className="bg-muted/40 hover:bg-muted/40 text-[11px]">
               <TableHead className="w-[45px] text-center p-2">
-                {!isCompleted && (
+                {!effectiveCompleted && (
                   <input 
                     type="checkbox"
                     checked={allSelected}
@@ -1203,7 +1260,7 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
               
               <TableHead className="w-[75px] text-xs font-bold uppercase tracking-wider text-center">Margen</TableHead>
               <TableHead className="w-[80px] text-center text-xs font-bold uppercase tracking-wider">Factura</TableHead>
-              {!isCompleted && <TableHead className="w-[95px] text-center text-xs font-bold uppercase tracking-wider">Acciones</TableHead>}
+              {!effectiveCompleted && <TableHead className="w-[95px] text-center text-xs font-bold uppercase tracking-wider">Acciones</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1219,18 +1276,19 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
               );
             })}
           </TableBody>
+          {canViewMargins && (
           <TableFooter>
             {/* Fila 1: Productos Facturables */}
             <TableRow className="bg-emerald-50/10 font-semibold border-b text-xs">
-              <TableCell colSpan={5} className="font-bold text-right border-r text-emerald-900/80">(+) Total Productos Facturables:</TableCell>
+              <TableCell colSpan={5} className="font-bold text-right border-r text-emerald-900/80">(+) Total Partidas Facturables:</TableCell>
               <TableCell className="bg-red-50/20"></TableCell>
               <TableCell className="bg-red-50/20 border-r text-right text-red-700 font-bold">{formatCLP(totalesFacturables.costo)}</TableCell>
               
               <TableCell className="bg-emerald-50/20 text-emerald-900/80">{formatCLP(totalesFacturables.ganancia)}</TableCell>
               <TableCell className="bg-emerald-50/20"></TableCell>
-              <TableCell className="bg-emerald-50/20 border-r text-right font-bold text-emerald-700">{formatCLP(totalesFacturables.valor_total)}</TableCell>
+              <TableCell className="bg-emerald-50/20 border-r text-right font-bold text-emerald-700">{formatCLP(totalVentaCliente)}</TableCell>
               
-              <TableCell colSpan={isCompleted ? 2 : 3}></TableCell>
+              <TableCell colSpan={effectiveCompleted ? 2 : 3}></TableCell>
             </TableRow>
             
             {/* Fila 2: Insumos / Costos Operativos */}
@@ -1241,9 +1299,23 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
                 <TableCell className="bg-red-50/20 border-r text-right font-bold text-red-700">{formatCLP(totalesInsumos.costo)}</TableCell>
                 
                 <TableCell colSpan={3} className="bg-muted/20 border-r text-center text-xs text-muted-foreground italic">
-                  Costos de insumos incluidos en recetas
+                  Costos de insumos incluidos en consolidados
                 </TableCell>
-                <TableCell colSpan={isCompleted ? 2 : 3}></TableCell>
+                <TableCell colSpan={effectiveCompleted ? 2 : 3}></TableCell>
+              </TableRow>
+            )}
+
+            {/* Fila 2b: Mermas */}
+            {montoMermas > 0 && (
+              <TableRow className="bg-amber-50/20 font-semibold border-b text-xs">
+                <TableCell colSpan={5} className="font-bold text-right border-r text-amber-900/80">
+                  (-) Mermas / Imprevistos ({mermasPct}% s/ insumos):
+                </TableCell>
+                <TableCell colSpan={2} className="bg-red-50/20 border-r"></TableCell>
+                <TableCell colSpan={3} className="bg-amber-50/30 border-r text-right text-amber-900 pr-3 font-bold">
+                  -{formatCLP(montoMermas)}
+                </TableCell>
+                <TableCell colSpan={effectiveCompleted ? 2 : 3}></TableCell>
               </TableRow>
             )}
 
@@ -1252,7 +1324,7 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
               <TableCell colSpan={5} className="text-right border-r uppercase tracking-wider text-emerald-900 dark:text-emerald-200">
                 <div className="flex items-center justify-end gap-1.5">
                   <Banknote className="h-4 w-4 text-emerald-600" />
-                  <span>💵 DINERO EN MANO (Cobro Total - Costos Totales):</span>
+                  <span>Flujo Bruto (Cobro Total - Costos Totales):</span>
                 </div>
               </TableCell>
               <TableCell className="bg-red-50/40"></TableCell>
@@ -1261,7 +1333,7 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
               </TableCell>
               
               <TableCell colSpan={2} className="bg-emerald-50/60 dark:bg-emerald-950/60 text-right text-emerald-950 dark:text-emerald-100 pr-3">
-                Cash Inmediato en Mano: 
+                Flujo Bruto Proyectado: 
                 <span className={`ml-2 text-sm font-black ${cashInmediato >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-red-600"}`}>
                   {formatCLP(cashInmediato)}
                 </span>
@@ -1271,9 +1343,9 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
               </TableCell>
               
               <TableCell className="text-center font-black text-emerald-700 dark:text-emerald-300 text-xs border-r">
-                {formatPercentage(costoTotalGlobal > 0 ? (cashInmediato / costoTotalGlobal) * 100 : 0)}
+                {formatPercentage(projectFin.markupCostoPct)}
               </TableCell>
-              <TableCell colSpan={isCompleted ? 1 : 2}></TableCell>
+              <TableCell colSpan={effectiveCompleted ? 1 : 2}></TableCell>
             </TableRow>
 
             {/* Fila 4: Provisión IVA (F29 SII) */}
@@ -1281,7 +1353,7 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
               <TableCell colSpan={5} className="text-right border-r uppercase tracking-wider text-amber-900 dark:text-amber-200">
                 <div className="flex items-center justify-end gap-1.5">
                   <Receipt className="h-3.5 w-3.5 text-amber-600" />
-                  <span>🏛️ Reserva Tributaria IVA (F29 SII):</span>
+                  <span>Reserva Tributaria IVA (F29 SII):</span>
                 </div>
               </TableCell>
               <TableCell colSpan={2} className="border-r text-center text-amber-800 dark:text-amber-300">
@@ -1299,34 +1371,35 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
               <TableCell className="border-r text-right font-bold text-amber-800 dark:text-amber-300">
                 {provisionIvaSII > 0 ? `-${formatCLP(provisionIvaSII)}` : "$0"}
               </TableCell>
-              <TableCell colSpan={isCompleted ? 2 : 3}></TableCell>
+              <TableCell colSpan={effectiveCompleted ? 2 : 3}></TableCell>
             </TableRow>
 
-            {/* Fila 5: Ganancia Neta Real Limpia */}
+            {/* Fila 5: Utilidad Neta Real */}
             <TableRow className="bg-muted/80 font-bold border-t-2 border-black/20 text-xs">
               <TableCell colSpan={5} className="text-right border-r uppercase tracking-wider text-foreground">
                 <div className="flex items-center justify-end gap-1.5">
                   <TrendingUp className="h-4 w-4 text-blue-600" />
-                  <span>💎 TU GANANCIA LIMPIA DE BOLSILLO:</span>
+                  <span>Utilidad Neta Real (ex-IVA):</span>
                 </div>
               </TableCell>
               <TableCell className="bg-red-50/40"></TableCell>
-              <TableCell className="bg-red-50/40 border-r text-right text-red-800 font-bold">{formatCLP(costoTotalGlobal)}</TableCell>
+              <TableCell className="bg-red-50/40 border-r text-right text-red-800 font-bold">{formatCLP(projectFin.costoNetoTotal)}</TableCell>
               
               <TableCell colSpan={2} className="bg-blue-50/50 dark:bg-blue-950/40 text-right text-blue-950 dark:text-blue-100 pr-3">
-                Utilidad 100% Definitiva: 
+                Utilidad Neta: 
                 <span className={`ml-2 text-sm font-black ${gananciaNetaLimpia >= 0 ? "text-blue-700 dark:text-blue-400" : "text-red-600"}`}>
                   {formatCLP(gananciaNetaLimpia)}
                 </span>
               </TableCell>
               <TableCell className="bg-blue-50/50 dark:bg-blue-950/40 border-r text-right font-black text-blue-800 dark:text-blue-300 text-sm">
-                {formatCLP(totalVentaCliente)}
+                {formatCLP(projectFin.facturacionNeta)} <span className="text-[10px] font-normal text-muted-foreground">Neto</span>
               </TableCell>
               
               <TableCell className="text-center font-black text-blue-700 dark:text-blue-300 text-xs border-r">{formatPercentage(margenReal)}</TableCell>
-              <TableCell colSpan={isCompleted ? 1 : 2}></TableCell>
+              <TableCell colSpan={effectiveCompleted ? 1 : 2}></TableCell>
             </TableRow>
           </TableFooter>
+          )}
         </Table>
       </div>
 
@@ -1338,6 +1411,7 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
         }}
         selectedItems={localItems.filter(s => selectedIds.includes(s.id!))}
         initialName={consolidationName}
+        defaultQuantity={baseQuantity}
         onConsolidate={handlePerformConsolidate}
       />
 
@@ -1350,7 +1424,7 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
       />
 
       {/* Barra flotante para consolidación rápida y directa */}
-      {!isCompleted && selectedIds.length >= 2 && (
+      {!effectiveCompleted && selectedIds.length >= 2 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 sm:gap-3 px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl bg-card/95 backdrop-blur-xl border border-primary/40 shadow-2xl shadow-black/30 animate-in slide-in-from-bottom-5 duration-300 ring-1 ring-primary/20">
           <div className="flex items-center gap-2 pl-1 pr-2 border-r border-border/60 shrink-0">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 font-bold text-xs shadow-2xs">
@@ -1365,7 +1439,7 @@ export function EventItemsTable({ items, onItemDeleted, eventId, isCompleted, ha
           <div className="flex items-center gap-2">
             <Input
               type="text"
-              placeholder="Nombre del consolidado (ej. Piscolas)..."
+              placeholder={`Nombre partida consolidada (${terms.projectSingular})...`}
               value={consolidationName}
               onChange={(e) => setConsolidationName(e.target.value)}
               onKeyDown={(e) => {

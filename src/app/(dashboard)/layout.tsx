@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { DemoBanner } from '@/components/layout/demo-banner';
@@ -20,6 +21,7 @@ import { useUser } from '@/hooks/use-user';
 import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
 import { createClient } from '@/lib/supabase/client';
 import { disableLocalDemoMode } from '@/lib/supabase/local-demo-client';
+import { canCreateProject, countProjectsForQuota } from '@/lib/plan-guards';
 import { DUO_ORG_SLUG } from '@/lib/constants';
 import { Loader2, Eye, ArrowLeft, Shield } from 'lucide-react';
 
@@ -28,10 +30,49 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [returningHome, setReturningHome] = useState(false);
+  const [quotaCounts, setQuotaCounts] = useState<{ projectCount?: number; costCount?: number }>({});
   const { organization, profile, authUser, loading, isAdmin, isSuperAdmin, isDemo } = useUser();
   const { isDuoExempt, entitlements, terms } = useWorkspaceConfig();
+
+  const refreshQuotaCounts = useCallback(async () => {
+    if (isDuoExempt || isDemo || !organization?.id) return;
+    try {
+      const supabase = createClient();
+      const [{ data: eventsRows }, { count: costsTotal }] = await Promise.all([
+        supabase
+          .from('events')
+          .select('id, status, deleted_at, created_at'),
+        supabase
+          .from('master_costs')
+          .select('id', { count: 'exact', head: true }),
+      ]);
+      const usage = countProjectsForQuota((eventsRows as any[]) || []);
+      const projectGuard = canCreateProject(entitlements, usage);
+      setQuotaCounts({
+        projectCount: projectGuard.current,
+        costCount: typeof costsTotal === 'number' ? costsTotal : undefined,
+      });
+    } catch {
+      // Ignorar si falla lectura de contadores auxiliares
+    }
+  }, [isDuoExempt, isDemo, organization?.id, entitlements]);
+
+  useEffect(() => {
+    refreshQuotaCounts();
+  }, [refreshQuotaCounts, pathname]);
+
+  useEffect(() => {
+    const onRefresh = () => refreshQuotaCounts();
+    window.addEventListener('figura:local-db-changed', onRefresh);
+    window.addEventListener('figura:org-updated', onRefresh);
+    return () => {
+      window.removeEventListener('figura:local-db-changed', onRefresh);
+      window.removeEventListener('figura:org-updated', onRefresh);
+    };
+  }, [refreshQuotaCounts]);
 
   const handleSignOut = async () => {
     if (isDemo) {
@@ -99,6 +140,7 @@ export default function DashboardLayout({
           organizationName={orgName}
           organizationLogoUrl={organization?.logo_url}
           userEmail={activeEmail}
+          profile={profile}
           terms={terms}
           entitlements={entitlements}
           onSignOut={handleSignOut}
@@ -118,6 +160,7 @@ export default function DashboardLayout({
             organizationName={orgName}
             organizationLogoUrl={organization?.logo_url}
             userEmail={activeEmail}
+            profile={profile}
             terms={terms}
             entitlements={entitlements}
             onSignOut={handleSignOut}
@@ -128,7 +171,13 @@ export default function DashboardLayout({
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
         {isDemo && <DemoBanner isSuperAdmin={isSuperAdmin} onSignOut={handleSignOut} />}
-        {!isDuoExempt && !isDemo && <TierWorkspaceBanner entitlements={entitlements} />}
+        {!isDuoExempt && !isDemo && (
+          <TierWorkspaceBanner
+            entitlements={entitlements}
+            projectCount={quotaCounts.projectCount}
+            costCount={quotaCounts.costCount}
+          />
+        )}
         {isSuperAdmin && organization && !isDemo && organization.slug !== DUO_ORG_SLUG && (
           <div className="bg-slate-900 text-slate-100 border-b border-indigo-500/30 px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
             <div className="flex items-center gap-2">

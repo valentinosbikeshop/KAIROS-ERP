@@ -1,7 +1,78 @@
 import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 import type { NextRequest } from 'next/server';
-import type { Database, Organization, Profile } from '@/types/database';
+import type { Database, IndustryType, Organization, Profile } from '@/types/database';
+
+const VALID_DEMO_INDUSTRIES = new Set<IndustryType>([
+  'eventos_banqueteria',
+  'marketing_audiovisual',
+  'construccion_arquitectura',
+  'catering_foodservice',
+  'ferias_stands_b2b',
+  'maestranza_muebles',
+  'ingenieria_hvac',
+  'consultoria_juridico',
+  'turismo_mice',
+]);
+
+const DEMO_ORG_LABELS: Record<IndustryType, { name: string; slug: string; email: string }> = {
+  eventos_banqueteria: {
+    name: 'Productora Horizonte (Demo)',
+    slug: 'eventos-horizonte-demo',
+    email: 'contacto@eventos-demo.cl',
+  },
+  marketing_audiovisual: {
+    name: 'Estudio Vértice Creative (Demo)',
+    slug: 'vertice-creative-demo',
+    email: 'contacto@vertice-demo.cl',
+  },
+  construccion_arquitectura: {
+    name: 'Constructora Cordillera (Demo)',
+    slug: 'constructora-cordillera-demo',
+    email: 'contacto@cordillera-demo.cl',
+  },
+  catering_foodservice: {
+    name: 'Atelier Gastronómico Sur (Demo)',
+    slug: 'atelier-gastronomico-demo',
+    email: 'contacto@atelier-demo.cl',
+  },
+  ferias_stands_b2b: {
+    name: 'ExpoStand Arquitectura (Demo)',
+    slug: 'expostand-b2b-demo',
+    email: 'contacto@expostand-demo.cl',
+  },
+  maestranza_muebles: {
+    name: 'Maestranza Austral (Demo)',
+    slug: 'maestranza-austral-demo',
+    email: 'contacto@maestranza-demo.cl',
+  },
+  ingenieria_hvac: {
+    name: 'TermoClima Ingeniería (Demo)',
+    slug: 'termoclima-hvac-demo',
+    email: 'contacto@termoclima-demo.cl',
+  },
+  consultoria_juridico: {
+    name: 'B&R Consultores (Demo)',
+    slug: 'br-consultores-demo',
+    email: 'contacto@consultores-demo.cl',
+  },
+  turismo_mice: {
+    name: 'Andes MICE & Travel (Demo)',
+    slug: 'andes-mice-demo',
+    email: 'contacto@andesmice-demo.cl',
+  },
+};
+
+function resolveDemoIndustryFromRequest(req: NextRequest): IndustryType {
+  const raw =
+    req.headers.get('x-figura-demo-industry')?.trim() ||
+    req.cookies.get('figura_demo_industry')?.value?.trim() ||
+    '';
+  if (VALID_DEMO_INDUSTRIES.has(raw as IndustryType)) {
+    return raw as IndustryType;
+  }
+  return 'eventos_banqueteria';
+}
 
 /**
  * Creates a privileged Supabase Admin client using SUPABASE_SERVICE_ROLE_KEY.
@@ -68,13 +139,15 @@ export async function getAuthenticatedContext(
       if (isLocalDemo) {
         const demoOrgId = 'd0000000-0000-4000-8000-000000000000';
         const demoUserId = 'd0000000-0000-4000-8000-000000000099';
+        const demoIndustry = resolveDemoIndustryFromRequest(req);
+        const demoMeta = DEMO_ORG_LABELS[demoIndustry];
         return {
           userId: demoUserId,
           email: 'visitante@figura-sandbox.cl',
           profile: {
             id: demoUserId,
             email: 'visitante@figura-sandbox.cl',
-            role: 'member',
+            role: 'admin',
             status: 'active',
             organization_id: demoOrgId,
             is_super_admin: false,
@@ -83,20 +156,44 @@ export async function getAuthenticatedContext(
           },
           organization: {
             id: demoOrgId,
-            name: 'Productora Horizonte (Demo)',
-            slug: 'productora-horizonte-demo',
+            name: demoMeta.name,
+            slug: demoMeta.slug,
             invite_code: 'FIGURA-DEMO-2026',
-            legal_name: 'Productora Horizonte Eventos SpA',
+            legal_name: demoMeta.name,
             rut: '76.890.123-4',
             subtitle: 'SANDBOX LOCAL',
             location: 'Santiago, Chile',
-            contact_email: 'contacto@horizonte-demo.cl',
+            contact_email: demoMeta.email,
             contact_phone: '+56 9 8420 1190',
-            bank_info: null,
+            bank_info: {
+              __saas_config: {
+                industry_type: demoIndustry,
+                theme_preset: 'obsidian_gold',
+                operation_mode: 'project',
+                onboarding_completed: true,
+                is_exempt: false,
+                subscription_tier: 'growth',
+                subscription_status: 'active',
+                selected_modules: [
+                  'mod_pdf_quotes',
+                  'mod_transactions_sii',
+                  'mod_consolidation_retail',
+                  'mod_ai_suite',
+                  'mod_analytics_excel',
+                ],
+                current_period_start: null,
+                current_period_end: null,
+                ai_calls_used: 0,
+                ai_calls_reset_at: new Date().toISOString(),
+              },
+            },
+            industry_type: demoIndustry,
+            subscription_tier: 'growth',
+            subscription_status: 'active',
             is_demo: true,
             is_active: true,
-            max_demo_events: 8,
-            max_demo_costs: 15,
+            max_demo_events: 10,
+            max_demo_costs: 25,
             created_at: new Date().toISOString(),
           },
         };

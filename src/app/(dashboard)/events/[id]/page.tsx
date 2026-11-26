@@ -4,9 +4,22 @@ import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/use-user';
 import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
+import { canUseAi, canUseModule, requiredPlanForModule } from '@/lib/plan-guards';
+import { can, evaluateMarginPolicy, isAdminRole } from '@/lib/rbac';
+import { logAudit } from '@/lib/audit';
+import {
+  computeItemFinancials,
+  computeProjectFinancials,
+  formatMoney,
+  isBoletaHonorariosItem,
+} from '@/lib/finance-core';
+import {
+  getBaseQuantityConfig,
+  TAX_REGIME_OPTIONS,
+} from '@/components/events/project-helpers';
 import { FeatureLockCard } from '@/components/billing/feature-gate';
-import { useRouter, useParams } from 'next/navigation';
-import { Event, EventItem, AiSuggestion } from '@/types';
+import { useParams } from 'next/navigation';
+import { Event, EventItem } from '@/types';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -19,22 +32,21 @@ import { EditEventDialog } from '@/components/events/edit-event-dialog';
 import { TransactionDialog } from '@/components/events/transaction-dialog';
 import { ClientQuotePdfDialog } from '@/components/reports/client-quote-pdf-dialog';
 import { EVENT_STATUS_LABELS, EVENT_STATUS_COLORS } from '@/lib/constants';
-import { formatDateCL, calculateFinancials, formatCLP, formatCurrencyAmount } from '@/lib/utils';
-import { 
-  Sparkles, 
-  FileText, 
-  CheckCircle, 
-  Loader2, 
-  Calendar, 
-  MapPin, 
-  Building2, 
+import { formatDateCL, formatCLP, formatPercentage } from '@/lib/utils';
+import {
+  Sparkles,
+  FileText,
+  CheckCircle,
+  Loader2,
+  Calendar,
+  MapPin,
+  Building2,
   DollarSign,
-  CreditCard, 
-  Lock, 
+  CreditCard,
+  Lock,
   ArrowLeft,
   Wand2,
   FileSpreadsheet,
-  ClipboardList,
   Store,
   Upload,
   Receipt,
@@ -45,20 +57,44 @@ import {
   AlertTriangle,
   ShieldAlert,
   ShieldCheck,
-  Coins
+  Coins,
+  Hash,
+  Tag,
 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function EventDetailPage() {
   const params = useParams();
-  const id = params.id as string;
-  const router = useRouter();
+  const id = String(params?.id || '');
   const supabase = createClient();
-  const { isDemo, isAdmin, isSuperAdmin, organization } = useUser();
-  const { entitlements, isDuoExempt, terms, industry } = useWorkspaceConfig();
-  const canUseAi = isDuoExempt || isDemo || entitlements.modules.mod_ai_suite;
-  const canUsePdf = isDuoExempt || isDemo || entitlements.modules.mod_pdf_quotes;
-  const canUseTransactions = isDuoExempt || isDemo || entitlements.modules.mod_transactions_sii;
+  const { isDemo, profile, organization } = useUser();
+  const { entitlements, isDuoExempt, terms, industry, plans } = useWorkspaceConfig();
+
+  const aiGuard = canUseAi(entitlements);
+  const canUseAiFlag = isDuoExempt || aiGuard.allowed;
+  const aiPlan = requiredPlanForModule('mod_ai_suite', plans);
+  const canUsePdf = isDuoExempt || canUseModule(entitlements, 'mod_pdf_quotes');
+  const pdfPlan = requiredPlanForModule('mod_pdf_quotes', plans);
+  const canUseTransactions =
+    isDuoExempt || canUseModule(entitlements, 'mod_transactions_sii');
+  const siiPlan = requiredPlanForModule('mod_transactions_sii', plans);
+
+  const canViewMargins = isDuoExempt || can(profile, 'view_costs_margins', entitlements);
+  const canEditQuotes =
+    !entitlements.isExpiredLock &&
+    (isDuoExempt || can(profile, 'create_edit_quotes', entitlements));
+  const canSendQuotes =
+    !entitlements.isExpiredLock &&
+    (isDuoExempt || can(profile, 'send_quotes', entitlements));
+  const canRecordTx =
+    canUseTransactions &&
+    !entitlements.isExpiredLock &&
+    (isDuoExempt || can(profile, 'record_transactions', entitlements));
+  const canManageStatus =
+    !entitlements.isExpiredLock &&
+    (isDuoExempt || isAdminRole(profile) || can(profile, 'approve_low_margin', entitlements));
+
+  const baseQtyCfg = getBaseQuantityConfig(industry.id);
 
   const [event, setEvent] = useState<Event | null>(null);
   const [items, setItems] = useState<EventItem[]>([]);
@@ -67,7 +103,7 @@ export default function EventDetailPage() {
   const [parsedText, setParsedText] = useState<string>('');
   const [customPrompt, setCustomPrompt] = useState<string>('');
   const [customQuoteLocation, setCustomQuoteLocation] = useState<string>('');
-  const [aiTargetMargin, setAiTargetMargin] = useState<number>(35);
+  const [aiTargetMargin, setAiTargetMargin] = useState<number>(industry.targetMarginPct || 35);
   const [loading, setLoading] = useState(true);
   const [aiLoading, setAiLoading] = useState(false);
   const [customAiLoading, setCustomAiLoading] = useState(false);
@@ -79,27 +115,45 @@ export default function EventDetailPage() {
   const [shareError, setShareError] = useState<string | null>(null);
   const [approvingOverride, setApprovingOverride] = useState(false);
   const [sameDateCollisions, setSameDateCollisions] = useState<{ id: string; name: string }[]>([]);
-  
+
   const [isTransactionOpen, setIsTransactionOpen] = useState(false);
   const [transactionType, setTransactionType] = useState<'ABONO' | 'GASTO'>('ABONO');
   const [transactionToEdit, setTransactionToEdit] = useState<EventItem | undefined>();
 
+  useEffect(() => {
+    setAiTargetMargin(industry.targetMarginPct || 35);
+  }, [industry.targetMarginPct]);
+
   const fetchEventData = useCallback(async () => {
+    if (!id) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const { data: eventData, error: eventError } = await supabase
         .from('events')
         .select('*')
         .eq('id', id)
-        .single();
-      
-      if (eventError) throw eventError;
+        .maybeSingle();
+
+      // Null-guard estricto (evita TypeError al leer quote_token sobre null)
+      if (eventError || !eventData) {
+        setEvent(null);
+        setItems([]);
+        setDraftItems([]);
+        setTransactions([]);
+        return;
+      }
+
       const loadedEvent = eventData as Event;
       setEvent(loadedEvent);
       if (loadedEvent.quote_token) {
         setSharedUrl(`/q/${loadedEvent.quote_token}`);
       } else if (isDemo && loadedEvent.quote_status && loadedEvent.quote_status !== 'draft') {
         setSharedUrl(`/q/demo-${loadedEvent.id}`);
+      } else {
+        setSharedUrl(null);
       }
 
       if (loadedEvent.event_date) {
@@ -130,13 +184,39 @@ export default function EventDetailPage() {
         .select('*')
         .eq('event_id', id)
         .order('created_at', { ascending: true });
-        
+
       if (itemsError) throw itemsError;
-      
-      const allItems = itemsData as EventItem[];
-      setItems(allItems.filter((item) => item.approved && item.tipo_evento !== 'ABONO_CLIENTE' && item.tipo_evento !== 'GASTO_REAL'));
-      setDraftItems(allItems.filter((item) => !item.approved && item.tipo_evento !== 'ABONO_CLIENTE' && item.tipo_evento !== 'GASTO_REAL'));
-      setTransactions(allItems.filter((item) => item.tipo_evento === 'ABONO_CLIENTE' || item.tipo_evento === 'GASTO_REAL'));
+
+      const allItems = (itemsData as EventItem[]) || [];
+      setItems(
+        allItems.filter(
+          (item) =>
+            item.approved &&
+            item.tipo_evento !== 'ABONO_CLIENTE' &&
+            item.tipo_evento !== 'GASTO_REAL' &&
+            item.servicio !== 'ABONO_CLIENTE' &&
+            item.servicio !== 'GASTO_REAL'
+        )
+      );
+      setDraftItems(
+        allItems.filter(
+          (item) =>
+            !item.approved &&
+            item.tipo_evento !== 'ABONO_CLIENTE' &&
+            item.tipo_evento !== 'GASTO_REAL' &&
+            item.servicio !== 'ABONO_CLIENTE' &&
+            item.servicio !== 'GASTO_REAL'
+        )
+      );
+      setTransactions(
+        allItems.filter(
+          (item) =>
+            item.tipo_evento === 'ABONO_CLIENTE' ||
+            item.tipo_evento === 'GASTO_REAL' ||
+            item.servicio === 'ABONO_CLIENTE' ||
+            item.servicio === 'GASTO_REAL'
+        )
+      );
     } catch (error) {
       console.error('Error fetching event data:', error);
     } finally {
@@ -147,7 +227,6 @@ export default function EventDetailPage() {
   useEffect(() => {
     fetchEventData();
 
-    // Subscribe to realtime changes on event_items for this event
     const channel = supabase
       .channel(`event_items_changes_${id}`)
       .on(
@@ -169,17 +248,56 @@ export default function EventDetailPage() {
     };
   }, [fetchEventData, id, supabase]);
 
-
-  // Generate suggestions based on general event description and attached documents
   const handleOpenTransaction = (type: 'ABONO' | 'GASTO', item?: EventItem) => {
+    if (!canRecordTx) return;
     setTransactionType(type);
     setTransactionToEdit(item);
     setIsTransactionOpen(true);
   };
 
-  // Generate suggestions based on general event description and attached documents
+  const insertAiDraftSuggestions = async (suggestions: any[]) => {
+    const activeTaxRegime = event?.tax_regime || organization?.tax_regime || 'afecto_iva';
+    const newDrafts = suggestions.map((s: any) => {
+      const tipoDoc = s.tipo_doc_costo === 'boleta' ? 'boleta' : 'factura';
+      const rawCosto = Math.round(Number(s.costo) || 0);
+      const ganancia = Math.round(Number(s.ganancia) || 0);
+      const fin = computeItemFinancials(
+        {
+          costo: rawCosto,
+          ganancia,
+          cantidad: 1,
+          tipo_doc_costo: tipoDoc,
+          iva_incluido: s.iva_incluido ?? true,
+        },
+        { taxRegime: activeTaxRegime }
+      );
+      return {
+        organization_id: event?.organization_id || organization?.id,
+        event_id: id,
+        servicio: s.servicio,
+        detalle: s.detalle,
+        tipo_evento: s.tipo_evento || 'AI',
+        cantidad: s.cantidad || 1,
+        costo: rawCosto,
+        ganancia,
+        valor_neto: fin.ventaNetaUnit,
+        iva: fin.ivaDebitoUnit,
+        valor_total: fin.ventaTotalUnit,
+        margen: fin.margenVentaPct,
+        tipo_doc_costo: tipoDoc,
+        iva_incluido: !fin.isExemptSale,
+        approved: false,
+      };
+    });
+    await (supabase.from('event_items') as any).insert(newDrafts);
+  };
+
   const handleGenerateSuggestions = async () => {
     if (!event) return;
+    if (!canUseAiFlag) {
+      alert(aiGuard.reason || `La Suite IA requiere ${aiPlan.name}.`);
+      return;
+    }
     setAiLoading(true);
     try {
       const response = await fetch('/api/ai/suggest-costs', {
@@ -195,35 +313,15 @@ export default function EventDetailPage() {
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Error al generar sugerencias (Error HTTP ' + response.status + ')');
+        throw new Error(
+          errData.error || `Error al generar sugerencias (HTTP ${response.status})`
+        );
       }
 
       const data = await response.json();
       if (data.suggestions && data.suggestions.length > 0) {
-        const newDrafts = data.suggestions.map((s: any) => {
-          const tipoDoc = s.tipo_doc_costo || 'factura';
-          const rawCosto = s.costo || 0;
-          const ganancia = s.ganancia || 0;
-          // Se calcula usando el tipo de documento: en factura se desglosa el IVA de la compra, en boleta se recarga al total
-          const financials = calculateFinancials(rawCosto, ganancia, tipoDoc);
-          return {
-            event_id: id,
-            servicio: s.servicio,
-            detalle: s.detalle,
-            tipo_evento: s.tipo_evento || 'AI',
-            cantidad: s.cantidad || 1,
-            costo: rawCosto,
-            ganancia: ganancia,
-            valor_neto: financials.valorNeto,
-            iva: financials.iva,
-            valor_total: financials.valorTotal,
-            margen: financials.margen,
-            tipo_doc_costo: tipoDoc,
-            approved: false,
-          };
-        });
-        
-        await supabase.from('event_items').insert(newDrafts);
+        await insertAiDraftSuggestions(data.suggestions);
+        await fetchEventData();
       }
     } catch (error: any) {
       console.error('Error generating suggestions:', error);
@@ -233,9 +331,12 @@ export default function EventDetailPage() {
     }
   };
 
-  // Generate breakdown from custom free-text prompt
   const handleGenerateCustomBreakdown = async () => {
     if (!customPrompt.trim()) return;
+    if (!canUseAiFlag) {
+      alert(aiGuard.reason || `La Suite IA requiere ${aiPlan.name}.`);
+      return;
+    }
     setCustomAiLoading(true);
     try {
       const response = await fetch('/api/ai/suggest-costs', {
@@ -252,35 +353,16 @@ export default function EventDetailPage() {
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Error al generar desglose con IA (Error HTTP ' + response.status + ')');
+        throw new Error(
+          errData.error || `Error al generar desglose con IA (HTTP ${response.status})`
+        );
       }
 
       const data = await response.json();
       if (data.suggestions && data.suggestions.length > 0) {
-        const newDrafts = data.suggestions.map((s: any) => {
-          const tipoDoc = s.tipo_doc_costo || 'factura';
-          const rawCosto = s.costo || 0;
-          const ganancia = s.ganancia || 0;
-          const financials = calculateFinancials(rawCosto, ganancia, tipoDoc);
-          return {
-            event_id: id,
-            servicio: s.servicio,
-            detalle: s.detalle,
-            tipo_evento: s.tipo_evento || 'AI',
-            cantidad: s.cantidad || 1,
-            costo: rawCosto,
-            ganancia: ganancia,
-            valor_neto: financials.valorNeto,
-            iva: financials.iva,
-            valor_total: financials.valorTotal,
-            margen: financials.margen,
-            tipo_doc_costo: tipoDoc,
-            approved: false,
-          };
-        });
-        
-        await supabase.from('event_items').insert(newDrafts);
-        setCustomPrompt(''); // Clear prompt after adding to draft
+        await insertAiDraftSuggestions(data.suggestions);
+        setCustomPrompt('');
+        await fetchEventData();
       }
     } catch (error: any) {
       console.error('Error generating custom breakdown:', error);
@@ -291,9 +373,11 @@ export default function EventDetailPage() {
   };
 
   const handleFinalizeEvent = async () => {
-    if (!event) return;
-    
-    const confirm = window.confirm('¿Estás seguro de que deseas finalizar este evento? Ya no podrás agregar ni editar ítems a menos que lo vuelvas a reabrir.');
+    if (!event || !canManageStatus) return;
+
+    const confirm = window.confirm(
+      `¿Está seguro de que desea finalizar este ${terms.projectSingular.toLowerCase()}? Ya no podrá agregar ni editar partidas a menos que lo vuelva a reabrir.`
+    );
     if (!confirm) return;
 
     setFinalizing(true);
@@ -303,19 +387,28 @@ export default function EventDetailPage() {
         .eq('id', id);
 
       if (error) throw error;
-      
+
+      await logAudit('update', 'event', {
+        entityId: event.id,
+        entityLabel: event.name,
+        before: { status: event.status },
+        after: { status: 'completed' },
+      });
+
       setEvent({ ...event, status: 'completed' });
     } catch (error) {
-      console.error('Error finalizing event:', error);
+      console.error('Error finalizing project:', error);
     } finally {
       setFinalizing(false);
     }
   };
 
   const handleReopenEvent = async () => {
-    if (!event) return;
-    
-    const confirm = window.confirm('¿Estás seguro de que deseas reabrir este evento para edición?');
+    if (!event || !canManageStatus) return;
+
+    const confirm = window.confirm(
+      `¿Está seguro de que desea reabrir este ${terms.projectSingular.toLowerCase()} para edición?`
+    );
     if (!confirm) return;
 
     setFinalizing(true);
@@ -325,10 +418,17 @@ export default function EventDetailPage() {
         .eq('id', id);
 
       if (error) throw error;
-      
+
+      await logAudit('update', 'event', {
+        entityId: event.id,
+        entityLabel: event.name,
+        before: { status: event.status },
+        after: { status: 'planning' },
+      });
+
       setEvent({ ...event, status: 'planning' });
     } catch (error) {
-      console.error('Error reopening event:', error);
+      console.error('Error reopening project:', error);
     } finally {
       setFinalizing(false);
     }
@@ -345,10 +445,10 @@ export default function EventDetailPage() {
   if (!event) {
     return (
       <div className="p-8 text-center">
-        <p className="text-muted-foreground">Evento no encontrado.</p>
+        <p className="text-muted-foreground">{terms.projectSingular} no encontrado.</p>
         <Link href="/events">
           <Button variant="link" className="mt-4">
-            Volver a Eventos
+            Volver a {terms.projectPlural}
           </Button>
         </Link>
       </div>
@@ -356,33 +456,29 @@ export default function EventDetailPage() {
   }
 
   const isCompleted = event.status === 'completed';
+  const activeTaxRegime = event.tax_regime || organization?.tax_regime || 'afecto_iva';
+  const honorariosPolicy = organization?.honorarios_retention_policy || 'contractor';
 
-  const topLevelQuoteItems = items.filter((it) => !it.parent_id);
-  const quoteCostoNeto = topLevelQuoteItems.reduce((sum, it) => {
-    const unitNeto =
-      it.tipo_doc_costo === 'boleta'
-        ? Number(it.costo || 0)
-        : Math.round(Number(it.costo || 0) / 1.19);
-    return sum + unitNeto * (Number(it.cantidad) || 1);
-  }, 0);
-  const quoteGanancia = topLevelQuoteItems.reduce(
-    (sum, it) => sum + (it.es_insumo ? 0 : Number(it.ganancia || 0)) * (Number(it.cantidad) || 1),
-    0
-  );
-  const quoteMarginPct = quoteCostoNeto > 0 ? (quoteGanancia / quoteCostoNeto) * 100 : 100;
-  const minMarginFloor = organization?.min_margin_pct ?? 15;
-  const belowMarginFloor =
-    !isDuoExempt &&
-    topLevelQuoteItems.length > 0 &&
-    quoteMarginPct < minMarginFloor &&
-    !event.min_margin_override_approved;
-  const isMarginBlockedForMember = belowMarginFloor && !isAdmin && !isSuperAdmin;
+  const marginEval = evaluateMarginPolicy(event, organization, items, profile, entitlements);
+  const belowMarginFloor = marginEval.requiresApproval;
+  const isMarginBlockedForUser = marginEval.blockedForUser;
+
+  const projectFin = computeProjectFinancials([...items, ...transactions], {
+    taxRegime: activeTaxRegime,
+    honorariosPolicy,
+    onlyApproved: true,
+  });
 
   const handleShareInteractiveQuote = async () => {
     if (!event) return;
-    if (isMarginBlockedForMember) {
+    if (!canSendQuotes) {
+      setShareError('Su rol actual o estado de suscripción no permite enviar cotizaciones.');
+      return;
+    }
+    if (isMarginBlockedForUser) {
       setShareError(
-        `El margen actual (${quoteMarginPct.toFixed(1)}%) está bajo el piso mínimo (${minMarginFloor}%). Un Administrador debe aprobar la excepción antes de compartir el portal.`
+        marginEval.reason ||
+          `El margen actual (${marginEval.currentMarginPct.toFixed(1)}%) está bajo el piso mínimo (${marginEval.minMarginPct}%).`
       );
       return;
     }
@@ -407,6 +503,11 @@ export default function EventDetailPage() {
           quote_token: `demo-${event.id}`,
           quote_status: nextStatus,
           quote_sent_at: nowIso,
+        });
+        await logAudit('quote_sent', 'quote', {
+          entityId: event.id,
+          entityLabel: event.name,
+          after: { url: demoUrl, quote_status: nextStatus },
         });
         if (navigator?.clipboard) {
           navigator.clipboard.writeText(`${window.location.origin}${demoUrl}`).catch(() => {});
@@ -434,6 +535,11 @@ export default function EventDetailPage() {
         quote_status: data.quote_status || 'sent',
         quote_sent_at: data.quote_sent_at || event.quote_sent_at,
       });
+      await logAudit('quote_sent', 'quote', {
+        entityId: event.id,
+        entityLabel: event.name,
+        after: { url: data.url, quote_status: data.quote_status || 'sent' },
+      });
       if (navigator?.clipboard && data.url) {
         navigator.clipboard.writeText(`${window.location.origin}${data.url}`).catch(() => {});
         setCopiedLink(true);
@@ -447,22 +553,34 @@ export default function EventDetailPage() {
   };
 
   const handleApproveMarginOverride = async () => {
-    if (!event) return;
+    if (!event || !marginEval.canApprove) return;
     setApprovingOverride(true);
     try {
       const { error } = await (supabase.from('events') as any)
         .update({ min_margin_override_approved: true })
         .eq('id', event.id);
 
-      if (error) {
-        if (error.code === 'PGRST204' || String(error.message || '').includes('min_margin_override')) {
-          setEvent({ ...event, min_margin_override_approved: true });
-          return;
-        }
+      if (
+        error &&
+        error.code !== 'PGRST204' &&
+        !String(error.message || '').includes('min_margin_override')
+      ) {
         throw error;
       }
       setEvent({ ...event, min_margin_override_approved: true });
       setShareError(null);
+      await logAudit('approve_margin', 'margin_policy', {
+        entityId: event.id,
+        entityLabel: event.name,
+        before: {
+          min_margin_override_approved: false,
+          marginPct: marginEval.currentMarginPct,
+        },
+        after: {
+          min_margin_override_approved: true,
+          minMarginPct: marginEval.minMarginPct,
+        },
+      });
     } catch (err: any) {
       setShareError(err?.message || 'No se pudo aprobar la excepción de margen.');
     } finally {
@@ -470,12 +588,15 @@ export default function EventDetailPage() {
     }
   };
 
+  const taxRegimeLabel =
+    TAX_REGIME_OPTIONS.find((r) => r.value === activeTaxRegime)?.shortLabel || 'Afecto IVA 19%';
+
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-4">
         <Link href="/events" className="hover:text-primary flex items-center">
           <ArrowLeft className="mr-1 h-4 w-4" />
-          Volver a Eventos
+          Volver a {terms.projectPlural}
         </Link>
       </div>
 
@@ -484,11 +605,24 @@ export default function EventDetailPage() {
           <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3 flex-wrap">
             {event.name}
             {isCompleted && <Lock className="h-5 w-5 text-muted-foreground" />}
-            {!isCompleted && <EditEventDialog event={event} onUpdate={setEvent} />}
+            {!isCompleted && canEditQuotes && <EditEventDialog event={event} onUpdate={setEvent} />}
           </h2>
           <div className="flex items-center flex-wrap gap-2 mt-2">
             <Badge className={EVENT_STATUS_COLORS[event.status as keyof typeof EVENT_STATUS_COLORS]}>
               {EVENT_STATUS_LABELS[event.status as keyof typeof EVENT_STATUS_LABELS] || event.status}
+            </Badge>
+            {event.project_type && (
+              <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-700 text-[11px]">
+                {event.project_type}
+              </Badge>
+            )}
+            {event.base_quantity && event.base_quantity > 0 && (
+              <Badge variant="outline" className="border-indigo-200 bg-indigo-50 text-indigo-800 text-[11px]">
+                {event.base_quantity} {baseQtyCfg.unit}
+              </Badge>
+            )}
+            <Badge variant="outline" className="border-slate-200 bg-white text-slate-700 text-[11px]">
+              {taxRegimeLabel}
             </Badge>
             {event.currency && event.currency !== 'CLP' && (
               <Badge variant="outline" className="border-slate-300 bg-slate-50 text-slate-800 font-mono text-[11px]">
@@ -515,7 +649,7 @@ export default function EventDetailPage() {
             {event.has_retail_sales && (
               <Badge variant="outline" className="border-indigo-300 text-indigo-700 bg-indigo-50 font-medium">
                 <Store className="mr-1 h-3 w-3" />
-                Venta al por Menor
+                Consolidación / Prorrateo
               </Badge>
             )}
             {event.is_demo_base && (
@@ -526,20 +660,20 @@ export default function EventDetailPage() {
             {isCompleted && (
               <Badge variant="outline" className="border-green-600 text-green-600 bg-green-50">
                 <CheckCircle className="mr-1 h-3 w-3" />
-                Evento Finalizado
+                {terms.projectSingular} Finalizado
               </Badge>
             )}
           </div>
         </div>
-        
+
         <div className="flex flex-wrap items-center gap-2" data-tour-id="event-pdf-actions">
-          {event && canUsePdf && (
+          {event && canUsePdf && canSendQuotes && (
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={handleShareInteractiveQuote}
-              disabled={sharingLink || items.length === 0 || isMarginBlockedForMember}
+              disabled={sharingLink || items.length === 0 || isMarginBlockedForUser}
               className="h-8 gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/5"
               data-testid="share-quote-portal-btn"
             >
@@ -551,13 +685,34 @@ export default function EventDetailPage() {
               Portal Cliente
             </Button>
           )}
-          {event && canUsePdf && <ClientQuotePdfDialog event={event} items={items} />}
+          {event && canUsePdf && canSendQuotes && (
+            <ClientQuotePdfDialog
+              event={event}
+              items={items}
+              onEventUpdated={setEvent}
+            />
+          )}
+          {!canUsePdf && (
+            <Link href="/billing">
+              <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+                <Lock className="h-3.5 w-3.5 text-amber-600" />
+                PDF / Portal ({pdfPlan.name})
+              </Button>
+            </Link>
+          )}
           {isCompleted ? (
             <div className="flex gap-2">
-              <Button onClick={handleReopenEvent} disabled={finalizing} variant="outline" className="border-orange-200 text-orange-700 hover:bg-orange-50">
-                {finalizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowLeft className="mr-2 h-4 w-4" />}
-                Reabrir Edición
-              </Button>
+              {canManageStatus && (
+                <Button
+                  onClick={handleReopenEvent}
+                  disabled={finalizing}
+                  variant="outline"
+                  className="border-orange-200 text-orange-700 hover:bg-orange-50"
+                >
+                  {finalizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowLeft className="mr-2 h-4 w-4" />}
+                  Reabrir Edición
+                </Button>
+              )}
               <Link href={`/events/${id}/report`}>
                 <Button variant="default">
                   <FileText className="mr-2 h-4 w-4" />
@@ -566,15 +721,17 @@ export default function EventDetailPage() {
               </Link>
             </div>
           ) : (
-            <Button
-              onClick={handleFinalizeEvent}
-              disabled={finalizing || items.length === 0 || isMarginBlockedForMember}
-              variant="outline"
-              className="bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800 border-green-200"
-            >
-              {finalizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-              Finalizar Evento
-            </Button>
+            canManageStatus && (
+              <Button
+                onClick={handleFinalizeEvent}
+                disabled={finalizing || items.length === 0 || isMarginBlockedForUser}
+                variant="outline"
+                className="bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800 border-green-200"
+              >
+                {finalizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+                Finalizar {terms.projectSingular}
+              </Button>
+            )
           )}
         </div>
       </div>
@@ -628,13 +785,13 @@ export default function EventDetailPage() {
               <div className="flex items-start gap-2">
                 <ShieldAlert className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Control de Margen Comercial:</strong> El margen proyectado ({quoteMarginPct.toFixed(1)}%) está bajo el piso configurado ({minMarginFloor}%).
-                  {isMarginBlockedForMember
-                    ? ' Solicita aprobación de un Administrador para exportar PDF, compartir portal o finalizar.'
-                    : ' Como Administrador puedes autorizar una excepción comercial.'}
+                  <strong>Requiere Aprobación de Margen:</strong> El margen operacional ({marginEval.currentMarginPct.toFixed(1)}%) está bajo el mínimo configurado ({marginEval.minMarginPct}%).
+                  {isMarginBlockedForUser
+                    ? ' Solicite autorización de Gerencia o Finanzas antes de enviar PDF, portal o finalizar.'
+                    : ' Puede autorizar una excepción comercial para habilitar el envío.'}
                 </span>
               </div>
-              {(isAdmin || isSuperAdmin) && (
+              {marginEval.canApprove && (
                 <Button
                   type="button"
                   size="sm"
@@ -655,7 +812,7 @@ export default function EventDetailPage() {
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
                 <span>
-                  <strong>Tope de Fecha:</strong> Coincide el {formatDateCL(event.event_date || '')} con {sameDateCollisions.length} proyecto(s) ({sameDateCollisions.map((c) => c.name).slice(0, 2).join(', ')}).
+                  <strong>Tope de Fecha:</strong> Coincide el {formatDateCL(event.event_date || '')} con {sameDateCollisions.length} {terms.projectSingular.toLowerCase()}(s) ({sameDateCollisions.map((c) => c.name).slice(0, 2).join(', ')}).
                 </span>
               </div>
               <Link href="/treasury" className="text-primary font-semibold hover:underline shrink-0">
@@ -703,31 +860,49 @@ export default function EventDetailPage() {
               <CardHeader className="pb-4 border-b border-border/40">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Building2 className="h-4 w-4 text-primary" />
-                  Detalles del Evento
+                  Detalles de {terms.projectSingular}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4 pt-4">
+              <CardContent className="space-y-3.5 pt-4">
                 <div className="flex items-center gap-3 text-sm">
-                  <Building2 className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium w-24">Cliente:</span>
+                  <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="font-medium w-28">{terms.clientLabel}:</span>
                   <span>{event.client_company || 'No especificado'}</span>
                 </div>
                 <div className="flex items-center gap-3 text-sm">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium w-24">Fecha:</span>
+                  <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="font-medium w-28">Fecha:</span>
                   <span>{event.event_date ? formatDateCL(event.event_date) : 'No especificada'}</span>
                 </div>
                 <div className="flex items-center gap-3 text-sm">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium w-24">Ubicación:</span>
+                  <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="font-medium w-28">{terms.locationLabel}:</span>
                   <span>{event.location || 'No especificada'}</span>
                 </div>
+                {event.base_quantity && event.base_quantity > 0 && (
+                  <div className="flex items-center gap-3 text-sm">
+                    <Hash className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="font-medium w-28">Base ({baseQtyCfg.unit}):</span>
+                    <span>
+                      {event.base_quantity} {baseQtyCfg.unit}
+                    </span>
+                  </div>
+                )}
+                {event.project_type && (
+                  <div className="flex items-center gap-3 text-sm">
+                    <Tag className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="font-medium w-28">Categoría:</span>
+                    <span>{event.project_type}</span>
+                  </div>
+                )}
                 <div className="mt-4 pt-4 border-t border-border/40 bg-muted/30 -mx-6 -mb-6 px-6 py-4 rounded-b-xl">
                   <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
                     <FileText className="h-4 w-4 text-primary/70" />
-                    Descripción:
+                    Descripción y Alcance:
                   </h4>
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">{event.description || 'Sin descripción.'}</p>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {event.description || 'Sin descripción registrada.'}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -736,18 +911,16 @@ export default function EventDetailPage() {
               <CardHeader className="pb-4 border-b border-border/40">
                 <CardTitle className="text-base flex items-center gap-2">
                   <FileSpreadsheet className="h-4 w-4 text-primary" />
-                  Documentos Adjuntos
+                  Documentos Adjuntos &amp; OCR
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Sube cotizaciones, riders técnicos u otros documentos para mejorar las sugerencias de la IA.
+                  Suba cotizaciones de proveedores, especificaciones o planillas para extraer costos con IA.
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-4">
                 {!isCompleted ? (
                   <div className="space-y-4">
-                    <FileUpload 
-                      onParsed={(text) => setParsedText(prev => prev + '\n' + text)} 
-                    />
+                    <FileUpload onParsed={(text) => setParsedText((prev) => prev + '\n' + text)} />
                     {parsedText && (
                       <div className="mt-4 p-3 bg-muted/30 rounded-md border text-xs max-h-40 overflow-y-auto">
                         <p className="font-semibold mb-1">Texto extraído:</p>
@@ -757,7 +930,9 @@ export default function EventDetailPage() {
                   </div>
                 ) : (
                   <div className="text-center p-4 bg-muted/20 rounded-md border">
-                    <p className="text-sm text-muted-foreground">El evento está finalizado. No se pueden adjuntar más documentos.</p>
+                    <p className="text-sm text-muted-foreground">
+                      Este {terms.projectSingular.toLowerCase()} está finalizado. No se pueden adjuntar más documentos.
+                    </p>
                   </div>
                 )}
               </CardContent>
@@ -765,238 +940,279 @@ export default function EventDetailPage() {
           </div>
         </TabsContent>
 
-        {/* Tab 2: Borrador de Costos (antes Sugerencias IA) */}
+        {/* Tab 2: Borrador de Costos */}
         <TabsContent value="draft" className="space-y-6">
-          {/* Card de Generación con IA */}
-          {!canUseAi ? (
+          {!canUseAiFlag ? (
             <FeatureLockCard
               compact
               isExpiredLock={entitlements.isExpiredLock}
               title="Suite IA + OCR Documental"
-              description="Genera presupuestos automáticamente, desglosa insumos desde PDF/Excel/Fotos y optimiza márgenes con IA. Tu grilla manual de borrador sigue 100% operativa."
-              requiredPlanLabel="Crecimiento Inteligente IA"
+              description={
+                aiGuard.reason ||
+                'Genere presupuestos automáticamente, desglose insumos desde PDF/Excel/Fotos y optimice márgenes con IA. Su grilla manual de borrador sigue 100% operativa.'
+              }
+              requiredPlanLabel={aiPlan.name}
             />
           ) : (
-          <Card className="border border-primary/20 bg-gradient-to-br from-primary/5 via-card to-card shadow-sm overflow-hidden mb-2">
-            <CardContent className="p-4 sm:p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <Sparkles className="h-4 w-4 text-primary" />
-                <h3 className="font-semibold text-foreground text-sm">Asistente IA de Costos</h3>
-                <span className="text-xs text-muted-foreground ml-2 hidden sm:inline-block">Calcula insumos, personal y extrae cotizaciones automáticamente.</span>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                {/* Custom Prompt Input */}
-                <div className="md:col-span-8 flex flex-col relative">
-                  <div className="relative h-full flex flex-col">
-                    <textarea
-                      rows={2}
-                      value={customPrompt}
-                      onChange={(e) => setCustomPrompt(e.target.value)}
-                      placeholder={event.has_retail_sales 
-                        ? "Escribe un menú, receta o requerimiento (Ej: 50 empanadas, 20L chicha)..." 
-                        : "Escribe requerimientos (Ej: Iluminación para 300 personas, 2 pantallas)..."}
-                      className="w-full h-full min-h-[76px] rounded-xl border border-input/80 bg-background/90 px-3 py-2 pb-9 text-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40 custom-scrollbar resize-none font-normal shadow-xs"
-                      disabled={customAiLoading || isCompleted}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey && customPrompt.trim()) {
-                          e.preventDefault();
-                          handleGenerateCustomBreakdown();
-                        }
-                      }}
-                    />
-                    <div className="absolute bottom-1.5 right-1.5 left-1.5 flex justify-between items-center gap-2">
-                      <div className="flex items-center gap-2" data-tour-id="event-pdf-actions">
-                        {event.has_retail_sales ? (
-                          <input
-                            type="text"
-                            value={customQuoteLocation}
-                            onChange={(e) => setCustomQuoteLocation(e.target.value)}
-                            placeholder="Lugar cotización (Opcional)"
-                            className="w-36 rounded-md border-0 bg-transparent px-1.5 py-1 text-[11px] text-muted-foreground focus-visible:outline-none focus-visible:ring-0"
-                            disabled={customAiLoading || isCompleted}
-                          />
-                        ) : (
-                          <span className="text-[10px] text-muted-foreground/60 pl-1 hidden sm:inline">Enter para enviar</span>
-                        )}
-                        <div className="flex items-center gap-1 bg-background/80 border border-border/80 rounded px-1.5 py-0.5" title="Margen neto objetivo sugerido por la IA para este desglose">
-                          <span className="text-[10px] text-muted-foreground font-semibold">Margen IA:</span>
-                          <input
-                            type="number"
-                            min="0"
-                            max="300"
-                            value={aiTargetMargin}
-                            onChange={(e) => setAiTargetMargin(Math.max(0, parseFloat(e.target.value) || 0))}
-                            className="w-8 text-center text-[11px] font-bold bg-transparent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none text-indigo-700"
-                          />
-                          <span className="text-[10px] text-muted-foreground font-bold">%</span>
+            <Card className="border border-primary/20 bg-gradient-to-br from-primary/5 via-card to-card shadow-sm overflow-hidden mb-2">
+              <CardContent className="p-4 sm:p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <h3 className="font-semibold text-foreground text-sm">
+                    Asistente IA de Costos · {industry.shortName}
+                  </h3>
+                  <span className="text-xs text-muted-foreground ml-2 hidden sm:inline-block">
+                    Calcula insumos, personal y extrae cotizaciones automáticamente.
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                  <div className="md:col-span-8 flex flex-col relative">
+                    <div className="relative h-full flex flex-col">
+                      <textarea
+                        rows={2}
+                        value={customPrompt}
+                        onChange={(e) => setCustomPrompt(e.target.value)}
+                        placeholder={`Describa requerimientos para ${industry.shortName} (ej. partidas, cantidades, personal o insumos)...`}
+                        className="w-full h-full min-h-[76px] rounded-xl border border-input/80 bg-background/90 px-3 py-2 pb-9 text-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40 custom-scrollbar resize-none font-normal shadow-xs"
+                        disabled={customAiLoading || isCompleted || !canEditQuotes}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey && customPrompt.trim()) {
+                            e.preventDefault();
+                            handleGenerateCustomBreakdown();
+                          }
+                        }}
+                      />
+                      <div className="absolute bottom-1.5 right-1.5 left-1.5 flex justify-between items-center gap-2">
+                        <div className="flex items-center gap-2" data-tour-id="event-pdf-actions">
+                          {event.has_retail_sales ? (
+                            <input
+                              type="text"
+                              value={customQuoteLocation}
+                              onChange={(e) => setCustomQuoteLocation(e.target.value)}
+                              placeholder="Ubicación / Zona (Opcional)"
+                              className="w-36 rounded-md border-0 bg-transparent px-1.5 py-1 text-[11px] text-muted-foreground focus-visible:outline-none focus-visible:ring-0"
+                              disabled={customAiLoading || isCompleted || !canEditQuotes}
+                            />
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground/60 pl-1 hidden sm:inline">
+                              Enter para enviar
+                            </span>
+                          )}
+                          <div
+                            className="flex items-center gap-1 bg-background/80 border border-border/80 rounded px-1.5 py-0.5"
+                            title="Margen objetivo sugerido para la IA"
+                          >
+                            <span className="text-[10px] text-muted-foreground font-semibold">
+                              Margen IA:
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              max="300"
+                              value={aiTargetMargin}
+                              onChange={(e) =>
+                                setAiTargetMargin(Math.max(0, parseFloat(e.target.value) || 0))
+                              }
+                              className="w-8 text-center text-[11px] font-bold bg-transparent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none text-indigo-700"
+                            />
+                            <span className="text-[10px] text-muted-foreground font-bold">%</span>
+                          </div>
                         </div>
+                        <Button
+                          onClick={handleGenerateCustomBreakdown}
+                          disabled={
+                            customAiLoading || !customPrompt.trim() || isCompleted || !canEditQuotes
+                          }
+                          size="sm"
+                          className="h-6 rounded-md text-[11px] px-2 font-semibold bg-[#4A607A] hover:bg-[#3F536B] text-white shadow-2xs"
+                        >
+                          {customAiLoading ? (
+                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                          ) : (
+                            <Sparkles className="h-3 w-3 mr-1" />
+                          )}
+                          Generar
+                        </Button>
                       </div>
-                      <Button 
-                        onClick={handleGenerateCustomBreakdown} 
-                        disabled={customAiLoading || !customPrompt.trim() || isCompleted}
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-4 flex flex-col gap-2 justify-center">
+                    <Button
+                      variant="outline"
+                      onClick={handleGenerateSuggestions}
+                      disabled={aiLoading || isCompleted || !canEditQuotes}
+                      size="sm"
+                      className="w-full justify-start gap-2 text-xs border-primary/20 hover:bg-primary/5 h-[36px] rounded-xl font-medium"
+                    >
+                      {aiLoading ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                      ) : (
+                        <Wand2 className="h-3.5 w-3.5 text-primary" />
+                      )}
+                      Sugerir desde Ficha
+                    </Button>
+
+                    <div className="relative w-full">
+                      <input
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png,.xlsx,.csv"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed z-10"
+                        disabled={aiLoading || isCompleted || !canEditQuotes}
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+
+                          setAiLoading(true);
+                          const formData = new FormData();
+                          formData.append('file', file);
+
+                          try {
+                            const res = await fetch('/api/parse-file', {
+                              method: 'POST',
+                              body: formData,
+                            });
+                            if (!res.ok) {
+                              const parseErr = await res.json().catch(() => ({}));
+                              throw new Error(
+                                parseErr.error || `Error al procesar archivo (HTTP ${res.status})`
+                              );
+                            }
+                            const { text } = await res.json();
+
+                            const aiRes = await fetch('/api/ai/suggest-costs', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                customPrompt:
+                                  'Extrae de este documento (factura/boleta/cotización) todos los artículos, cantidades, precios CLP y tipo de documento (factura o boleta) para el borrador de costos.',
+                                parsedDocuments: text,
+                                eventDescription: event?.description || '',
+                                eventType: event?.status || '',
+                                targetMargin: aiTargetMargin,
+                              }),
+                            });
+
+                            if (!aiRes.ok) {
+                              const errBody = await aiRes.json().catch(() => ({}));
+                              throw new Error(errBody.error || 'Error al generar desglose');
+                            }
+                            const data = await aiRes.json();
+
+                            if (data.suggestions && data.suggestions.length > 0) {
+                              await insertAiDraftSuggestions(data.suggestions);
+                              await fetchEventData();
+                            } else {
+                              alert('No se detectaron partidas en el documento.');
+                            }
+                          } catch (err: any) {
+                            alert(err.message);
+                          } finally {
+                            setAiLoading(false);
+                            if (e.target) e.target.value = '';
+                          }
+                        }}
+                      />
+                      <Button
+                        variant="outline"
+                        disabled={aiLoading || isCompleted || !canEditQuotes}
                         size="sm"
-                        className="h-6 rounded-md text-[11px] px-2 font-semibold bg-[#4A607A] hover:bg-[#3F536B] text-white shadow-2xs"
+                        className="w-full justify-start gap-2 text-xs bg-emerald-50/50 text-emerald-700 hover:bg-emerald-100/50 border-emerald-200 h-[36px] rounded-xl relative pointer-events-none font-medium"
                       >
-                        {customAiLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
-                        Generar
+                        {aiLoading ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" />
+                        ) : (
+                          <Upload className="h-3.5 w-3.5 text-emerald-600" />
+                        )}
+                        Subir Cotización (PDF/IMG)
                       </Button>
                     </div>
                   </div>
                 </div>
-
-                {/* General Actions */}
-                <div className="md:col-span-4 flex flex-col gap-2 justify-center">
-                  <Button 
-                    variant="outline"
-                    onClick={handleGenerateSuggestions} 
-                    disabled={aiLoading || isCompleted}
-                    size="sm"
-                    className="w-full justify-start gap-2 text-xs border-primary/20 hover:bg-primary/5 h-[36px] rounded-xl font-medium"
-                  >
-                    {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" /> : <Wand2 className="h-3.5 w-3.5 text-primary" />}
-                    Sugerir desde Ficha
-                  </Button>
-                  
-                  <div className="relative w-full">
-                    <input
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png,.xlsx,.csv"
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed z-10"
-                      disabled={aiLoading || isCompleted}
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        
-                        setAiLoading(true);
-                        const formData = new FormData();
-                        formData.append('file', file);
-                        
-                        try {
-                          const res = await fetch('/api/parse-file', { method: 'POST', body: formData });
-                          if (!res.ok) throw new Error('Error al procesar el archivo');
-                          const { text } = await res.json();
-                          
-                          const aiRes = await fetch('/api/ai/suggest-costs', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              customPrompt: "Extrae de este documento (factura/boleta/cotización) todos los artículos, cantidades, precios CLP y tipo de documento (factura o boleta) para el borrador de costos.",
-                              parsedDocuments: text,
-                              eventDescription: event?.description || '',
-                              eventType: event?.status || '',
-                              targetMargin: aiTargetMargin,
-                            }),
-                          });
-
-                          if (!aiRes.ok) {
-                            const errBody = await aiRes.json().catch(() => ({}));
-                            throw new Error(errBody.error || 'Error al generar desglose');
-                          }
-                          const data = await aiRes.json();
-                          
-                          if (data.suggestions && data.suggestions.length > 0) {
-                            const newDrafts = data.suggestions.map((s: any) => {
-                              const tipoDoc = s.tipo_doc_costo || 'factura';
-                              const rawCosto = s.costo || 0;
-                              const ganancia = s.ganancia || 0;
-                              const financials = calculateFinancials(rawCosto, ganancia, tipoDoc);
-                              return {
-                                event_id: id,
-                                servicio: s.servicio,
-                                detalle: s.detalle,
-                                tipo_evento: s.tipo_evento || 'AI',
-                                cantidad: s.cantidad || 1,
-                                costo: rawCosto,
-                                ganancia: ganancia,
-                                valor_neto: financials.valorNeto,
-                                iva: financials.iva,
-                                valor_total: financials.valorTotal,
-                                margen: financials.margen,
-                                tipo_doc_costo: tipoDoc,
-                                approved: false,
-                              };
-                            });
-                            await supabase.from('event_items').insert(newDrafts);
-                            fetchEventData(); // Refresh UI
-                          } else {
-                            alert('No se detectaron ítems en el documento.');
-                          }
-                        } catch (err: any) {
-                          alert(err.message);
-                        } finally {
-                          setAiLoading(false);
-                          if (e.target) e.target.value = '';
-                        }
-                      }}
-                    />
-                    <Button 
-                      variant="outline"
-                      disabled={aiLoading || isCompleted}
-                      size="sm"
-                      className="w-full justify-start gap-2 text-xs bg-emerald-50/50 text-emerald-700 hover:bg-emerald-100/50 border-emerald-200 h-[36px] rounded-xl relative pointer-events-none font-medium"
-                    >
-                      {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" /> : <Upload className="h-3.5 w-3.5 text-emerald-600" />}
-                      Subir Cotización (PDF/IMG)
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
           )}
 
-          {/* Grilla / Tabla de Borrador */}
           <Card className="shadow-xs glass-card border-border/70">
             <CardContent className="p-4 sm:p-6">
-              <AiSuggestionsGrid 
-                draftItems={draftItems} 
-                eventId={id} 
+              <AiSuggestionsGrid
+                draftItems={draftItems}
+                eventId={id}
                 onDraftChanged={fetchEventData}
                 hasRetailSales={event.has_retail_sales ?? false}
+                taxRegime={activeTaxRegime}
+                initialMermasPct={event.mermas_pct ?? 0}
+                baseQuantity={event.base_quantity}
+                currency={event.currency || 'CLP'}
+                exchangeRate={event.exchange_rate || 1}
+                readOnly={isCompleted}
+                onMermasSaved={(m) =>
+                  setEvent((prev) => (prev ? { ...prev, mermas_pct: m } : prev))
+                }
               />
             </CardContent>
           </Card>
         </TabsContent>
 
-
-        {/* Tab 3: Ítems Aprobados */}
+        {/* Tab 3: Presupuesto Oficial */}
         <TabsContent value="items" className="space-y-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-border/40">
               <div>
                 <CardTitle>Presupuesto Oficial</CardTitle>
                 <CardDescription>
-                  Listado de todos los servicios y costos confirmados para este evento.
+                  Listado de partidas y costos aprobados para este {terms.projectSingular.toLowerCase()}.
                 </CardDescription>
               </div>
-              {event && canUsePdf ? (
-                <ClientQuotePdfDialog event={event} items={items} />
-              ) : (
+              {event && canUsePdf && canSendQuotes ? (
+                <ClientQuotePdfDialog
+                  event={event}
+                  items={items}
+                  onEventUpdated={setEvent}
+                />
+              ) : !canUsePdf ? (
                 <Link href="/billing">
                   <Button size="sm" variant="outline" className="gap-1.5 text-xs">
                     <Lock className="h-3.5 w-3.5 text-amber-600" />
-                    Activar Cotizador PDF
+                    Activar Cotizador PDF ({pdfPlan.name})
                   </Button>
                 </Link>
-              )}
+              ) : null}
             </CardHeader>
             <CardContent>
-              <EventItemsTable 
-                items={items} 
-                onItemDeleted={fetchEventData} 
+              <EventItemsTable
+                items={items}
+                onItemDeleted={fetchEventData}
                 isCompleted={isCompleted}
                 eventId={id}
                 hasRetailSales={event.has_retail_sales ?? false}
                 isDemo={isDemo}
+                taxRegime={activeTaxRegime}
+                mermasPct={event.mermas_pct ?? 0}
+                baseQuantity={event.base_quantity}
+                currency={event.currency || 'CLP'}
+                exchangeRate={event.exchange_rate || 1}
               />
             </CardContent>
           </Card>
-          {canUseAi && <FloatingFinancialAdvisor event={event} items={items} />}
+          {canUseAiFlag && canViewMargins && (
+            <FloatingFinancialAdvisor event={event} items={items} />
+          )}
         </TabsContent>
 
         {/* Tab 4: Finanzas */}
         <TabsContent value="finances" className="space-y-6">
+          {(!canUseTransactions || entitlements.isExpiredLock) && (
+            <FeatureLockCard
+              compact
+              isExpiredLock={entitlements.isExpiredLock}
+              title="Control de Abonos, Gastos Reales y F29"
+              description="Registre pagos recibidos, facturas de proveedores con IVA Crédito y boletas de honorarios (15,25%). Sus registros históricos permanecen visibles en modo lectura."
+              requiredPlanLabel={siiPlan.name}
+            />
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="shadow-xs glass-card border-border/70 md:col-span-2">
               <CardHeader className="pb-4 border-b border-border/40 flex flex-row items-center justify-between">
@@ -1006,17 +1222,27 @@ export default function EventDetailPage() {
                     Control de Abonos y Pagos
                   </CardTitle>
                   <CardDescription className="text-xs mt-1.5">
-                    Registra los pagos adelantados (abonos) que realiza el cliente y los gastos reales (facturas/boletas).
+                    Registre los pagos recibidos (abonos) del cliente y los gastos reales (facturas/boletas).
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  {canUseTransactions ? (
+                  {canRecordTx ? (
                     <>
-                      <Button size="sm" variant="outline" className="h-8 gap-2 shadow-xs text-xs" onClick={() => handleOpenTransaction('ABONO')}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 gap-2 shadow-xs text-xs"
+                        onClick={() => handleOpenTransaction('ABONO')}
+                      >
                         <CreditCard className="h-3.5 w-3.5" />
                         Abono
                       </Button>
-                      <Button size="sm" variant="default" className="h-8 gap-2 shadow-xs text-xs" onClick={() => handleOpenTransaction('GASTO')}>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="h-8 gap-2 shadow-xs text-xs"
+                        onClick={() => handleOpenTransaction('GASTO')}
+                      >
                         <Upload className="h-3.5 w-3.5" />
                         Documento (Gasto)
                       </Button>
@@ -1025,7 +1251,11 @@ export default function EventDetailPage() {
                     <Link href="/billing">
                       <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
                         <Lock className="h-3.5 w-3.5 text-amber-600" />
-                        Activar Flujo Abonos/Gastos
+                        {entitlements.isExpiredLock
+                          ? 'Reactivar Plan'
+                          : !canUseTransactions
+                          ? `Activar (${siiPlan.name})`
+                          : 'Solo Lectura'}
                       </Button>
                     </Link>
                   )}
@@ -1038,22 +1268,21 @@ export default function EventDetailPage() {
                       <DollarSign className="h-6 w-6" />
                     </div>
                     <div>
-                      <h4 className="font-semibold text-foreground text-sm">Aún no hay transacciones registradas</h4>
+                      <h4 className="font-semibold text-foreground text-sm">
+                        Aún no hay transacciones registradas
+                      </h4>
                       <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-                        Agrega el primer abono del cliente o sube el primer documento de gasto.
+                        Agregue el primer abono del cliente o suba el primer documento de gasto.
                       </p>
                     </div>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {transactions.map((t, idx) => {
-                      const isAbono = t.tipo_evento === 'ABONO_CLIENTE';
+                      const isAbono =
+                        t.tipo_evento === 'ABONO_CLIENTE' || t.servicio === 'ABONO_CLIENTE';
                       const isFactura = !isAbono && t.tipo_doc_costo === 'factura';
-                      const isHonorarios =
-                        !isAbono &&
-                        !isFactura &&
-                        (t.servicio?.toLowerCase().includes('honorarios') ||
-                          t.detalle?.toLowerCase().includes('honorarios'));
+                      const isHonorarios = !isAbono && isBoletaHonorariosItem(t);
                       const ivaCreditoItem = isFactura
                         ? t.iva && t.iva > 0
                           ? t.iva
@@ -1069,19 +1298,28 @@ export default function EventDetailPage() {
                       return (
                         <div
                           key={t.id || idx}
-                          className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 p-3 border border-border/50 rounded-lg bg-card/50 hover:bg-muted/50 cursor-pointer transition-colors"
-                          onClick={() => handleOpenTransaction(isAbono ? 'ABONO' : 'GASTO', t)}
+                          className={`flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 p-3 border border-border/50 rounded-lg bg-card/50 transition-colors ${
+                            canRecordTx ? 'hover:bg-muted/50 cursor-pointer' : 'opacity-90 cursor-default'
+                          }`}
+                          onClick={() => {
+                            if (!canRecordTx) return;
+                            handleOpenTransaction(isAbono ? 'ABONO' : 'GASTO', t);
+                          }}
                         >
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <span
                                 className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                                  isAbono ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                                  isAbono
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-rose-100 text-rose-700'
                                 }`}
                               >
                                 {isAbono ? 'ABONO' : 'GASTO'}
                               </span>
-                              <span className="font-medium text-sm text-foreground">{t.servicio}</span>
+                              <span className="font-medium text-sm text-foreground">
+                                {t.servicio}
+                              </span>
                               {isFactura && (
                                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
                                   Factura · IVA Créd. +${ivaCreditoItem.toLocaleString('es-CL')}
@@ -1089,7 +1327,7 @@ export default function EventDetailPage() {
                               )}
                               {isHonorarios && (
                                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                  Honorarios · $0 IVA Créd.
+                                  Honorarios 15,25% · $0 IVA Créd.
                                 </span>
                               )}
                               {!isAbono && !isFactura && !isHonorarios && (
@@ -1106,7 +1344,11 @@ export default function EventDetailPage() {
                             <p className="text-xs text-muted-foreground mt-1">{t.detalle || '-'}</p>
                           </div>
                           <div className="text-left sm:text-right shrink-0">
-                            <p className={`font-semibold ${isAbono ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            <p
+                              className={`font-semibold ${
+                                isAbono ? 'text-emerald-600' : 'text-rose-600'
+                              }`}
+                            >
                               {isAbono ? '+' : '-'}${t.valor_total.toLocaleString('es-CL')}
                             </p>
                             <p className="text-[10px] text-muted-foreground uppercase">
@@ -1122,206 +1364,227 @@ export default function EventDetailPage() {
             </Card>
 
             <div className="space-y-4">
-              <Card className="shadow-xs glass-card border-border/70">
-                <CardHeader className="pb-4 border-b border-border/40 bg-muted/10">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-emerald-600" />
-                    Resumen de Flujo de Caja (Cash)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-6 space-y-4">
-                  {(() => {
-                    const topLevelApproved = items.filter((item) => !item.parent_id);
-                    const totalPresupuestado = topLevelApproved
-                      .filter((item) => !(item.es_insumo ?? false))
-                      .reduce((acc, item) => acc + ((item.valor_total || 0) * (item.cantidad || 1)), 0);
-                    const costoTotalItems = topLevelApproved.reduce(
-                      (acc, item) => acc + ((item.costo || 0) * (item.cantidad || 1)),
-                      0
-                    );
-                    const cashProyectado = totalPresupuestado - costoTotalItems;
-                    const abonosRecibidos = transactions.filter(t => t.tipo_evento === 'ABONO_CLIENTE').reduce((acc, t) => acc + (t.valor_total || 0), 0);
-                    const gastosReales = transactions.filter(t => t.tipo_evento === 'GASTO_REAL').reduce((acc, t) => acc + (t.valor_total || 0), 0);
-                    const cashActualMano = abonosRecibidos - gastosReales;
-                    const saldoPorCobrar = totalPresupuestado - abonosRecibidos;
-                    const pctCobrado = totalPresupuestado > 0 ? Math.min(100, Math.round((abonosRecibidos / totalPresupuestado) * 100)) : 0;
-                    const pctGastoEjecutado = costoTotalItems > 0 ? Math.min(150, Math.round((gastosReales / costoTotalItems) * 100)) : 0;
-                    const margenRealPct = totalPresupuestado > 0 ? ((totalPresupuestado - Math.max(costoTotalItems, gastosReales)) / totalPresupuestado) * 100 : 0;
-                    const meetsTargetMargin = margenRealPct >= industry.targetMarginPct;
+              {canViewMargins && (
+                <Card className="shadow-xs glass-card border-border/70">
+                  <CardHeader className="pb-4 border-b border-border/40 bg-muted/10">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-emerald-600" />
+                      Resumen de Flujo de Caja
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-6 space-y-4">
+                    {(() => {
+                      const totalPresupuestado = projectFin.facturacionBruta;
+                      const costoTotalItems = projectFin.costoBrutoTotal;
+                      const cashProyectado = totalPresupuestado - costoTotalItems;
+                      const abonosRecibidos = projectFin.executed.abonosBrutos;
+                      const gastosReales = projectFin.executed.gastosBrutos;
+                      const cashActualMano = projectFin.executed.cajaNetaEjecutada;
+                      const saldoPorCobrar = totalPresupuestado - abonosRecibidos;
+                      const pctCobrado =
+                        totalPresupuestado > 0
+                          ? Math.min(100, Math.round((abonosRecibidos / totalPresupuestado) * 100))
+                          : 0;
+                      const pctGastoEjecutado =
+                        costoTotalItems > 0
+                          ? Math.min(150, Math.round((gastosReales / costoTotalItems) * 100))
+                          : 0;
+                      const canonicalMarginPct =
+                        projectFin.facturacionNetaSinReembolsables > 0
+                          ? projectFin.margenOperacionalPct
+                          : projectFin.margenVentaPct;
+                      const meetsTargetMargin = canonicalMarginPct >= industry.targetMarginPct;
+                      const fxRates =
+                        event.currency === 'UF'
+                          ? { uf: event.exchange_rate }
+                          : event.currency === 'USD'
+                          ? { usd: event.exchange_rate }
+                          : undefined;
 
-                    return (
-                      <>
-                        {/* Control Presupuesto vs. Real */}
-                        <div className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/70 space-y-2.5 text-xs">
-                          <div className="flex items-center justify-between font-semibold text-foreground">
-                            <span>Control Presupuesto vs. Real</span>
-                            <span
-                              className={
-                                meetsTargetMargin
-                                  ? 'text-emerald-700 font-bold'
-                                  : 'text-amber-700 font-bold'
-                              }
-                            >
-                              Margen {margenRealPct.toFixed(1)}% (Meta {industry.targetMarginPct}%)
-                            </span>
-                          </div>
-                          <div className="space-y-1">
-                            <div className="flex justify-between text-[11px] text-muted-foreground">
-                              <span>Cobranza ({pctCobrado}%)</span>
-                              <span>${abonosRecibidos.toLocaleString('es-CL')} / ${totalPresupuestado.toLocaleString('es-CL')}</span>
+                      return (
+                        <>
+                          <div className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/70 space-y-2.5 text-xs">
+                            <div className="flex items-center justify-between font-semibold text-foreground">
+                              <span>Control Presupuesto vs. Real</span>
+                              <span
+                                className={
+                                  meetsTargetMargin
+                                    ? 'text-emerald-700 font-bold'
+                                    : 'text-amber-700 font-bold'
+                                }
+                              >
+                                Margen s/ Venta: {formatPercentage(canonicalMarginPct)} (Meta {industry.targetMarginPct}%)
+                              </span>
                             </div>
-                            <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
-                              <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${pctCobrado}%` }} />
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[11px] text-muted-foreground">
+                                <span>Cobranza ({pctCobrado}%)</span>
+                                <span>
+                                  ${abonosRecibidos.toLocaleString('es-CL')} / $
+                                  {totalPresupuestado.toLocaleString('es-CL')}
+                                </span>
+                              </div>
+                              <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
+                                <div
+                                  className="h-full bg-emerald-600 rounded-full"
+                                  style={{ width: `${pctCobrado}%` }}
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[11px] text-muted-foreground">
+                                <span>Ejecución Costos ({pctGastoEjecutado}%)</span>
+                                <span>
+                                  ${gastosReales.toLocaleString('es-CL')} / $
+                                  {costoTotalItems.toLocaleString('es-CL')}
+                                </span>
+                              </div>
+                              <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${
+                                    pctGastoEjecutado > 100 ? 'bg-rose-600' : 'bg-[#4A607A]'
+                                  }`}
+                                  style={{ width: `${Math.min(100, pctGastoEjecutado)}%` }}
+                                />
+                              </div>
                             </div>
                           </div>
-                          <div className="space-y-1">
-                            <div className="flex justify-between text-[11px] text-muted-foreground">
-                              <span>Ejecución Costos ({pctGastoEjecutado}%)</span>
-                              <span>${gastosReales.toLocaleString('es-CL')} / ${costoTotalItems.toLocaleString('es-CL')}</span>
-                            </div>
-                            <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
-                              <div
-                                className={`h-full rounded-full ${pctGastoEjecutado > 100 ? 'bg-rose-600' : 'bg-[#4A607A]'}`}
-                                style={{ width: `${Math.min(100, pctGastoEjecutado)}%` }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex justify-between items-end border-b border-border/40 pb-3">
-                          <div>
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Presupuestado</p>
-                            <p className="text-sm font-semibold text-foreground mt-1">
-                              ${totalPresupuestado.toLocaleString('es-CL')}
-                            </p>
-                            {event.currency && event.currency !== 'CLP' && (event.exchange_rate || 1) > 1 && (
-                              <p className="text-[11px] font-mono text-primary">
-                                {formatCurrencyAmount(totalPresupuestado, event.currency, event.exchange_rate)}
-                              </p>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Costo Insumos/Servicios</p>
-                            <p className="text-sm font-semibold text-red-600 mt-1">
-                              -${costoTotalItems.toLocaleString('es-CL')}
-                            </p>
-                          </div>
-                        </div>
 
-                        <div className="p-3 rounded-lg bg-emerald-50/70 border border-emerald-200/60 dark:bg-emerald-950/30 dark:border-emerald-900/40">
-                          <div className="flex justify-between items-center">
+                          <div className="flex justify-between items-end border-b border-border/40 pb-3">
                             <div>
-                              <p className="text-xs font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-wider">
-                                💵 Cash en Mano Proyectado
+                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                Total Presupuestado
                               </p>
-                              <p className="text-[11px] text-emerald-700/80 dark:text-emerald-300">
-                                Ganancia inmediata al terminar evento
+                              <p className="text-sm font-semibold text-foreground mt-1">
+                                ${totalPresupuestado.toLocaleString('es-CL')}
+                              </p>
+                              {event.currency &&
+                                event.currency !== 'CLP' &&
+                                (event.exchange_rate || 1) > 1 && (
+                                  <p className="text-[11px] font-mono text-primary">
+                                    {formatMoney(totalPresupuestado, event.currency, fxRates)}
+                                  </p>
+                                )}
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                Costo Presupuestado
+                              </p>
+                              <p className="text-sm font-semibold text-red-600 mt-1">
+                                -${costoTotalItems.toLocaleString('es-CL')}
                               </p>
                             </div>
-                            <p className="text-lg font-black text-emerald-700 dark:text-emerald-300">
-                              ${cashProyectado.toLocaleString('es-CL')}
-                            </p>
                           </div>
-                        </div>
 
-                        <div className="flex justify-between items-end border-b border-border/40 pb-3">
-                          <div>
-                            <p className="text-xs font-medium text-emerald-600/80 uppercase tracking-wider">Abonos Recibidos</p>
-                            <p className="text-sm font-semibold text-emerald-600 mt-1">
-                              +${abonosRecibidos.toLocaleString('es-CL')}
-                            </p>
+                          <div className="p-3 rounded-lg bg-emerald-50/70 border border-emerald-200/60 dark:bg-emerald-950/30 dark:border-emerald-900/40">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <p className="text-xs font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-wider">
+                                  Flujo Bruto Proyectado
+                                </p>
+                                <p className="text-[11px] text-emerald-700/80 dark:text-emerald-300">
+                                  Utilidad Neta ex-IVA: {formatCLP(projectFin.utilidadNeta)}
+                                </p>
+                              </div>
+                              <p className="text-lg font-black text-emerald-700 dark:text-emerald-300">
+                                ${cashProyectado.toLocaleString('es-CL')}
+                              </p>
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-xs font-medium text-rose-600/80 uppercase tracking-wider">Gastos Reales Pagados</p>
-                            <p className="text-sm font-semibold text-rose-600 mt-1">
-                              -${gastosReales.toLocaleString('es-CL')}
-                            </p>
-                          </div>
-                        </div>
 
-                        <div className="flex justify-between items-center border-b border-border/40 pb-3">
-                          <div>
-                            <p className="text-xs font-bold text-foreground uppercase tracking-wider">Cash Actual en Cuenta/Caja</p>
-                            <p className="text-[11px] text-muted-foreground">Abonos recaudados menos gastos pagados</p>
+                          <div className="flex justify-between items-end border-b border-border/40 pb-3">
+                            <div>
+                              <p className="text-xs font-medium text-emerald-600/80 uppercase tracking-wider">
+                                Abonos Recibidos
+                              </p>
+                              <p className="text-sm font-semibold text-emerald-600 mt-1">
+                                +${abonosRecibidos.toLocaleString('es-CL')}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs font-medium text-rose-600/80 uppercase tracking-wider">
+                                Gastos Reales Pagados
+                              </p>
+                              <p className="text-sm font-semibold text-rose-600 mt-1">
+                                -${gastosReales.toLocaleString('es-CL')}
+                              </p>
+                            </div>
                           </div>
-                          <p className={`text-base font-bold ${cashActualMano >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            ${cashActualMano.toLocaleString('es-CL')}
-                          </p>
-                        </div>
 
-                        <div className="flex justify-between items-end pt-1">
-                          <div>
-                            <p className="text-xs font-bold text-foreground uppercase tracking-wider">Saldo por Cobrar</p>
-                            <p className="text-xl font-bold text-foreground mt-1">
-                              ${saldoPorCobrar.toLocaleString('es-CL')}
+                          <div className="flex justify-between items-center border-b border-border/40 pb-3">
+                            <div>
+                              <p className="text-xs font-bold text-foreground uppercase tracking-wider">
+                                Cash Actual en Caja
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">
+                                Abonos recaudados menos gastos pagados
+                              </p>
+                            </div>
+                            <p
+                              className={`text-base font-bold ${
+                                cashActualMano >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                              }`}
+                            >
+                              ${cashActualMano.toLocaleString('es-CL')}
                             </p>
                           </div>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </CardContent>
-              </Card>
+
+                          <div className="flex justify-between items-end pt-1">
+                            <div>
+                              <p className="text-xs font-bold text-foreground uppercase tracking-wider">
+                                Saldo por Cobrar
+                              </p>
+                              <p className="text-xl font-bold text-foreground mt-1">
+                                ${saldoPorCobrar.toLocaleString('es-CL')}
+                              </p>
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+              )}
 
               <Card className="shadow-xs glass-card border-amber-200/70 bg-amber-50/15">
                 <CardHeader className="pb-3 border-b border-border/40">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Receipt className="h-4 w-4 text-amber-600" />
-                    Balance IVA del Evento (Débito vs Crédito — F29)
+                    Balance Tributario SII (F29 Real)
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="pt-4 space-y-3 text-xs">
+                <CardContent className="pt-4 space-y-2.5 text-xs">
                   {(() => {
-                    const ivaDebitoPresupuestado = items
-                      .filter((i) => !i.parent_id && !(i.es_insumo ?? false) && (i.iva_incluido ?? true))
-                      .reduce((acc, i) => acc + ((i.iva || 0) * (i.cantidad || 1)), 0);
-                    const ivaDebitoAbonos = transactions
-                      .filter((t) => t.tipo_evento === 'ABONO_CLIENTE' && t.iva_incluido !== false)
-                      .reduce(
-                        (acc, t) =>
-                          acc + (t.iva && t.iva > 0 ? t.iva : Math.round(t.valor_total - t.valor_total / 1.19)),
-                        0
-                      );
-                    const gastosFactura = transactions.filter(
-                      (t) => t.tipo_evento === 'GASTO_REAL' && t.tipo_doc_costo === 'factura'
-                    );
-                    const gastosBoleta = transactions.filter(
-                      (t) => t.tipo_evento === 'GASTO_REAL' && t.tipo_doc_costo !== 'factura'
-                    );
-                    const ivaCreditoReales = gastosFactura.reduce(
-                      (acc, t) =>
-                        acc + (t.iva && t.iva > 0 ? t.iva : Math.round(t.valor_total - t.valor_total / 1.19)),
-                      0
-                    );
-                    const totalGastosFactura = gastosFactura.reduce((acc, t) => acc + (t.valor_total || 0), 0);
-                    const totalGastosBoleta = gastosBoleta.reduce((acc, t) => acc + (t.valor_total || 0), 0);
-                    const balanceF29Real = ivaDebitoAbonos - ivaCreditoReales;
+                    const balanceF29Real =
+                      projectFin.executed.abonosIvaDebito -
+                      projectFin.executed.gastosIvaCredito;
 
                     return (
                       <>
                         <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">IVA Débito Presupuestado (19%):</span>
+                          <span className="text-muted-foreground">IVA Débito Presupuestado:</span>
                           <span className="font-semibold text-foreground">
-                            ${ivaDebitoPresupuestado.toLocaleString('es-CL')}
+                            ${projectFin.ivaDebito.toLocaleString('es-CL')}
                           </span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">IVA Débito en Abonos Recibidos:</span>
+                          <span className="text-muted-foreground">IVA Débito en Abonos:</span>
                           <span className="font-semibold text-amber-700">
-                            ${ivaDebitoAbonos.toLocaleString('es-CL')}
+                            ${projectFin.executed.abonosIvaDebito.toLocaleString('es-CL')}
                           </span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">
-                            IVA Crédito Facturas ({gastosFactura.length}):
-                          </span>
+                          <span className="text-muted-foreground">IVA Crédito Facturas Reales:</span>
                           <span className="font-semibold text-blue-700">
-                            -${ivaCreditoReales.toLocaleString('es-CL')}
+                            -${projectFin.executed.gastosIvaCredito.toLocaleString('es-CL')}
                           </span>
                         </div>
-                        <div className="flex justify-between items-center text-[11px] text-muted-foreground border-t border-border/40 pt-2">
-                          <span>Pagado con Factura vs Boleta/Honorarios:</span>
-                          <span>
-                            ${totalGastosFactura.toLocaleString('es-CL')} / ${totalGastosBoleta.toLocaleString('es-CL')}
+                        <div className="flex justify-between items-center border-t border-border/40 pt-2">
+                          <span className="text-muted-foreground">
+                            Retención Honorarios 15,25%:
+                          </span>
+                          <span className="font-semibold text-indigo-700">
+                            ${projectFin.executed.retencionHonorariosTotal.toLocaleString('es-CL')}
                           </span>
                         </div>
                         <div
@@ -1332,7 +1595,9 @@ export default function EventDetailPage() {
                           }`}
                         >
                           <span>
-                            {balanceF29Real > 0 ? 'IVA Neto a Reservar F29:' : 'Remanente IVA a Favor:'}
+                            {balanceF29Real > 0
+                              ? 'IVA Neto a Reservar F29:'
+                              : 'Remanente IVA a Favor:'}
                           </span>
                           <span>${Math.abs(balanceF29Real).toLocaleString('es-CL')}</span>
                         </div>
@@ -1345,8 +1610,8 @@ export default function EventDetailPage() {
           </div>
         </TabsContent>
       </Tabs>
-      
-      {isTransactionOpen && (
+
+      {isTransactionOpen && canRecordTx && (
         <TransactionDialog
           isOpen={isTransactionOpen}
           onOpenChange={setIsTransactionOpen}
@@ -1359,4 +1624,3 @@ export default function EventDetailPage() {
     </div>
   );
 }
-

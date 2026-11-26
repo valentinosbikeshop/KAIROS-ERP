@@ -50,9 +50,9 @@
 ## 5. Tono de Voz & Reglas Editoriales (Cero "AI Slop")
 
 ### Principios de Redacción
-- **Trato ejecutivo:** Profesional, directo, en español chileno/neutro corporativo. Orientado a KPIs concretos (margen neto, F29, flujo de caja, horas ahorradas).
-- **Cifras antes que adjetivos:** En lugar de *"optimiza increíblemente tu empresa"*, escribir *"protege 4,5% de margen neto recuperando el 19% de IVA Crédito en cada compra con factura"*.
-- **Vocabulario de precisión:** *Partida, escandallo, flujo de caja, IVA Débito/Crédito, retención 15,25%, margen neto, estado de pago, trazabilidad*.
+- **Trato ejecutivo:** Trato formal de **"usted"**, profesional, directo, en español chileno corporativo. Orientado a alivio operativo y KPIs concretos (margen neto s/ venta, F29, flujo de caja, horas libres recuperadas).
+- **Cifras antes que adjetivos:** En lugar de *"optimiza increíblemente su empresa"*, escribir *"protege 4,5% de margen neto recuperando el 19% de IVA Crédito (`/ 1,19`) en cada compra con factura"*.
+- **Vocabulario de precisión:** *Partida, escandallo, consolidación padre/hijo, flujo de caja, IVA Débito/Crédito, retención 15,25%, margen neto s/ venta, estado de pago, RBAC, trazabilidad*.
 
 ### Lista Negra de Clichés ("AI Slop" Prohibido)
 Queda estrictamente prohibido utilizar en copy, UI o campañas:

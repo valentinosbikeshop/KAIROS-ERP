@@ -29,6 +29,12 @@ import {
   CostResourceType,
   StaffModality,
 } from '@/lib/cost-metadata'
+import {
+  applyRetentionPolicy,
+  DEFAULT_UF_RATE_CLP,
+  DEFAULT_USD_RATE_CLP,
+  formatMoney,
+} from '@/lib/finance-core'
 import { Users, Wrench, Utensils, Truck, Receipt, FileText, Info } from 'lucide-react'
 
 interface CostFormDialogProps {
@@ -38,33 +44,31 @@ interface CostFormDialogProps {
   onSuccess?: () => void
 }
 
-const RESOURCE_OPTIONS: {
-  value: CostResourceType
-  label: string
-  hint: string
-  icon: typeof Users
-}[] = [
-  { value: 'servicio', label: 'Servicio / Equipo', hint: 'Técnica, arriendo', icon: Wrench },
-  { value: 'personal', label: 'Personal / RR.HH.', hint: 'Staff, técnicos, artistas', icon: Users },
-  { value: 'insumo', label: 'Banquetería', hint: 'Comida, barra, insumos', icon: Utensils },
-  { value: 'logistica', label: 'Logística', hint: 'Fletes, generador, montaje', icon: Truck },
-]
-
 export function CostFormDialog({
   open,
   onOpenChange,
   editingCost,
   onSuccess,
 }: CostFormDialogProps) {
-  const { organization, isDuoExempt } = useWorkspaceConfig()
-  const defaultPolicy: HonorariosRetentionPolicy =
+  const { organization, industry } = useWorkspaceConfig()
+  const orgPolicy: HonorariosRetentionPolicy =
     organization?.bank_info?.__saas_config?.honorarios_retention_policy || 'contractor'
-  const [retentionPolicy, setRetentionPolicy] = useState<HonorariosRetentionPolicy>(defaultPolicy)
+  const [retentionPolicy, setRetentionPolicy] = useState<HonorariosRetentionPolicy>(orgPolicy)
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
+  const availableCategories = useMemo(() => {
+    const base = [...(industry.categories || [])]
+    if (editingCost?.tipo_evento && !base.includes(editingCost.tipo_evento)) {
+      base.push(editingCost.tipo_evento)
+    }
+    return base.length > 0 ? base : ['General']
+  }, [industry.categories, editingCost])
+
+  const defaultCategory = availableCategories[0] || 'General'
+
   const [servicio, setServicio] = useState('')
-  const [tipoEvento, setTipoEvento] = useState('Privado')
+  const [tipoEvento, setTipoEvento] = useState(defaultCategory)
   const [resourceType, setResourceType] = useState<CostResourceType>('servicio')
   const [staffCount, setStaffCount] = useState<number>(1)
   const [costPerPerson, setCostPerPerson] = useState<number>(0)
@@ -75,6 +79,57 @@ export function CostFormDialog({
   const [cleanDetail, setCleanDetail] = useState('')
   const [costo, setCosto] = useState<number>(0)
   const [ganancia, setGanancia] = useState<number>(0)
+  const [costoInput, setCostoInput] = useState<string>('0')
+  const [gananciaInput, setGananciaInput] = useState<string>('0')
+  const [margenInput, setMargenInput] = useState<string>('0')
+  const [totalInput, setTotalInput] = useState<string>('0')
+
+  const currencyRates = useMemo(
+    () => ({
+      uf: organization?.uf_rate_clp || organization?.bank_info?.__saas_config?.uf_rate_clp || DEFAULT_UF_RATE_CLP,
+      usd: organization?.usd_rate_clp || organization?.bank_info?.__saas_config?.usd_rate_clp || DEFAULT_USD_RATE_CLP,
+    }),
+    [organization]
+  )
+
+  const resourceOptions: {
+    value: CostResourceType
+    label: string
+    hint: string
+    icon: typeof Users
+  }[] = useMemo(
+    () => [
+      { value: 'servicio', label: 'Servicio / Equipo', hint: 'Partidas, equipos, arriendo', icon: Wrench },
+      { value: 'personal', label: 'Personal / RR.HH.', hint: 'Personal, técnicos, especialistas', icon: Users },
+      {
+        value: 'insumo',
+        label: industry.id === 'eventos_banqueteria' ? 'Banquetería' : 'Insumos / Mat.',
+        hint: industry.id === 'eventos_banqueteria' ? 'Comida, barra, insumos' : 'Materiales, consumibles',
+        icon: Utensils,
+      },
+      { value: 'logistica', label: 'Logística', hint: 'Fletes, traslados, montaje', icon: Truck },
+    ],
+    [industry.id]
+  )
+
+  const servicePlaceholder = useMemo(() => {
+    const match =
+      industry.starterCatalog.find((s) => s.resourceType === resourceType) ||
+      industry.starterCatalog[0]
+    return match ? `Ej. ${match.servicio}` : 'Ej. Nombre del servicio, partida o cargo'
+  }, [industry.starterCatalog, resourceType])
+
+  useEffect(() => {
+    setRetentionPolicy(orgPolicy)
+  }, [orgPolicy, open])
+
+  const syncNumericInputs = (nextCosto: number, nextGanancia: number, docType: 'factura' | 'boleta', ivaVenta: boolean) => {
+    const fin = calculateFinancials(nextCosto, nextGanancia, docType, ivaVenta, false)
+    setCostoInput(String(nextCosto))
+    setGananciaInput(String(nextGanancia))
+    setMargenInput(String(fin.margen))
+    setTotalInput(String(fin.valorTotal))
+  }
 
   useEffect(() => {
     if (editingCost) {
@@ -86,23 +141,27 @@ export function CostFormDialog({
       const docType: 'factura' | 'boleta' =
         editingCost.tipo_doc_costo === 'boleta' ? 'boleta' : 'factura'
 
+      const initCosto = Number(editingCost.costo) || 0
+      const initGanancia = Number(editingCost.ganancia) || 0
+
       setServicio(editingCost.servicio)
-      setTipoEvento(editingCost.tipo_evento || 'Privado')
+      setTipoEvento(editingCost.tipo_evento || defaultCategory)
       setResourceType(meta.resourceType)
       setStaffCount(meta.staffCount)
       setCostPerPerson(
-        meta.staffCount > 0 ? Math.round((Number(editingCost.costo) || 0) / meta.staffCount) : 0
+        meta.staffCount > 0 ? Math.round(initCosto / meta.staffCount) : 0
       )
       setStaffHours(meta.staffHours || '6 hrs')
       setStaffModality(meta.staffModality)
       setTipoDocCosto(docType)
       setAplicaIvaVenta(meta.aplicaIvaVenta)
       setCleanDetail(meta.cleanDetail)
-      setCosto(Number(editingCost.costo) || 0)
-      setGanancia(Number(editingCost.ganancia) || 0)
+      setCosto(initCosto)
+      setGanancia(initGanancia)
+      syncNumericInputs(initCosto, initGanancia, docType, meta.aplicaIvaVenta)
     } else {
       setServicio('')
-      setTipoEvento('Privado')
+      setTipoEvento(defaultCategory)
       setResourceType('servicio')
       setStaffCount(1)
       setCostPerPerson(0)
@@ -113,8 +172,9 @@ export function CostFormDialog({
       setCleanDetail('')
       setCosto(0)
       setGanancia(0)
+      syncNumericInputs(0, 0, 'factura', true)
     }
-  }, [editingCost, open])
+  }, [editingCost, open, defaultCategory])
 
   const serializedMeta = useMemo(
     () =>
@@ -131,65 +191,98 @@ export function CostFormDialog({
 
   const breakdown = useMemo(
     () =>
-      computeCostTaxBreakdown({
-        servicio,
-        costo,
-        ganancia,
-        tipo_doc_costo: tipoDocCosto,
-        tiempo_detalle: serializedMeta,
-        tipo_evento: tipoEvento,
-      }),
-    [servicio, costo, ganancia, tipoDocCosto, serializedMeta, tipoEvento]
+      computeCostTaxBreakdown(
+        {
+          servicio,
+          costo,
+          ganancia,
+          tipo_doc_costo: tipoDocCosto,
+          tiempo_detalle: serializedMeta,
+          tipo_evento: tipoEvento,
+        },
+        retentionPolicy
+      ),
+    [servicio, costo, ganancia, tipoDocCosto, serializedMeta, tipoEvento, retentionPolicy]
   )
+
+  const honorariosDetail = useMemo(() => {
+    if (staffModality !== 'honorarios' || costo <= 0) return null
+    return applyRetentionPolicy(costo, retentionPolicy)
+  }, [staffModality, costo, retentionPolicy])
 
   const handleResourceTypeSelect = (nextType: CostResourceType) => {
     setResourceType(nextType)
+    let nextDoc = tipoDocCosto
     if (nextType === 'personal') {
-      if (staffModality === 'factura_subcontrato') {
-        setTipoDocCosto('factura')
-      } else {
-        setTipoDocCosto('boleta')
-      }
+      nextDoc = staffModality === 'factura_subcontrato' ? 'factura' : 'boleta'
+      setTipoDocCosto(nextDoc)
       if (costo > 0 && costPerPerson === 0) {
         setCostPerPerson(Math.round(costo / Math.max(1, staffCount)))
       }
     } else if (nextType === 'servicio' || nextType === 'insumo') {
+      nextDoc = 'factura'
       setTipoDocCosto('factura')
     }
+    syncNumericInputs(costo, ganancia, nextDoc, aplicaIvaVenta)
   }
 
   const handleStaffModalityChange = (nextModality: StaffModality) => {
     setStaffModality(nextModality)
-    if (nextModality === 'factura_subcontrato') {
-      setTipoDocCosto('factura')
-    } else {
-      setTipoDocCosto('boleta')
-    }
+    const nextDoc = nextModality === 'factura_subcontrato' ? 'factura' : 'boleta'
+    setTipoDocCosto(nextDoc)
+    syncNumericInputs(costo, ganancia, nextDoc, aplicaIvaVenta)
   }
 
   const handleStaffCountChange = (val: string) => {
     const nextCount = Math.max(1, parseInt(val, 10) || 1)
     setStaffCount(nextCount)
     if (costPerPerson > 0) {
-      setCosto(nextCount * costPerPerson)
+      const nextCosto = nextCount * costPerPerson
+      setCosto(nextCosto)
+      syncNumericInputs(nextCosto, ganancia, tipoDocCosto, aplicaIvaVenta)
     }
   }
 
   const handleCostPerPersonChange = (val: string) => {
     const nextPerPerson = Math.max(0, parseInt(val, 10) || 0)
     setCostPerPerson(nextPerPerson)
-    setCosto(nextPerPerson * Math.max(1, staffCount))
+    const nextCosto = nextPerPerson * Math.max(1, staffCount)
+    setCosto(nextCosto)
+    syncNumericInputs(nextCosto, ganancia, tipoDocCosto, aplicaIvaVenta)
   }
 
   const handleCostoTotalChange = (val: string) => {
+    setCostoInput(val)
+    if (val.trim() === '') {
+      setCosto(0)
+      return
+    }
     const nextCost = Math.max(0, parseInt(val, 10) || 0)
     setCosto(nextCost)
     if (resourceType === 'personal') {
       setCostPerPerson(Math.round(nextCost / Math.max(1, staffCount)))
     }
+    const fin = calculateFinancials(nextCost, ganancia, tipoDocCosto, aplicaIvaVenta, false)
+    setMargenInput(String(fin.margen))
+    setTotalInput(String(fin.valorTotal))
+  }
+
+  const handleGananciaChange = (val: string) => {
+    setGananciaInput(val)
+    if (val.trim() === '') {
+      setGanancia(0)
+      return
+    }
+    const nextGanancia = parseInt(val, 10) || 0
+    setGanancia(nextGanancia)
+    const fin = calculateFinancials(costo, nextGanancia, tipoDocCosto, aplicaIvaVenta, false)
+    setMargenInput(String(fin.margen))
+    setTotalInput(String(fin.valorTotal))
   }
 
   const handleMarginChange = (val: string) => {
+    setMargenInput(val)
+    if (val.trim() === '') return
     const nextMargin = Math.max(0, parseFloat(val) || 0)
     const fin = calculateFinancialsFromMargin(
       costo,
@@ -199,12 +292,18 @@ export function CostFormDialog({
       false
     )
     setGanancia(fin.ganancia)
+    setGananciaInput(String(fin.ganancia))
+    setTotalInput(String(fin.valorTotal))
   }
 
   const handleValorTotalChange = (val: string) => {
+    setTotalInput(val)
+    if (val.trim() === '') return
     const total = Math.max(0, parseInt(val, 10) || 0)
     const fin = calculateGananciaFromTotal(costo, total, tipoDocCosto, aplicaIvaVenta, false)
     setGanancia(fin.ganancia)
+    setGananciaInput(String(fin.ganancia))
+    setMargenInput(String(fin.margen))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -270,7 +369,7 @@ export function CostFormDialog({
               1. Naturaleza del Ítem
             </Label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {RESOURCE_OPTIONS.map((opt) => {
+              {resourceOptions.map((opt) => {
                 const Icon = opt.icon
                 const active = resourceType === opt.value
                 return (
@@ -300,30 +399,21 @@ export function CostFormDialog({
           {/* 2. Identificación */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2 grid gap-1.5">
-              <Label htmlFor="servicio">Nombre del Servicio o Cargo</Label>
+              <Label htmlFor="servicio">Nombre del Servicio, Partida o Cargo</Label>
               <Input
                 id="servicio"
                 value={servicio}
                 onChange={(e) => setServicio(e.target.value)}
-                placeholder={
-                  resourceType === 'personal'
-                    ? 'Ej. Staff Anfitrionas / Bartenders'
-                    : 'Ej. Sonido Line Array / Banquetería'
-                }
+                placeholder={servicePlaceholder}
                 required
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="tipo">Tipo de Evento</Label>
+              <Label htmlFor="tipo">Categoría ({industry.shortName})</Label>
               <Select
                 value={tipoEvento}
                 onChange={(e) => setTipoEvento(e.target.value)}
-                options={[
-                  { value: 'Privado', label: 'Privado' },
-                  { value: 'Empresa', label: 'Empresa' },
-                  { value: 'Cumpleaños', label: 'Cumpleaños' },
-                  { value: 'Matrimonio', label: 'Matrimonio' },
-                ]}
+                options={availableCategories.map((cat) => ({ value: cat, label: cat }))}
               />
             </div>
           </div>
@@ -387,15 +477,45 @@ export function CostFormDialog({
                   />
                 </div>
               </div>
-              {staffModality === 'honorarios' && costo > 0 && (
-                <p className="text-[11px] text-indigo-900/80 flex items-center gap-1.5 bg-white/70 rounded-lg px-2.5 py-1.5 border border-indigo-100">
-                  <Info className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
-                  <span>
-                    Ref. Boleta Honorarios (retención 15,25%): líquido al trabajador{' '}
-                    <strong>{formatCLP(breakdown.liquidoHonorarios)}</strong> + retención SII{' '}
-                    <strong>{formatCLP(breakdown.retencionHonorarios)}</strong> (sin IVA Crédito).
-                  </span>
-                </p>
+              {staffModality === 'honorarios' && (
+                <div className="rounded-lg bg-white/80 border border-indigo-100 p-2.5 space-y-2 text-[11px] text-indigo-950">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-semibold flex items-center gap-1.5">
+                      <Info className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                      Política Retención Honorarios 15,25% (2026)
+                    </span>
+                    <Select
+                      value={retentionPolicy}
+                      onChange={(e) => setRetentionPolicy(e.target.value as HonorariosRetentionPolicy)}
+                      className="h-7 text-[11px] w-48 bg-white"
+                      options={[
+                        { value: 'contractor', label: 'Prestador asume 15,25%' },
+                        { value: 'company', label: 'Empresa asume 15,25% (Gross-up)' },
+                        { value: 'split_50_50', label: 'Reparto 50/50 (7,625% c/u)' },
+                      ]}
+                    />
+                  </div>
+                  {honorariosDetail && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-indigo-100/80 text-[10px]">
+                      <div>
+                        <span className="text-muted-foreground block">Líquido al prestador</span>
+                        <strong className="font-mono">{formatCLP(honorariosDetail.liquidoAPagar)}</strong>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block">Retención SII (15,25%)</span>
+                        <strong className="font-mono text-amber-800">{formatCLP(honorariosDetail.retencionTotal)}</strong>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block">Aporte Empresa</span>
+                        <strong className="font-mono text-indigo-700">{formatCLP(honorariosDetail.aporteEmpresa)}</strong>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block">Costo Total Empresa</span>
+                        <strong className="font-mono text-slate-900">{formatCLP(honorariosDetail.costoTotalEmpresa)}</strong>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -407,7 +527,7 @@ export function CostFormDialog({
               id="cleanDetail"
               value={cleanDetail}
               onChange={(e) => setCleanDetail(e.target.value)}
-              placeholder="Ej. Jornada 5 horas, incluye montaje y prueba de sonido"
+              placeholder="Ej. Alcance operativo, unidad de medida o jornada de trabajo"
             />
           </div>
 
@@ -421,7 +541,10 @@ export function CostFormDialog({
               <div className="grid grid-cols-2 gap-1.5">
                 <button
                   type="button"
-                  onClick={() => setTipoDocCosto('factura')}
+                  onClick={() => {
+                    setTipoDocCosto('factura')
+                    syncNumericInputs(costo, ganancia, 'factura', aplicaIvaVenta)
+                  }}
                   className={`rounded-lg px-2.5 py-2 text-xs font-medium border text-left transition-all cursor-pointer ${
                     tipoDocCosto === 'factura'
                       ? 'bg-blue-50 border-blue-400 text-blue-900 shadow-2xs'
@@ -433,7 +556,10 @@ export function CostFormDialog({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setTipoDocCosto('boleta')}
+                  onClick={() => {
+                    setTipoDocCosto('boleta')
+                    syncNumericInputs(costo, ganancia, 'boleta', aplicaIvaVenta)
+                  }}
                   className={`rounded-lg px-2.5 py-2 text-xs font-medium border text-left transition-all cursor-pointer ${
                     tipoDocCosto === 'boleta'
                       ? 'bg-amber-50 border-amber-400 text-amber-900 shadow-2xs'
@@ -454,7 +580,10 @@ export function CostFormDialog({
               <div className="grid grid-cols-2 gap-1.5">
                 <button
                   type="button"
-                  onClick={() => setAplicaIvaVenta(true)}
+                  onClick={() => {
+                    setAplicaIvaVenta(true)
+                    syncNumericInputs(costo, ganancia, tipoDocCosto, true)
+                  }}
                   className={`rounded-lg px-2.5 py-2 text-xs font-medium border text-left transition-all cursor-pointer ${
                     aplicaIvaVenta
                       ? 'bg-emerald-50 border-emerald-400 text-emerald-900 shadow-2xs'
@@ -466,7 +595,10 @@ export function CostFormDialog({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setAplicaIvaVenta(false)}
+                  onClick={() => {
+                    setAplicaIvaVenta(false)
+                    syncNumericInputs(costo, ganancia, tipoDocCosto, false)
+                  }}
                   className={`rounded-lg px-2.5 py-2 text-xs font-medium border text-left transition-all cursor-pointer ${
                     !aplicaIvaVenta
                       ? 'bg-slate-100 border-slate-400 text-slate-900 shadow-2xs'
@@ -488,7 +620,7 @@ export function CostFormDialog({
                 id="costo"
                 type="number"
                 min={0}
-                value={costo}
+                value={costoInput}
                 onChange={(e) => handleCostoTotalChange(e.target.value)}
                 required
               />
@@ -498,19 +630,19 @@ export function CostFormDialog({
               <Input
                 id="ganancia"
                 type="number"
-                value={ganancia}
-                onChange={(e) => setGanancia(parseInt(e.target.value, 10) || 0)}
+                value={gananciaInput}
+                onChange={(e) => handleGananciaChange(e.target.value)}
                 required
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="margen" className="text-xs">Margen (%)</Label>
+              <Label htmlFor="margen" className="text-xs">Markup s/ Costo (%)</Label>
               <Input
                 id="margen"
                 type="number"
                 step="0.1"
                 min={0}
-                value={breakdown.margenPct}
+                value={margenInput}
                 onChange={(e) => handleMarginChange(e.target.value)}
               />
             </div>
@@ -520,9 +652,12 @@ export function CostFormDialog({
                 id="valor_total"
                 type="number"
                 min={0}
-                value={breakdown.valorTotalVenta}
+                value={totalInput}
                 onChange={(e) => handleValorTotalChange(e.target.value)}
               />
+              <span className="text-[10px] text-muted-foreground font-mono tabular-nums">
+                {formatMoney(breakdown.valorTotalVenta, 'UF', currencyRates)} · {formatMoney(breakdown.valorTotalVenta, 'USD', currencyRates)}
+              </span>
             </div>
           </div>
 

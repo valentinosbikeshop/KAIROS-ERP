@@ -28,6 +28,8 @@ import {
   formatCostMetadata,
 } from '@/lib/cost-metadata'
 import { calculateFinancials, formatCLP, formatPercentage } from '@/lib/utils'
+import { canCreateCost } from '@/lib/plan-guards'
+import { can } from '@/lib/rbac'
 import { DUO_ORG_SLUG } from '@/lib/constants'
 import {
   Plus,
@@ -42,7 +44,7 @@ import {
 } from 'lucide-react'
 
 export default function CostsPage() {
-  const { organization, isDemo } = useUser()
+  const { organization, profile, isDemo } = useUser()
   const { terms, industry, entitlements, isDuoExempt } = useWorkspaceConfig()
   const [costs, setCosts] = useState<MasterCost[]>([])
   const [loading, setLoading] = useState(true)
@@ -58,6 +60,14 @@ export default function CostsPage() {
   const activeTemplates: CostTemplatePreset[] = isDuoOrg
     ? COMPANY_COST_TEMPLATES
     : (industry.starterCatalog as unknown as CostTemplatePreset[])
+  const retentionPolicy =
+    organization?.bank_info?.__saas_config?.honorarios_retention_policy || 'contractor'
+  const canEditCatalog = can(profile, 'edit_catalog', entitlements)
+  const hideMargins = !can(profile, 'view_costs_margins', entitlements)
+  const canUseMassPricing =
+    canEditCatalog &&
+    !entitlements.isExpiredLock &&
+    (isDuoExempt || isDemo || entitlements.effectiveTier !== 'free')
 
   const fetchCosts = async () => {
     setLoading(true)
@@ -93,13 +103,12 @@ export default function CostsPage() {
   }, [industry.id])
 
   const stats = useMemo(() => {
-    const breakdowns = costs.map((c) => computeCostTaxBreakdown(c))
+    const breakdowns = costs.map((c) => computeCostTaxBreakdown(c, retentionPolicy))
     const staffCount = breakdowns.filter((b) => b.meta.resourceType === 'personal').length
     const facturaCount = breakdowns.filter((b) => b.tipoDocCompra === 'factura').length
-    const avgMargin =
-      breakdowns.length > 0
-        ? breakdowns.reduce((acc, b) => acc + b.margenPct, 0) / breakdowns.length
-        : 0
+    const totalVentaNeta = breakdowns.reduce((acc, b) => acc + b.valorNetoVenta, 0)
+    const totalGanancia = breakdowns.reduce((acc, b) => acc + b.gananciaNeta, 0)
+    const avgMargin = totalVentaNeta > 0 ? (totalGanancia / totalVentaNeta) * 100 : 0
 
     return {
       total: costs.length,
@@ -108,22 +117,29 @@ export default function CostsPage() {
       boletaCount: costs.length - facturaCount,
       avgMargin,
     }
-  }, [costs])
+  }, [costs, retentionPolicy])
 
   const existingServiceNames = useMemo(
     () => new Set(costs.map((c) => c.servicio.trim().toLowerCase())),
     [costs]
   )
 
-  const reachedCostLimit =
-    !isDuoExempt &&
-    !isDemo &&
-    entitlements.maxCosts !== null &&
-    costs.length >= entitlements.maxCosts
+  const costGuard = useMemo(
+    () => canCreateCost(entitlements, costs.length),
+    [entitlements, costs.length]
+  )
+  const reachedCostLimit = !costGuard.allowed
 
   const handleAdd = () => {
+    if (!canEditCatalog) {
+      alert('Su rol actual no tiene permisos para editar el catálogo.')
+      return
+    }
     if (reachedCostLimit) {
-      alert(`Alcanzaste el límite de ${entitlements.maxCosts} ítems en tu plan actual. Puedes editar los existentes o mejorar tu suscripción en Suscripción & Estilo.`)
+      alert(
+        costGuard.reason ||
+          `Alcanzó el límite de ${entitlements.maxCosts} ítems en su plan actual. Puede editar los existentes o mejorar su suscripción.`
+      )
       return
     }
     setEditingCost(null)
@@ -183,8 +199,12 @@ export default function CostsPage() {
   }
 
   const handleInsertTemplate = async (tpl: CostTemplatePreset) => {
+    if (!canEditCatalog) {
+      alert('Su rol actual no tiene permisos para editar el catálogo.')
+      return
+    }
     if (reachedCostLimit) {
-      alert(`Alcanzaste el límite de ${entitlements.maxCosts} ítems en tu plan actual. Mejora tu suscripción para agregar más tarifas.`)
+      alert(costGuard.reason || `Alcanzó el límite de ${entitlements.maxCosts} ítems en su plan actual. Mejore su suscripción para agregar más tarifas.`)
       return
     }
     setAddingTemplateId(tpl.id)
@@ -197,7 +217,7 @@ export default function CostsPage() {
     } catch (error: any) {
       alert(
         error?.code === '42501'
-          ? 'Alcanzaste el límite de tarifas nuevas en la sesión de prueba. Usa "Resetear Prueba" para liberar espacio.'
+          ? 'Alcanzó el límite de tarifas nuevas en la sesión de prueba. Use "Restaurar Demo" para liberar espacio.'
           : error?.message || 'No se pudo agregar la plantilla.'
       )
     } finally {
@@ -206,19 +226,26 @@ export default function CostsPage() {
   }
 
   const handleImportMissingTemplates = async () => {
+    if (!canEditCatalog) {
+      alert('Su rol actual no tiene permisos para editar el catálogo.')
+      return
+    }
+    if (reachedCostLimit) {
+      alert(costGuard.reason || `Alcanzó el límite de ${entitlements.maxCosts} tarifas de su plan actual.`)
+      return
+    }
     const missing = activeTemplates.filter(
       (tpl) => !existingServiceNames.has(tpl.servicio.trim().toLowerCase())
     )
     if (missing.length === 0) return
 
     let toInsert = missing
-    if (!isDuoExempt && !isDemo && entitlements.maxCosts !== null) {
-      const remaining = Math.max(0, entitlements.maxCosts - costs.length)
-      if (remaining === 0) {
-        alert(`Alcanzaste el límite de ${entitlements.maxCosts} tarifas de tu plan actual.`)
+    if (costGuard.remaining !== null) {
+      if (costGuard.remaining <= 0) {
+        alert(costGuard.reason || `Alcanzó el límite de ${entitlements.maxCosts} tarifas de su plan actual.`)
         return
       }
-      toInsert = missing.slice(0, remaining)
+      toInsert = missing.slice(0, costGuard.remaining)
     }
 
     setAddingAllTemplates(true)
@@ -259,24 +286,28 @@ export default function CostsPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2" data-tour-id="costs-actions">
-          <Button variant="outline" onClick={() => setTemplatesOpen(true)} className="gap-2">
-            <BookOpen className="h-4 w-4 text-primary" />
-            Plantillas Base
-          </Button>
-          {isDuoOrg && !strategicProposalApplied && (
+          {canEditCatalog && (
+            <Button variant="outline" onClick={() => setTemplatesOpen(true)} className="gap-2">
+              <BookOpen className="h-4 w-4 text-primary" />
+              Plantillas Base
+            </Button>
+          )}
+          {canUseMassPricing && !(isDuoOrg && strategicProposalApplied) && (
             <Button
               variant="outline"
               onClick={() => setStrategicDialogOpen(true)}
               className="gap-2 border-indigo-200 text-indigo-700 bg-indigo-50/60 hover:bg-indigo-100 shadow-2xs font-semibold"
             >
               <Sparkles className="h-4 w-4 text-indigo-600" />
-              Propuesta Estratégica 2026
+              {isDuoOrg ? 'Propuesta Estratégica 2026' : 'Ajuste Masivo de Tarifas'}
             </Button>
           )}
-          <Button onClick={handleAdd} disabled={reachedCostLimit} className="gap-2 tactile-press">
-            <Plus className="h-4 w-4" />
-            Agregar Servicio / Personal
-          </Button>
+          {canEditCatalog && (
+            <Button onClick={handleAdd} disabled={reachedCostLimit} className="gap-2 tactile-press">
+              <Plus className="h-4 w-4" />
+              Agregar Ítem / Personal
+            </Button>
+          )}
         </div>
       </div>
 
@@ -284,9 +315,20 @@ export default function CostsPage() {
         <FeatureLockCard
           compact
           isExpiredLock={entitlements.isExpiredLock}
-          title={`Catálogo al límite (${costs.length}/${entitlements.maxCosts} tarifas)`}
-          description="Tus tarifas actuales permanecen 100% operativas. Amplía tu plan para agregar más ítems sin tope."
-          requiredPlanLabel="Operación Esencial / Ilimitado"
+          title={
+            entitlements.isExpiredLock
+              ? 'Catálogo en modo solo lectura por suscripción vencida'
+              : `Catálogo al límite (${costs.length}/${entitlements.maxCosts} tarifas)`
+          }
+          description={
+            costGuard.reason ||
+            'Sus tarifas actuales permanecen 100% operativas. Amplíe su plan para agregar más ítems.'
+          }
+          requiredPlanLabel={
+            costGuard.requiredPlan === 'essential'
+              ? 'Operación Esencial (150 ítems)'
+              : 'Crecimiento Inteligente IA (Ilimitado)'
+          }
         />
       )}
 
@@ -310,7 +352,7 @@ export default function CostsPage() {
             <div>
               <p className="text-xs font-medium text-indigo-700">Personal y RR.HH.</p>
               <p className="text-2xl font-bold text-indigo-950 mt-1">{stats.staffCount}</p>
-              <p className="text-[11px] text-indigo-700/80 mt-0.5">Staff, técnicos y artistas</p>
+              <p className="text-[11px] text-indigo-700/80 mt-0.5">Personal, técnicos o especialistas</p>
             </div>
             <div className="h-10 w-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
               <Users className="h-5 w-5" />
@@ -338,11 +380,13 @@ export default function CostsPage() {
         <Card className="border-emerald-200/70 bg-emerald-50/20 shadow-2xs">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-emerald-700">Margen Promedio</p>
+              <p className="text-xs font-medium text-emerald-700">Margen s/ Venta Neta</p>
               <p className="text-2xl font-bold text-emerald-950 mt-1">
-                {formatPercentage(stats.avgMargin)}
+                {hideMargins ? 'Restringido' : formatPercentage(stats.avgMargin)}
               </p>
-              <p className="text-[11px] text-emerald-700/80 mt-0.5">Sobre costo neto compra</p>
+              <p className="text-[11px] text-emerald-700/80 mt-0.5">
+                Meta {industry.shortName}: {industry.targetMarginPct}%
+              </p>
             </div>
             <div className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
               <TrendingUp className="h-5 w-5" />
@@ -357,7 +401,7 @@ export default function CostsPage() {
         </div>
       ) : (
         <div data-tour-id="costs-table">
-          <CostsTable data={costs} onEdit={handleEdit} onDelete={handleDelete} />
+          <CostsTable data={costs} onEdit={handleEdit} onDelete={handleDelete} canEdit={canEditCatalog} />
         </div>
       )}
 
@@ -474,7 +518,7 @@ export default function CostsPage() {
         </DialogFooter>
       </Dialog>
 
-      {isDuoOrg && (
+      {canUseMassPricing && (
         <StrategicPricingDialog
           open={strategicDialogOpen}
           onOpenChange={setStrategicDialogOpen}

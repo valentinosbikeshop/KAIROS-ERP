@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import {
   Shield,
   Loader2,
@@ -10,8 +11,6 @@ import {
   Copy,
   Check,
   RotateCcw,
-  UserCheck,
-  UserX,
   Trash2,
   KeyRound,
   Lock,
@@ -21,13 +20,34 @@ import {
   LogIn,
   ShieldCheck,
   CreditCard,
+  FileText,
+  Percent,
+  UserPlus,
+  RefreshCw,
 } from 'lucide-react';
 import { PlansAdminTab } from '@/components/governance/plans-admin-tab';
-import { useUser } from '@/hooks/use-user';
-import { Organization, Profile } from '@/types';
-import { CompanyLogoMark } from '@/components/ui/figura-logo';
-import { CompanyBrandingDialog, LogoUploadField } from '@/components/governance/company-branding-dialog';
+import { AuditLogsTab } from '@/components/governance/audit-logs-tab';
+import { PendingUsersTable } from '@/components/governance/pending-users-table';
+import {
+  CompanyBrandingDialog,
+  LogoUploadField,
+} from '@/components/governance/company-branding-dialog';
 import { MfaSettingsCard } from '@/components/auth/mfa-settings-card';
+import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
+import type {
+  HonorariosRetentionPolicy,
+  Organization,
+  Profile,
+  ProfileRole,
+} from '@/types';
+import {
+  ROLE_METADATA,
+  getAssignableRoles,
+  getScalePermissionMatrix,
+  type GranularRole,
+} from '@/lib/rbac';
+import { logAudit } from '@/lib/audit';
+import { CompanyLogoMark } from '@/components/ui/figura-logo';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -66,19 +86,41 @@ interface UserRow extends Profile {
   } | null;
 }
 
+interface SeatSummary {
+  activeCount: number;
+  maxUsers: number | null;
+  hasGranularRbac: boolean;
+  tier: string;
+}
+
 export default function GovernancePage() {
-  const { profile, organization, loading: userLoading, isAdmin, isSuperAdmin, isDemo } = useUser();
+  const {
+    profile,
+    organization,
+    loading: userLoading,
+    isAdmin,
+    isOwner,
+    isSuperAdmin,
+    isDemo,
+    entitlements,
+    brandingCaps,
+    hasGranularRbac,
+  } = useWorkspaceConfig();
 
   const [companies, setCompanies] = useState<CompanyRow[]>([]);
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [seatSummary, setSeatSummary] = useState<SeatSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
+    null
+  );
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('');
 
-  // Pending user assignment state: { [userId]: { organization_id, role } }
+  // Pending user assignment state
   const [pendingOrgChoice, setPendingOrgChoice] = useState<Record<string, string>>({});
-  const [pendingRoleChoice, setPendingRoleChoice] = useState<Record<string, 'member' | 'admin'>>({});
+  const [pendingRoleChoice, setPendingRoleChoice] = useState<Record<string, ProfileRole>>({});
 
   // Create company & branding dialog state
   const [createOpen, setCreateOpen] = useState(false);
@@ -98,7 +140,72 @@ export default function GovernancePage() {
     adminPassword: '',
   });
 
+  // Invite / Create user dialog state
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviting, setInviting] = useState(false);
+  const [inviteForm, setInviteForm] = useState({
+    email: '',
+    full_name: '',
+    password: '',
+    role: 'comercial' as ProfileRole,
+    organization_id: '',
+  });
+
+  // Quick policy form state (Margin floor + 15.25% retention policy)
+  const [quickMarginFloor, setQuickMarginFloor] = useState('15');
+  const [quickRetentionPolicy, setQuickRetentionPolicy] =
+    useState<HonorariosRetentionPolicy>('contractor');
+  const [savingPolicy, setSavingPolicy] = useState(false);
+
   const canAccess = !userLoading && (isSuperAdmin || (!isDemo && isAdmin));
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      const t = sp.get('tab');
+      if (t) setActiveTab(t);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!activeTab && !userLoading) {
+      setActiveTab(isSuperAdmin ? 'companies' : 'users');
+    }
+  }, [activeTab, isSuperAdmin, userLoading]);
+
+  useEffect(() => {
+    if (organization) {
+      setQuickMarginFloor(
+        String(
+          organization.min_margin_pct ??
+            organization.bank_info?.__saas_config?.min_margin_pct ??
+            15
+        )
+      );
+      setQuickRetentionPolicy(
+        organization.honorarios_retention_policy ||
+          organization.bank_info?.__saas_config?.honorarios_retention_policy ||
+          'contractor'
+      );
+    }
+  }, [organization]);
+
+  const assignableRoles = useMemo(
+    () =>
+      getAssignableRoles(entitlements, {
+        actorIsOwnerOrSuperAdmin: isOwner || isSuperAdmin,
+      }),
+    [entitlements, isOwner, isSuperAdmin]
+  );
+
+  useEffect(() => {
+    if (assignableRoles.length > 0 && !assignableRoles.some((r) => r.value === inviteForm.role)) {
+      setInviteForm((prev) => ({
+        ...prev,
+        role: assignableRoles[assignableRoles.length - 1]?.value || 'member',
+      }));
+    }
+  }, [assignableRoles, inviteForm.role]);
 
   const fetchGovernanceData = useCallback(async () => {
     if (!canAccess) {
@@ -119,10 +226,12 @@ export default function GovernancePage() {
       if (usersRes.ok) {
         const fetchedUsers: UserRow[] = usersJson.users || [];
         setUsers(fetchedUsers);
+        if (usersJson.seatSummary) {
+          setSeatSummary(usersJson.seatSummary);
+        }
 
-        // Initialize pending selectors
         const orgDefaults: Record<string, string> = {};
-        const roleDefaults: Record<string, 'member' | 'admin'> = {};
+        const roleDefaults: Record<string, ProfileRole> = {};
         fetchedUsers.forEach((u) => {
           orgDefaults[u.id] = u.organization_id || organization?.id || '';
           roleDefaults[u.id] = u.role || 'member';
@@ -151,13 +260,119 @@ export default function GovernancePage() {
     }
   }, [userLoading, fetchGovernanceData]);
 
-  const handleCopyInviteCode = async (code: string) => {
+  const handleCopyText = async (text: string, label: string) => {
     try {
-      await navigator.clipboard.writeText(code);
-      setCopiedCode(code);
+      await navigator.clipboard.writeText(text);
+      setCopiedCode(label);
       setTimeout(() => setCopiedCode(null), 2000);
     } catch {
-      alert(`Código de invitación: ${code}`);
+      alert(text);
+    }
+  };
+
+  const handleRegenerateInviteCode = async () => {
+    if (!organization) return;
+    if (
+      !window.confirm(
+        '¿Desea generar un nuevo código de invitación? El código anterior dejará de vincular nuevos registros.'
+      )
+    ) {
+      return;
+    }
+
+    setActionLoadingId('regen-invite');
+    setFeedback(null);
+    const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const prefix = (organization.name || 'EMP')
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '')
+      .slice(0, 5) || 'EMP';
+    const nextCode = `${prefix}-${randomSuffix}`;
+
+    try {
+      const res = await fetch('/api/admin/companies', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: organization.id, invite_code: nextCode }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFeedback({ type: 'error', message: data.error || 'No se pudo regenerar el código.' });
+        return;
+      }
+      await logAudit({
+        action: 'policy_change',
+        entityType: 'organization',
+        entityId: organization.id,
+        entityLabel: 'Regeneración código de invitación',
+        before: { invite_code: organization.invite_code },
+        after: { invite_code: nextCode },
+        organizationId: organization.id,
+        actor: { id: profile?.id, email: profile?.email, role: profile?.role },
+      });
+      window.dispatchEvent(new Event('figura:org-updated'));
+      setFeedback({ type: 'success', message: `Nuevo código de invitación activo: ${nextCode}` });
+      await fetchGovernanceData();
+    } catch {
+      setFeedback({ type: 'error', message: 'Error de red al regenerar el código.' });
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleSaveQuickPolicies = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!organization) return;
+
+    const raw = quickMarginFloor.trim();
+    const parsedFloor = raw === '' ? 15 : Math.min(95, Math.max(0, Number(raw)));
+    if (Number.isNaN(parsedFloor)) {
+      setFeedback({ type: 'error', message: 'Ingrese un porcentaje de margen válido (0 a 95).' });
+      return;
+    }
+
+    setSavingPolicy(true);
+    setFeedback(null);
+    try {
+      const res = await fetch('/api/admin/companies', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: organization.id,
+          min_margin_pct: parsedFloor,
+          honorarios_retention_policy: quickRetentionPolicy,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFeedback({ type: 'error', message: data.error || 'No se pudieron guardar las políticas.' });
+        return;
+      }
+      await logAudit({
+        action: 'policy_change',
+        entityType: 'margin_policy',
+        entityId: organization.id,
+        entityLabel: `Piso margen ${parsedFloor}% · Honorarios ${quickRetentionPolicy}`,
+        before: {
+          min_margin_pct: organization.min_margin_pct ?? 15,
+          honorarios_retention_policy: organization.honorarios_retention_policy ?? 'contractor',
+        },
+        after: {
+          min_margin_pct: parsedFloor,
+          honorarios_retention_policy: quickRetentionPolicy,
+        },
+        organizationId: organization.id,
+        actor: { id: profile?.id, email: profile?.email, role: profile?.role },
+      });
+      window.dispatchEvent(new Event('figura:org-updated'));
+      setFeedback({
+        type: 'success',
+        message: 'Política de margen mínimo y retención 15,25% actualizada.',
+      });
+    } catch {
+      setFeedback({ type: 'error', message: 'Error de conexión al guardar políticas.' });
+    } finally {
+      setSavingPolicy(false);
     }
   };
 
@@ -204,9 +419,63 @@ export default function GovernancePage() {
     }
   };
 
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (inviteForm.password.length < 8) {
+      setFeedback({
+        type: 'error',
+        message: 'La contraseña temporal debe tener al menos 8 caracteres.',
+      });
+      return;
+    }
+
+    setInviting(true);
+    setFeedback(null);
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: inviteForm.email.trim(),
+          full_name: inviteForm.full_name.trim() || undefined,
+          password: inviteForm.password,
+          role: inviteForm.role,
+          ...(isSuperAdmin && inviteForm.organization_id
+            ? { organization_id: inviteForm.organization_id }
+            : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFeedback({ type: 'error', message: data.error || 'No se pudo crear el usuario.' });
+        return;
+      }
+
+      setInviteOpen(false);
+      setInviteForm({
+        email: '',
+        full_name: '',
+        password: '',
+        role: assignableRoles[assignableRoles.length - 1]?.value || 'member',
+        organization_id: '',
+      });
+      setFeedback({
+        type: 'success',
+        message: `Usuario ${data.user?.email} activado con rol ${
+          ROLE_METADATA[data.user?.role as ProfileRole]?.shortLabel || data.user?.role
+        }.`,
+      });
+      await fetchGovernanceData();
+    } catch {
+      setFeedback({ type: 'error', message: 'Error de conexión al crear el usuario.' });
+    } finally {
+      setInviting(false);
+    }
+  };
+
   const handleToggleCompanyActive = async (company: CompanyRow) => {
     const actionLabel = company.is_active ? 'suspender' : 'reactivar';
-    if (!confirm(`¿Deseas ${actionLabel} el acceso a "${company.name}"?`)) return;
+    if (!confirm(`¿Desea ${actionLabel} el acceso a "${company.name}"?`)) return;
 
     setActionLoadingId(company.id);
     setFeedback(null);
@@ -287,7 +556,7 @@ export default function GovernancePage() {
 
   const handleUpdateUser = async (
     userId: string,
-    payload: { status?: 'pending' | 'active'; role?: 'admin' | 'member'; organization_id?: string }
+    payload: { status?: 'pending' | 'active'; role?: ProfileRole; organization_id?: string }
   ) => {
     setActionLoadingId(userId);
     setFeedback(null);
@@ -302,7 +571,7 @@ export default function GovernancePage() {
         setFeedback({ type: 'error', message: data.error || 'No se pudo actualizar el usuario.' });
         return;
       }
-      setFeedback({ type: 'success', message: 'Permisos de usuario actualizados.' });
+      setFeedback({ type: 'success', message: 'Permisos y rol del usuario actualizados.' });
       await fetchGovernanceData();
     } catch {
       setFeedback({ type: 'error', message: 'Error de conexión al actualizar el usuario.' });
@@ -352,8 +621,8 @@ export default function GovernancePage() {
             <h2 className="text-lg font-semibold">Acceso Restringido</h2>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
               {isDemo
-                ? 'La gestión de empresas y accesos internos está deshabilitada en la Sesión de Prueba.'
-                : 'Solo los administradores autorizados pueden gestionar accesos y organizaciones.'}
+                ? 'La gestión de empresas, usuarios y auditoría del servidor está deshabilitada en la Sesión de Prueba.'
+                : 'Solo el Propietario o Administrador autorizado de la empresa puede gestionar accesos, roles y políticas.'}
             </p>
           </CardContent>
         </Card>
@@ -365,6 +634,20 @@ export default function GovernancePage() {
   const activeUsers = users.filter((u) => u.status === 'active');
   const selectableCompanies = companies.filter((c) => !c.is_demo);
 
+  const orgActiveUsersCount = seatSummary
+    ? seatSummary.activeCount
+    : activeUsers.filter((u) => u.organization_id === organization?.id && !u.is_super_admin).length;
+  const maxUsersLimit = seatSummary ? seatSummary.maxUsers : entitlements.maxUsers;
+  const seatLimitReached =
+    !isSuperAdmin && maxUsersLimit !== null && orgActiveUsersCount >= maxUsersLimit;
+
+  const inviteUrl =
+    typeof window !== 'undefined' && organization?.invite_code
+      ? `${window.location.origin}/register?invite=${encodeURIComponent(organization.invite_code)}`
+      : '';
+
+  const currentTabValue = activeTab || (isSuperAdmin ? 'companies' : 'users');
+
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -375,17 +658,19 @@ export default function GovernancePage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
-              {isSuperAdmin ? 'Gobernanza Multi-Empresa & Accesos' : `Equipo y Accesos — ${organization?.name}`}
+              {isSuperAdmin
+                ? 'Gobernanza Multi-Empresa & Accesos'
+                : `Gobernanza, Roles y Auditoría — ${organization?.name}`}
             </h1>
             <p className="text-sm text-muted-foreground">
               {isSuperAdmin
-                ? 'Aprovisiona empresas privadas aisladas por RLS, gestiona el Sandbox Demo y autoriza cuentas.'
-                : 'Administra los integrantes autorizados de tu organización privada.'}
+                ? 'Aprovisione empresas aisladas por RLS, administre roles RBAC, audite cambios y gestione planes.'
+                : 'Administre su equipo, políticas de margen mínimo, marca blanca y bitácora de auditoría.'}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
           {isSuperAdmin && (
             <Button onClick={() => setCreateOpen(true)} className="gap-2">
               <Plus className="h-4 w-4" />
@@ -393,7 +678,11 @@ export default function GovernancePage() {
             </Button>
           )}
           <Badge variant="outline" className="py-1.5 px-3">
-            {isSuperAdmin ? 'Super Admin Global' : 'Admin de Empresa'}
+            {isSuperAdmin
+              ? 'Super Admin Global'
+              : isOwner
+              ? 'Propietario de Empresa'
+              : 'Admin de Empresa'}
           </Badge>
         </div>
       </div>
@@ -418,18 +707,24 @@ export default function GovernancePage() {
         </div>
       )}
 
-      {/* Company Invite Code Banner (for Company Admins or DUO Admin) */}
+      {/* Company Invite Code & Branding Quick Banner */}
       {organization?.invite_code && !organization.is_demo && (
         <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <CardContent className="p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <KeyRound className="h-5 w-5 text-primary shrink-0" />
               <div>
-                <p className="text-sm font-semibold">
-                  Código de Invitación de {organization.name}
-                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-semibold">
+                    Invitación Privada de {organization.name}
+                  </p>
+                  <Badge variant="outline" className="text-[11px] font-mono">
+                    Cupos activos: {orgActiveUsersCount}
+                    {maxUsersLimit !== null ? ` / ${maxUsersLimit}` : ' / Ilimitados'}
+                  </Badge>
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  Compártelo con colaboradores de tu empresa para que al registrarse queden pre-vinculados a tu espacio privado.
+                  Comparta este código o enlace directo para que sus colaboradores se registren pre-vinculados a su empresa.
                 </p>
               </div>
             </div>
@@ -441,7 +736,7 @@ export default function GovernancePage() {
                 className="gap-1.5 bg-background"
               >
                 <Paintbrush className="h-3.5 w-3.5" />
-                Personalizar Marca / Logo
+                Marca y Políticas
               </Button>
               <code className="px-3 py-1.5 rounded-lg bg-background border font-mono text-sm font-semibold tracking-wider">
                 {organization.invite_code}
@@ -449,12 +744,41 @@ export default function GovernancePage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleCopyInviteCode(organization.invite_code!)}
+                onClick={() => handleCopyText(organization.invite_code!, 'code')}
+                title="Copiar código"
               >
-                {copiedCode === organization.invite_code ? (
+                {copiedCode === 'code' ? (
                   <Check className="h-4 w-4 text-emerald-500" />
                 ) : (
                   <Copy className="h-4 w-4" />
+                )}
+              </Button>
+              {inviteUrl && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleCopyText(inviteUrl, 'link')}
+                  className="gap-1.5 text-xs"
+                >
+                  {copiedCode === 'link' ? (
+                    <Check className="h-3.5 w-3.5 text-emerald-500" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}
+                  Copiar Enlace
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRegenerateInviteCode}
+                disabled={actionLoadingId === 'regen-invite'}
+                title="Regenerar código de invitación"
+              >
+                {actionLoadingId === 'regen-invite' ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3.5 w-3.5" />
                 )}
               </Button>
             </div>
@@ -462,34 +786,47 @@ export default function GovernancePage() {
         </Card>
       )}
 
-      {/* Main Content */}
-      {isSuperAdmin ? (
-        <Tabs defaultValue="companies" className="space-y-4">
-          <TabsList className="flex-wrap h-auto">
+      {/* Main Navigation Tabs */}
+      <Tabs value={currentTabValue} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="flex-wrap h-auto">
+          {isSuperAdmin && (
             <TabsTrigger value="companies" className="gap-2">
               <Building2 className="h-4 w-4" />
               Empresas y Demo ({companies.length})
             </TabsTrigger>
-            <TabsTrigger value="users" className="gap-2">
-              <Users className="h-4 w-4" />
-              Usuarios y Solicitudes
-              {pendingUsers.length > 0 && (
-                <Badge className="ml-1 bg-amber-500 text-white border-0 px-1.5 py-0 text-[10px]">
-                  {pendingUsers.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="security" className="gap-2">
-              <ShieldCheck className="h-4 w-4" />
-              Seguridad y 2FA
-            </TabsTrigger>
+          )}
+          <TabsTrigger value="users" className="gap-2">
+            <Users className="h-4 w-4" />
+            Equipo y Roles
+            {pendingUsers.length > 0 && (
+              <Badge className="ml-1 bg-amber-500 text-white border-0 px-1.5 py-0 text-[10px]">
+                {pendingUsers.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="policies" className="gap-2">
+            <Percent className="h-4 w-4" />
+            Marca y Políticas
+          </TabsTrigger>
+          <TabsTrigger value="audit" className="gap-2">
+            <FileText className="h-4 w-4" />
+            Bitácora de Auditoría
+            {!hasGranularRbac && !isSuperAdmin && <Lock className="h-3 w-3 opacity-60" />}
+          </TabsTrigger>
+          <TabsTrigger value="security" className="gap-2">
+            <ShieldCheck className="h-4 w-4" />
+            Seguridad y 2FA
+          </TabsTrigger>
+          {isSuperAdmin && (
             <TabsTrigger value="plans" className="gap-2">
               <CreditCard className="h-4 w-4" />
               Planes, Precios y Khipu
             </TabsTrigger>
-          </TabsList>
+          )}
+        </TabsList>
 
-          {/* TAB 1: COMPANIES */}
+        {/* TAB: COMPANIES (SuperAdmin only) */}
+        {isSuperAdmin && (
           <TabsContent value="companies" className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {companies.map((company) => {
@@ -551,7 +888,7 @@ export default function GovernancePage() {
                           <span className="font-semibold text-sm">{company.users_count}</span>
                         </div>
                         <div>
-                          <span className="text-muted-foreground block">Eventos Activos</span>
+                          <span className="text-muted-foreground block">Proyectos Activos</span>
                           <span className="font-semibold text-sm">{company.events_count}</span>
                         </div>
                       </div>
@@ -561,12 +898,12 @@ export default function GovernancePage() {
                           <span className="text-muted-foreground">Código Invitación:</span>
                           <button
                             type="button"
-                            onClick={() => handleCopyInviteCode(company.invite_code!)}
+                            onClick={() => handleCopyText(company.invite_code!, company.id)}
                             className="inline-flex items-center gap-1.5 font-mono font-semibold bg-muted px-2 py-1 rounded hover:bg-muted/80 cursor-pointer"
                             title="Copiar código"
                           >
                             {company.invite_code}
-                            {copiedCode === company.invite_code ? (
+                            {copiedCode === company.id ? (
                               <Check className="h-3 w-3 text-emerald-500" />
                             ) : (
                               <Copy className="h-3 w-3 text-muted-foreground" />
@@ -577,8 +914,8 @@ export default function GovernancePage() {
 
                       {company.is_demo && (
                         <p className="text-xs text-muted-foreground leading-relaxed">
-                          Cuota por sesión: máx. {company.max_demo_events} eventos nuevos y{' '}
-                          {company.max_demo_costs} ítems de tarifario. Auto-limpieza &gt;24h.
+                          Cuota por sesión: máx. {company.max_demo_events} proyectos nuevos y{' '}
+                          {company.max_demo_costs} ítems de tarifario.
                         </p>
                       )}
 
@@ -632,7 +969,7 @@ export default function GovernancePage() {
                                 className="gap-1.5 flex-1"
                               >
                                 <Paintbrush className="h-3.5 w-3.5" />
-                                Marca / Logo
+                                Marca / Políticas
                               </Button>
                               {!isDuo && (
                                 <Button
@@ -656,54 +993,270 @@ export default function GovernancePage() {
               })}
             </div>
           </TabsContent>
+        )}
 
-          {/* TAB 2: USERS */}
-          <TabsContent value="users" className="space-y-6">
-            <UsersManagementSection
-              pendingUsers={pendingUsers}
-              activeUsers={activeUsers}
-              companies={selectableCompanies}
-              isSuperAdmin={true}
-              currentUserId={profile?.id}
-              actionLoadingId={actionLoadingId}
-              pendingOrgChoice={pendingOrgChoice}
-              setPendingOrgChoice={setPendingOrgChoice}
-              pendingRoleChoice={pendingRoleChoice}
-              setPendingRoleChoice={setPendingRoleChoice}
-              onUpdateUser={handleUpdateUser}
-              onDeleteUser={handleDeleteUser}
-            />
-          </TabsContent>
+        {/* TAB: USERS & GRANULAR RBAC */}
+        <TabsContent value="users" className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="text-xs text-muted-foreground">
+              {hasGranularRbac ? (
+                <span className="inline-flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300 font-medium">
+                  <ShieldCheck className="h-4 w-4" />
+                  RBAC Granular Activo (6 roles corporativos con control por módulo y ocultamiento de márgenes)
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5">
+                  <Lock className="h-3.5 w-3.5" />
+                  Su plan actual opera con roles estándar (Administrador / Colaborador).{' '}
+                  <Link href="/billing" className="underline font-semibold text-primary">
+                    Desbloquee 6 roles granulares en Corporativo &amp; Escala
+                  </Link>
+                </span>
+              )}
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              disabled={seatLimitReached}
+              onClick={() => setInviteOpen(true)}
+              className="gap-1.5 self-start sm:self-auto"
+            >
+              <UserPlus className="h-4 w-4" />
+              Agregar Colaborador
+            </Button>
+          </div>
 
-          {/* TAB 3: SECURITY & 2FA */}
-          <TabsContent value="security" className="space-y-4">
-            <MfaSettingsCard />
-          </TabsContent>
+          {seatLimitReached && (
+            <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs text-amber-800 dark:text-amber-200 flex items-center justify-between gap-3">
+              <span>
+                Alcanzó el máximo de <strong>{maxUsersLimit}</strong> usuario(s) activo(s) de su plan actual ({orgActiveUsersCount}/{maxUsersLimit}).
+              </span>
+              <Link href="/billing" className="underline font-semibold shrink-0">
+                Ampliar Cupos
+              </Link>
+            </div>
+          )}
 
-          {/* TAB 4: PLANS, PRICING & KHIPU */}
+          <UsersManagementSection
+            pendingUsers={pendingUsers}
+            activeUsers={activeUsers}
+            companies={isSuperAdmin ? selectableCompanies : organization ? [organization] : []}
+            isSuperAdmin={isSuperAdmin}
+            isOwner={isOwner}
+            currentUserId={profile?.id}
+            actionLoadingId={actionLoadingId}
+            assignableRoles={assignableRoles}
+            pendingOrgChoice={pendingOrgChoice}
+            setPendingOrgChoice={setPendingOrgChoice}
+            pendingRoleChoice={pendingRoleChoice}
+            setPendingRoleChoice={setPendingRoleChoice}
+            seatLimitReached={seatLimitReached}
+            onUpdateUser={handleUpdateUser}
+            onDeleteUser={handleDeleteUser}
+          />
+
+          {/* Permission Matrix Reference */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div>
+                  <CardTitle className="text-base">Matriz de Permisos por Rol (RBAC)</CardTitle>
+                  <CardDescription className="text-xs">
+                    Aislamiento de costos sensibles, tesorería y aprobaciones de margen en Corporativo &amp; Escala.
+                  </CardDescription>
+                </div>
+                {!hasGranularRbac && !isSuperAdmin && (
+                  <Badge
+                    variant="outline"
+                    className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 text-[11px]"
+                  >
+                    Corporativo &amp; Escala
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[240px]">Capacidad / Permiso</TableHead>
+                    {(['owner', 'admin', 'comercial', 'finanzas', 'operaciones', 'contador_lectura'] as GranularRole[]).map(
+                      (r) => (
+                        <TableHead key={r} className="text-center text-xs">
+                          {ROLE_METADATA[r].shortLabel}
+                        </TableHead>
+                      )
+                    )}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {getScalePermissionMatrix().map((row) => (
+                    <TableRow key={row.permission}>
+                      <TableCell className="text-xs font-medium">{row.label}</TableCell>
+                      {(['owner', 'admin', 'comercial', 'finanzas', 'operaciones', 'contador_lectura'] as GranularRole[]).map(
+                        (r) => (
+                          <TableCell key={r} className="text-center">
+                            {row.roles[r] ? (
+                              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
+                                ✓
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground/50 text-xs">—</span>
+                            )}
+                          </TableCell>
+                        )
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB: COMMERCIAL POLICIES & BRANDING */}
+        <TabsContent value="policies" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Percent className="h-4 w-4 text-primary" />
+                  Aprobación de Margen Mínimo &amp; Retención SII
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Las cotizaciones bajo este margen pasan a estado &ldquo;Requiere Aprobación&rdquo; hasta que Gerencia o Finanzas las aprueben.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSaveQuickPolicies} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium">
+                      Piso de Margen Operacional Mínimo (%)
+                    </label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={95}
+                      step={0.5}
+                      value={quickMarginFloor}
+                      onChange={(e) => setQuickMarginFloor(e.target.value)}
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      Excluye gastos reembolsables al costo (pass-through). Cada excepción aprobada se registra en la bitácora.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium">
+                      Política de Retención Boletas de Honorarios 15,25% (Ley 21.133)
+                    </label>
+                    <Select
+                      value={quickRetentionPolicy}
+                      onChange={(e) =>
+                        setQuickRetentionPolicy(e.target.value as HonorariosRetentionPolicy)
+                      }
+                      options={[
+                        {
+                          value: 'contractor',
+                          label: 'Prestador asume 15,25% (retención sobre bruto)',
+                        },
+                        {
+                          value: 'company',
+                          label: 'Empresa asume gross-up completo (líquido pactado)',
+                        },
+                        {
+                          value: 'split_50_50',
+                          label: 'Compartida 50% empresa / 50% prestador',
+                        },
+                      ]}
+                    />
+                  </div>
+
+                  <Button type="submit" disabled={savingPolicy} className="gap-2">
+                    {savingPolicy && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Guardar Políticas Comerciales
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Paintbrush className="h-4 w-4 text-primary" />
+                  Capacidades de Marca y Datos Bancarios
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Desbloqueo progresivo en cotizaciones PDF y Portal /q según su plan activo.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-xs">
+                <div className="p-3 rounded-xl border flex items-center justify-between gap-2">
+                  <div>
+                    <p className="font-semibold">Datos Bancarios de Transferencia</p>
+                    <p className="text-muted-foreground">Visible en PDF y Portal /q desde Operación Esencial.</p>
+                  </div>
+                  <Badge variant={brandingCaps.bankInfo || isSuperAdmin ? 'default' : 'outline'}>
+                    {brandingCaps.bankInfo || isSuperAdmin ? 'Desbloqueado' : 'Esencial ($34.990)'}
+                  </Badge>
+                </div>
+
+                <div className="p-3 rounded-xl border flex items-center justify-between gap-2">
+                  <div>
+                    <p className="font-semibold">Logo Corporativo Propio</p>
+                    <p className="text-muted-foreground">Visible en barra lateral, PDFs y Portal /q desde Crecimiento IA.</p>
+                  </div>
+                  <Badge variant={brandingCaps.logo || isSuperAdmin ? 'default' : 'outline'}>
+                    {brandingCaps.logo || isSuperAdmin ? 'Desbloqueado' : 'Crecimiento ($69.990)'}
+                  </Badge>
+                </div>
+
+                <div className="p-3 rounded-xl border flex items-center justify-between gap-2">
+                  <div>
+                    <p className="font-semibold">Marca Blanca 100% + Pie Legal + Multi-Cuenta</p>
+                    <p className="text-muted-foreground">Elimina huella FIGURA y habilita cuentas USD/SWIFT.</p>
+                  </div>
+                  <Badge variant={brandingCaps.whiteLabel || isSuperAdmin ? 'default' : 'outline'}>
+                    {brandingCaps.whiteLabel || isSuperAdmin ? 'Desbloqueado' : 'Escala ($119.990)'}
+                  </Badge>
+                </div>
+
+                {organization && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setBrandingTarget(organization)}
+                    className="w-full gap-2 mt-2"
+                  >
+                    <Paintbrush className="h-4 w-4" />
+                    Abrir Editor Completo de Identidad y Banco
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* TAB: AUDIT LOGS */}
+        <TabsContent value="audit">
+          <AuditLogsTab organizationId={organization?.id} />
+        </TabsContent>
+
+        {/* TAB: SECURITY & 2FA */}
+        <TabsContent value="security" className="space-y-4">
+          <MfaSettingsCard />
+        </TabsContent>
+
+        {/* TAB: PLANS, PRICING & KHIPU (SuperAdmin only) */}
+        {isSuperAdmin && (
           <TabsContent value="plans" className="space-y-4">
             <PlansAdminTab
               companies={companies}
               onRefreshCompanies={fetchGovernanceData}
             />
           </TabsContent>
-        </Tabs>
-      ) : (
-        <UsersManagementSection
-          pendingUsers={pendingUsers}
-          activeUsers={activeUsers}
-          companies={organization ? [organization] : []}
-          isSuperAdmin={false}
-          currentUserId={profile?.id}
-          actionLoadingId={actionLoadingId}
-          pendingOrgChoice={pendingOrgChoice}
-          setPendingOrgChoice={setPendingOrgChoice}
-          pendingRoleChoice={pendingRoleChoice}
-          setPendingRoleChoice={setPendingRoleChoice}
-          onUpdateUser={handleUpdateUser}
-          onDeleteUser={handleDeleteUser}
-        />
-      )}
+        )}
+      </Tabs>
 
       {/* CREATE COMPANY DIALOG */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen} className="max-w-2xl">
@@ -772,7 +1325,9 @@ export default function GovernancePage() {
                 <Input
                   placeholder="Auto-generado si se deja vacío"
                   value={formState.invite_code}
-                  onChange={(e) => setFormState({ ...formState, invite_code: e.target.value.toUpperCase() })}
+                  onChange={(e) =>
+                    setFormState({ ...formState, invite_code: e.target.value.toUpperCase() })
+                  }
                 />
               </div>
             </div>
@@ -797,7 +1352,7 @@ export default function GovernancePage() {
                   Administrador Inicial de la Empresa (Opcional)
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Si completas estos campos, el usuario se creará activo y listo para iniciar sesión de inmediato.
+                  Si completa estos campos, el usuario se creará activo y listo para iniciar sesión.
                 </p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -814,7 +1369,7 @@ export default function GovernancePage() {
                   <label className="text-xs font-medium">Contraseña Inicial</label>
                   <Input
                     type="password"
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder="Mínimo 8 caracteres"
                     value={formState.adminPassword}
                     onChange={(e) => setFormState({ ...formState, adminPassword: e.target.value })}
                   />
@@ -830,6 +1385,88 @@ export default function GovernancePage() {
             <Button type="submit" disabled={creating} className="gap-2">
               {creating && <Loader2 className="h-4 w-4 animate-spin" />}
               Crear Empresa Aislada
+            </Button>
+          </DialogFooter>
+        </form>
+      </Dialog>
+
+      {/* INVITE / CREATE USER DIALOG */}
+      <Dialog open={inviteOpen} onOpenChange={setInviteOpen} className="max-w-lg">
+        <form onSubmit={handleCreateUser} className="flex flex-col max-h-[85dvh]">
+          <DialogHeader>
+            <DialogTitle>
+              <UserPlus className="h-5 w-5 text-primary" />
+              Agregar Colaborador al Equipo
+            </DialogTitle>
+            <DialogDescription>
+              Cree una cuenta activa directamente con el rol RBAC asignado (respetando el límite de usuarios de su plan).
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogBody className="space-y-3.5">
+            {isSuperAdmin && selectableCompanies.length > 0 && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium">Empresa Destino</label>
+                <Select
+                  value={inviteForm.organization_id || organization?.id || ''}
+                  options={selectableCompanies.map((c) => ({ value: c.id, label: c.name }))}
+                  onChange={(e) =>
+                    setInviteForm((prev) => ({ ...prev, organization_id: e.target.value }))
+                  }
+                />
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">Nombre Completo (Opcional)</label>
+              <Input
+                placeholder="Ej: Rodrigo Soto"
+                value={inviteForm.full_name}
+                onChange={(e) => setInviteForm((prev) => ({ ...prev, full_name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">Correo Corporativo *</label>
+              <Input
+                type="email"
+                required
+                placeholder="colaborador@empresa.cl"
+                value={inviteForm.email}
+                onChange={(e) => setInviteForm((prev) => ({ ...prev, email: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">Contraseña Inicial * (mín. 8 caracteres)</label>
+              <Input
+                type="password"
+                required
+                minLength={8}
+                placeholder="Mínimo 8 caracteres"
+                value={inviteForm.password}
+                onChange={(e) => setInviteForm((prev) => ({ ...prev, password: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">Rol y Permisos *</label>
+              <Select
+                value={inviteForm.role}
+                options={assignableRoles.map((r) => ({ value: r.value, label: r.label }))}
+                onChange={(e) =>
+                  setInviteForm((prev) => ({ ...prev, role: e.target.value as ProfileRole }))
+                }
+              />
+              <p className="text-[11px] text-muted-foreground">
+                {ROLE_METADATA[inviteForm.role]?.description}
+              </p>
+            </div>
+          </DialogBody>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setInviteOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={inviting} className="gap-2">
+              {inviting && <Loader2 className="h-4 w-4 animate-spin" />}
+              Crear y Activar Usuario
             </Button>
           </DialogFooter>
         </form>
@@ -855,15 +1492,18 @@ interface UsersManagementSectionProps {
   activeUsers: UserRow[];
   companies: Organization[];
   isSuperAdmin: boolean;
+  isOwner: boolean;
   currentUserId?: string;
   actionLoadingId: string | null;
+  assignableRoles: ReturnType<typeof getAssignableRoles>;
   pendingOrgChoice: Record<string, string>;
   setPendingOrgChoice: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  pendingRoleChoice: Record<string, 'member' | 'admin'>;
-  setPendingRoleChoice: React.Dispatch<React.SetStateAction<Record<string, 'member' | 'admin'>>>;
+  pendingRoleChoice: Record<string, ProfileRole>;
+  setPendingRoleChoice: React.Dispatch<React.SetStateAction<Record<string, ProfileRole>>>;
+  seatLimitReached: boolean;
   onUpdateUser: (
     userId: string,
-    payload: { status?: 'pending' | 'active'; role?: 'admin' | 'member'; organization_id?: string }
+    payload: { status?: 'pending' | 'active'; role?: ProfileRole; organization_id?: string }
   ) => Promise<void>;
   onDeleteUser: (userRow: UserRow) => Promise<void>;
 }
@@ -873,16 +1513,19 @@ function UsersManagementSection({
   activeUsers,
   companies,
   isSuperAdmin,
+  isOwner,
   currentUserId,
   actionLoadingId,
+  assignableRoles,
   pendingOrgChoice,
   setPendingOrgChoice,
   pendingRoleChoice,
   setPendingRoleChoice,
+  seatLimitReached,
   onUpdateUser,
   onDeleteUser,
 }: UsersManagementSectionProps) {
-  const companyOptions = companies.map((c) => ({ value: c.id, label: c.name }));
+  const roleOptions = assignableRoles.map((r) => ({ value: r.value, label: r.label }));
 
   return (
     <div className="space-y-6">
@@ -893,106 +1536,40 @@ function UsersManagementSection({
             Solicitudes Pendientes de Aprobación
             <Badge variant="outline">{pendingUsers.length}</Badge>
           </CardTitle>
-          <CardDescription>
-            Asigna la empresa correcta y el rol antes de autorizar el ingreso.
+          <CardDescription className="text-xs">
+            Asigne el rol correspondiente antes de autorizar el ingreso del colaborador.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {pendingUsers.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">
-              No hay solicitudes pendientes en este momento.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Usuario</TableHead>
-                    {isSuperAdmin && <TableHead>Empresa Asignada</TableHead>}
-                    <TableHead>Rol</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pendingUsers.map((u) => {
-                    const selectedOrg = pendingOrgChoice[u.id] || u.organization_id || companies[0]?.id || '';
-                    const selectedRole = pendingRoleChoice[u.id] || 'member';
-                    const isBusy = actionLoadingId === u.id;
-
-                    return (
-                      <TableRow key={u.id}>
-                        <TableCell>
-                          <div className="font-medium text-sm">{u.email}</div>
-                          <div className="text-xs text-muted-foreground">
-                            Solicitado el {new Date(u.created_at).toLocaleDateString('es-CL')}
-                          </div>
-                        </TableCell>
-                        {isSuperAdmin && (
-                          <TableCell className="min-w-[200px]">
-                            <Select
-                              value={selectedOrg}
-                              options={companyOptions}
-                              onChange={(e) =>
-                                setPendingOrgChoice((prev) => ({ ...prev, [u.id]: e.target.value }))
-                              }
-                            />
-                          </TableCell>
-                        )}
-                        <TableCell className="min-w-[140px]">
-                          <Select
-                            value={selectedRole}
-                            options={[
-                              { value: 'member', label: 'Miembro' },
-                              { value: 'admin', label: 'Admin Empresa' },
-                            ]}
-                            onChange={(e) =>
-                              setPendingRoleChoice((prev) => ({
-                                ...prev,
-                                [u.id]: e.target.value as 'member' | 'admin',
-                              }))
-                            }
-                          />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button
-                              size="sm"
-                              disabled={isBusy || !selectedOrg}
-                              onClick={() =>
-                                onUpdateUser(u.id, {
-                                  status: 'active',
-                                  role: selectedRole,
-                                  ...(isSuperAdmin ? { organization_id: selectedOrg } : {}),
-                                })
-                              }
-                              className="gap-1.5"
-                            >
-                              {isBusy ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <UserCheck className="h-3.5 w-3.5" />
-                              )}
-                              Aprobar
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={isBusy}
-                              onClick={() => onDeleteUser(u)}
-                              className="text-destructive hover:text-destructive gap-1.5"
-                            >
-                              <UserX className="h-3.5 w-3.5" />
-                              Rechazar
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <PendingUsersTable
+            users={pendingUsers}
+            companies={companies}
+            showCompanyColumn={isSuperAdmin}
+            assignableRoles={assignableRoles}
+            selectedRoles={pendingRoleChoice}
+            onRoleSelect={(userId, role) =>
+              setPendingRoleChoice((prev) => ({ ...prev, [userId]: role }))
+            }
+            selectedOrgs={pendingOrgChoice}
+            onOrgSelect={(userId, orgId) =>
+              setPendingOrgChoice((prev) => ({ ...prev, [userId]: orgId }))
+            }
+            seatLimitReached={seatLimitReached}
+            busyUserId={actionLoadingId}
+            onApprove={(userId, opts) =>
+              onUpdateUser(userId, {
+                status: 'active',
+                role: opts?.role,
+                ...(isSuperAdmin && opts?.organization_id
+                  ? { organization_id: opts.organization_id }
+                  : {}),
+              })
+            }
+            onReject={async (userId) => {
+              const target = pendingUsers.find((u) => u.id === userId);
+              if (target) await onDeleteUser(target);
+            }}
+          />
         </CardContent>
       </Card>
 
@@ -1003,8 +1580,8 @@ function UsersManagementSection({
             Usuarios Activos
             <Badge variant="outline">{activeUsers.length}</Badge>
           </CardTitle>
-          <CardDescription>
-            Cada cuenta solo accede a los registros de su propia organización.
+          <CardDescription className="text-xs">
+            Cada cuenta opera aislada en su organización con validación de permisos en servidor.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -1012,7 +1589,7 @@ function UsersManagementSection({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Email</TableHead>
+                  <TableHead>Usuario</TableHead>
                   {isSuperAdmin && <TableHead>Empresa</TableHead>}
                   <TableHead>Rol</TableHead>
                   <TableHead className="text-right">Gestión</TableHead>
@@ -1023,12 +1600,24 @@ function UsersManagementSection({
                   const isSelf = u.id === currentUserId;
                   const isBusy = actionLoadingId === u.id;
                   const orgLabel = u.organizations?.name || 'Sin empresa';
+                  const targetIsProtectedOwner = u.role === 'owner' && !isOwner && !isSuperAdmin;
+                  const currentRoleMeta = ROLE_METADATA[u.role];
+                  const hasRoleInOptions = roleOptions.some((o) => o.value === u.role);
+                  const rowOptions = hasRoleInOptions
+                    ? roleOptions
+                    : [
+                        { value: u.role, label: currentRoleMeta?.label || u.role },
+                        ...roleOptions,
+                      ];
 
                   return (
                     <TableRow key={u.id}>
                       <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium text-sm">{u.email}</span>
+                          {u.full_name && (
+                            <span className="text-xs text-muted-foreground">({u.full_name})</span>
+                          )}
                           {u.is_super_admin && (
                             <Badge className="bg-primary/15 text-primary border-primary/30 text-[10px]">
                               Super Admin
@@ -1036,7 +1625,7 @@ function UsersManagementSection({
                           )}
                           {isSelf && (
                             <Badge variant="outline" className="text-[10px]">
-                              Tú
+                              Usted
                             </Badge>
                           )}
                         </div>
@@ -1059,20 +1648,17 @@ function UsersManagementSection({
                         ) : (
                           <Select
                             value={u.role}
-                            disabled={isBusy || isSelf}
-                            options={[
-                              { value: 'member', label: 'Miembro' },
-                              { value: 'admin', label: 'Admin Empresa' },
-                            ]}
+                            disabled={isBusy || isSelf || targetIsProtectedOwner}
+                            options={rowOptions}
                             onChange={(e) =>
-                              onUpdateUser(u.id, { role: e.target.value as 'member' | 'admin' })
+                              onUpdateUser(u.id, { role: e.target.value as ProfileRole })
                             }
-                            className="w-[150px] h-8 text-xs"
+                            className="w-[210px] h-8 text-xs"
                           />
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        {!u.is_super_admin && !isSelf && (
+                        {!u.is_super_admin && !isSelf && !targetIsProtectedOwner && (
                           <div className="flex items-center justify-end gap-2">
                             <Button
                               size="sm"

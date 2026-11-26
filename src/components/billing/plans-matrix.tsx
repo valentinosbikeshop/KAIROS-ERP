@@ -21,7 +21,8 @@ import { Badge } from '@/components/ui/badge';
 import { AnimatedNumber } from '@/components/ui/motion-primitives';
 import { PlanDetailModal } from './plan-detail-modal';
 import { cn, formatCLP } from '@/lib/utils';
-import { calculateCustomPriceClp } from '@/lib/entitlements';
+import { ALL_MODULE_KEYS, calculateCustomPriceClp } from '@/lib/entitlements';
+import { DEFAULT_UF_RATE_CLP, formatMoney } from '@/lib/finance-core';
 import type { IndustryBlueprint } from '@/lib/industries';
 import type {
   ModuleKey,
@@ -30,35 +31,63 @@ import type {
   SubscriptionTier,
 } from '@/types/database';
 
-const PLAN_MISSING_HIGHLIGHTS: Record<string, string[]> = {
-  free: [
-    'Sin Cotizador PDF comercial',
-    'Sin control de abonos ni IVA F29',
-    'Sin Suite IA ni lectura OCR',
-  ],
-  essential: [
-    'Tope de 12 proyectos al mes y 25 consultas IA',
-    'Sin Consolidación, Recetas ni Prorrateo Retail',
-    'Sin Analítica P&L ni Excel Contable F29',
-  ],
-  growth: [
-    'Hasta 5 usuarios colaboradores',
-    'Sin Marca Blanca PDF propia',
-  ],
-  scale: [],
-};
+function getMissingHighlights(plan: SubscriptionPlan): string[] {
+  const included = new Set(plan.included_modules || []);
+  const items: string[] = [];
 
-const PLAN_ROI_NUDGE: Record<string, string> = {
-  free: 'Ideal para probar el cálculo neto/IVA antes de cotizar en volumen.',
-  essential: 'Ordena cotizaciones PDF, caja e inicia con 25 IA/mes por ~$1.166/día.',
-  growth: 'Protegiendo 4,5% de margen en un proyecto de $1,5M recuperas el valor del plan.',
-  scale: 'Ahorras $37.930/mes frente a módulos sueltos, con equipo ilimitado y 800 IA/mes.',
-};
+  if (plan.id === 'essential' && plan.max_projects !== null) {
+    items.push(
+      `Tope de ${plan.max_projects} proyectos al mes y ${plan.ai_calls_limit} consultas IA`
+    );
+  } else if (plan.id === 'growth' && plan.max_users !== null) {
+    items.push(`Hasta ${plan.max_users} usuarios colaboradores`);
+  }
+
+  if (!included.has('mod_pdf_quotes')) {
+    items.push('Sin Cotizador PDF comercial ni Portal /q');
+  }
+  if (!included.has('mod_transactions_sii')) {
+    items.push('Sin control de abonos ni IVA F29');
+  }
+  if (!included.has('mod_ai_suite')) {
+    items.push('Sin Suite IA ni lectura OCR');
+  }
+  if (!included.has('mod_analytics_excel') && plan.id !== 'free') {
+    items.push('Sin Analítica P&L ni Excel Contable F29');
+  }
+  if (!included.has('mod_team_branding') && plan.id !== 'free') {
+    items.push('Sin RBAC granular, auditoría ni Marca Blanca 100%');
+  }
+
+  return items.slice(0, 3);
+}
+
+function getPlanRoiNudge(
+  plan: SubscriptionPlan,
+  fullCustomClp: number
+): string {
+  if (plan.id === 'free') {
+    return 'Ideal para validar cálculo neto/IVA y márgenes sin tarjeta antes de cotizar en volumen.';
+  }
+  if (plan.id === 'essential') {
+    const daily = Math.round(plan.price_clp / 30);
+    return `Ordena cotizaciones PDF, consolidación, caja SII e inicia con ${plan.ai_calls_limit} IA/mes por ~${formatCLP(daily)}/día.`;
+  }
+  if (plan.id === 'growth') {
+    return 'Protegiendo 4,5% de margen en un proyecto de $1,6M recuperas el valor mensual completo.';
+  }
+  if (plan.id === 'scale') {
+    const savings = Math.max(0, fullCustomClp - plan.price_clp);
+    return `Ahorra ${formatCLP(savings)}/mes frente a módulos sueltos, con equipo ilimitado, RBAC y ${plan.ai_calls_limit} IA/mes.`;
+  }
+  return plan.tagline;
+}
 
 interface PlansMatrixProps {
   plans: SubscriptionPlan[];
   addons: SubscriptionAddon[];
   currentTier?: SubscriptionTier;
+  preselectedTier?: SubscriptionTier;
   currentModules?: ModuleKey[];
   industry?: IndustryBlueprint;
   industryName?: string;
@@ -78,6 +107,7 @@ export function PlansMatrix({
   plans,
   addons,
   currentTier,
+  preselectedTier,
   currentModules = [],
   industry,
   industryName,
@@ -136,6 +166,15 @@ export function PlansMatrix({
     [selectedModules, addons]
   );
 
+  const fullCustomClp = useMemo(
+    () => calculateCustomPriceClp(ALL_MODULE_KEYS, addons),
+    [addons]
+  );
+
+  const essentialPlan = useMemo(
+    () => plans.find((p) => p.id === 'essential'),
+    [plans]
+  );
   const recommendedPlan = useMemo(
     () => plans.find((p) => p.is_recommended) || plans.find((p) => p.id === 'growth'),
     [plans]
@@ -154,6 +193,19 @@ export function PlansMatrix({
         recommendedPlan.price_clp > 0 &&
         customTotalClp >= recommendedPlan.price_clp
     );
+  const essentialModulesSet = useMemo(
+    () => new Set(essentialPlan?.included_modules || []),
+    [essentialPlan]
+  );
+  const customSuggestsEssential = Boolean(
+    !customExceedsScale &&
+      !customExceedsRecommended &&
+      essentialPlan &&
+      essentialPlan.price_clp > 0 &&
+      selectedModules.length > 0 &&
+      selectedModules.every((m) => essentialModulesSet.has(m)) &&
+      customTotalClp >= essentialPlan.price_clp - 500
+  );
 
   const toggleModule = (modId: ModuleKey) => {
     setSelectedModules((prev) =>
@@ -266,9 +318,12 @@ export function PlansMatrix({
             }}
           >
             {plans.map((plan) => {
-              const isCurrent = currentTier === plan.id;
+              const isCurrent = Boolean(currentTier && currentTier === plan.id && !isOnboarding);
+              const isPreselected = Boolean(preselectedTier && preselectedTier === plan.id && !isCurrent);
               const isRec = Boolean(plan.is_recommended);
               const isBusy = loadingTier === plan.id;
+              const missingHighlights = getMissingHighlights(plan);
+              const roiNudge = getPlanRoiNudge(plan, fullCustomClp);
 
               return (
                 <div
@@ -310,7 +365,7 @@ export function PlansMatrix({
                       {isRec && <Sparkles className="h-3 w-3 mr-1 inline" />}
                       {plan.badge_text}
                     </Badge>
-                    {isCurrent && (
+                    {(isCurrent || isPreselected) && (
                       <Badge
                         variant="outline"
                         className={cn(
@@ -320,7 +375,7 @@ export function PlansMatrix({
                             : 'border-[#467366]/35 text-[#34594E] bg-[#467366]/10'
                         )}
                       >
-                        Plan Actual
+                        {isCurrent ? 'Plan Actual' : 'Preseleccionado'}
                       </Badge>
                     )}
                   </div>
@@ -337,7 +392,7 @@ export function PlansMatrix({
                   </div>
 
                   <div className={cn('pt-2 pb-3 border-b', isObsidian ? 'border-white/10' : 'border-slate-200/80')}>
-                    <div className="flex items-baseline gap-1.5">
+                    <div className="flex items-baseline gap-1.5 flex-wrap">
                       <span
                         className={cn(
                           'text-3xl font-semibold tabular-nums tracking-tight',
@@ -353,7 +408,9 @@ export function PlansMatrix({
                         {plan.price_clp === 0 ? '$0' : formatCLP(plan.price_clp)}
                       </span>
                       <span className={cn('text-xs font-medium', isObsidian ? 'text-[#96A1B5]' : 'text-muted-foreground')}>
-                        {plan.price_clp === 0 ? '/ mes' : '/ mes · IVA incl.'}
+                        {plan.price_clp === 0
+                          ? '/ mes'
+                          : `/ mes · IVA incl. (~${formatMoney(plan.price_clp, 'UF', DEFAULT_UF_RATE_CLP)})`}
                       </span>
                     </div>
                     <p className={cn('text-[11px] mt-2 leading-relaxed', isObsidian ? 'text-[#96A1B5]' : 'text-muted-foreground')}>
@@ -389,13 +446,13 @@ export function PlansMatrix({
                     ))}
                   </ul>
 
-                  {(PLAN_MISSING_HIGHLIGHTS[plan.id] || []).length > 0 && (
+                  {missingHighlights.length > 0 && (
                     <div className={cn('pt-2 border-t space-y-1.5', isObsidian ? 'border-white/10' : 'border-slate-200/70')}>
                       <span className={cn('text-[10px] uppercase tracking-wider font-semibold block', isObsidian ? 'text-[#96A1B5]' : 'text-muted-foreground')}>
                         Qué le falta en este nivel
                       </span>
                       <ul className={cn('space-y-1 text-[11px]', isObsidian ? 'text-[#96A1B5]' : 'text-muted-foreground')}>
-                        {PLAN_MISSING_HIGHLIGHTS[plan.id].map((missing, mIdx) => (
+                        {missingHighlights.map((missing, mIdx) => (
                           <li key={mIdx} className="flex items-start gap-1.5">
                             <Lock className={cn('h-3 w-3 shrink-0 mt-0.5', isObsidian ? 'text-[#646F84]' : 'text-slate-400')} />
                             <span>{missing}</span>
@@ -405,7 +462,7 @@ export function PlansMatrix({
                     </div>
                   )}
 
-                  {PLAN_ROI_NUDGE[plan.id] && (
+                  {roiNudge && (
                     <div
                       className={cn(
                         'p-2.5 rounded-xl border text-[11px] leading-snug',
@@ -414,7 +471,7 @@ export function PlansMatrix({
                           : 'bg-slate-100/75 border-slate-200/80 text-slate-700'
                       )}
                     >
-                      {PLAN_ROI_NUDGE[plan.id]}
+                      {roiNudge}
                     </div>
                   )}
                 </div>
@@ -463,6 +520,8 @@ export function PlansMatrix({
                   )}
                   {isOnboarding && plan.price_clp === 0
                     ? 'Comenzar con Plan Gratis'
+                    : isOnboarding && plan.price_clp > 0
+                    ? 'Activar con Khipu'
                     : isCurrent
                     ? plan.price_clp === 0
                       ? 'Plan Activo'
@@ -532,9 +591,9 @@ export function PlansMatrix({
             <p className={cn('text-sm max-w-2xl', isObsidian ? 'text-[#96A1B5]' : 'text-muted-foreground')}>
               Parte con la <strong className={isObsidian ? 'text-[#EEF1F6]' : ''}>{baseAddon?.name || 'Plataforma Activa Base'}</strong> (
               <span className={cn('font-semibold tabular-nums', isObsidian ? 'text-[#EDE0C8]' : 'text-foreground')}>
-                {formatCLP(baseAddon?.price_clp ?? 19990)}
+                {formatCLP(baseAddon?.price_clp ?? 14990)}
               </span>
-              /mes) y enciende exclusivamente los módulos que tu operación necesita hoy. Si armas un paquete grande, te avisamos cuando te conviene más un plan cerrado.
+              /mes) y enciende exclusivamente los módulos que su operación necesita hoy. Si arma un paquete grande, le avisamos cuando le conviene más un plan cerrado.
             </p>
           </div>
 
@@ -591,8 +650,8 @@ export function PlansMatrix({
               >
                 <div>
                   <Zap className="h-3.5 w-3.5 inline mr-1" />
-                  Por <strong>{formatCLP(recommendedPlan.price_clp)}/mes</strong> obtienes{' '}
-                  <strong>{recommendedPlan.name}</strong> con casi todo incluido y ahorras{' '}
+                  Por <strong>{formatCLP(recommendedPlan.price_clp)}/mes</strong> obtiene{' '}
+                  <strong>{recommendedPlan.name}</strong> con casi todo incluido y ahorra{' '}
                   <strong>{formatCLP(Math.max(0, customTotalClp - recommendedPlan.price_clp))}/mes</strong>.
                 </div>
                 <button
@@ -601,6 +660,30 @@ export function PlansMatrix({
                   className="underline font-semibold"
                 >
                   Ver qué incluye {recommendedPlan.name} →
+                </button>
+              </div>
+            )}
+
+            {customSuggestsEssential && essentialPlan && (
+              <div
+                className={cn(
+                  'p-3 rounded-xl border text-[11px] leading-snug space-y-1',
+                  isObsidian
+                    ? 'bg-[#5E89E8]/12 border-[#5E89E8]/30 text-[#D4E2FC]'
+                    : 'bg-blue-50 border-blue-200 text-blue-950'
+                )}
+              >
+                <div>
+                  <Zap className="h-3.5 w-3.5 inline mr-1 text-blue-600" />
+                  Por <strong>{formatCLP(essentialPlan.price_clp)}/mes</strong>,{' '}
+                  <strong>{essentialPlan.name}</strong> incluye sus módulos + Consolidación, {essentialPlan.ai_calls_limit} IA/mes y {essentialPlan.max_users} usuarios.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDetailPlan(essentialPlan)}
+                  className="underline font-semibold"
+                >
+                  Comparar con {essentialPlan.name} →
                 </button>
               </div>
             )}
@@ -731,10 +814,18 @@ export function PlansMatrix({
         <div className={cn('flex flex-wrap items-center justify-between gap-3 pt-2 text-xs', isObsidian ? 'text-[#96A1B5]' : 'text-muted-foreground')}>
           <span className="inline-flex items-center gap-1.5">
             <ShieldCheck className={cn('h-4 w-4', isObsidian ? 'text-[#4FA88B]' : 'text-[#467366]')} />
-            Pagos procesados mediante transferencia bancaria certificada por <strong className={isObsidian ? 'text-[#EEF1F6]' : ''}>Khipu</strong>.
+            {khipuReady ? (
+              <>
+                Pagos procesados mediante transferencia bancaria certificada por <strong className={isObsidian ? 'text-[#EEF1F6]' : ''}>Khipu</strong>.
+              </>
+            ) : (
+              <>
+                Pasarela <strong className={isObsidian ? 'text-[#EEF1F6]' : ''}>Khipu</strong> pendiente de configuración de llaves en el servidor (puede usar Plan Semilla $0 o solicitar activación).
+              </>
+            )}
           </span>
           <span>
-            Si decides pausar tu pago, tus datos históricos nunca se eliminan (solo se restringen módulos premium).
+            Si decide pausar su pago, su historial nunca se elimina (solo se restringen módulos premium).
           </span>
         </div>
       </div>
@@ -742,9 +833,12 @@ export function PlansMatrix({
       {/* Modal de Detalle Extendido por Plan */}
       <PlanDetailModal
         plan={detailPlan}
+        plans={plans}
+        addons={addons}
         industry={industry}
         industryName={industryName}
-        isCurrent={Boolean(detailPlan && currentTier === detailPlan.id)}
+        isCurrent={Boolean(detailPlan && currentTier === detailPlan.id && !isOnboarding)}
+        isOnboarding={isOnboarding}
         loadingTier={loadingTier}
         surface={surface}
         onClose={() => setDetailPlan(null)}

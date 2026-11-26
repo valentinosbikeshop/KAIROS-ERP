@@ -20,6 +20,19 @@ export type OperationMode = 'project' | 'retail_mixed' | 'retainer_hours';
 
 export type HonorariosRetentionPolicy = 'company' | 'contractor' | 'split_50_50';
 
+export type TaxRegime = 'afecto_iva' | 'sociedad_profesionales' | 'exportacion_turismo';
+
+export type PurchaseDocType = 'factura' | 'boleta' | 'exento';
+
+export type ProfileRole =
+  | 'owner'
+  | 'admin'
+  | 'comercial'
+  | 'finanzas'
+  | 'operaciones'
+  | 'contador_lectura'
+  | 'member';
+
 export type QuoteCurrency = 'CLP' | 'UF' | 'USD';
 
 export type QuotePortalStatus = 'draft' | 'sent' | 'accepted' | 'rejected';
@@ -61,9 +74,20 @@ export type OrganizationSaasConfig = {
   ai_calls_used: number;
   ai_calls_reset_at: string;
   honorarios_retention_policy?: HonorariosRetentionPolicy;
+  tax_regime?: TaxRegime;
   min_margin_pct?: number;
   uf_rate_clp?: number;
   usd_rate_clp?: number;
+  white_label_footer?: string | null;
+  hide_figura_branding?: boolean;
+  secondary_accounts?: Array<{
+    banco?: string;
+    tipo_cuenta?: string;
+    numero_cuenta?: string;
+    titular?: string;
+    rut?: string;
+    email?: string;
+  }>;
   pending_payments?: BillingPayment[];
 };
 
@@ -74,6 +98,16 @@ export type OrganizationBankInfo = {
   titular?: string;
   rut?: string;
   email?: string;
+  white_label_footer?: string | null;
+  hide_figura_branding?: boolean;
+  secondary_accounts?: Array<{
+    banco?: string;
+    tipo_cuenta?: string;
+    numero_cuenta?: string;
+    titular?: string;
+    rut?: string;
+    email?: string;
+  }>;
   __saas_config?: OrganizationSaasConfig;
   [key: string]: unknown;
 };
@@ -111,9 +145,21 @@ export type Organization = {
   khipu_subscription_id?: string | null;
   ai_calls_used?: number;
   ai_calls_reset_at?: string;
+  honorarios_retention_policy?: HonorariosRetentionPolicy;
+  tax_regime?: TaxRegime;
   min_margin_pct?: number;
   uf_rate_clp?: number;
   usd_rate_clp?: number;
+  white_label_footer?: string | null;
+  hide_figura_branding?: boolean;
+  secondary_accounts?: Array<{
+    banco?: string;
+    tipo_cuenta?: string;
+    numero_cuenta?: string;
+    titular?: string;
+    rut?: string;
+    email?: string;
+  }>;
 };
 
 export type SubscriptionPlan = {
@@ -169,11 +215,28 @@ export type BillingPayment = {
 export type Profile = {
   id: string;
   email: string;
-  role: 'admin' | 'member';
+  role: ProfileRole;
   status: 'pending' | 'active';
   organization_id: string | null;
   is_super_admin?: boolean;
   full_name?: string | null;
+  created_at: string;
+};
+
+export type AuditLog = {
+  id: string;
+  organization_id: string;
+  actor_id: string | null;
+  actor_email: string | null;
+  actor_role: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  entity_label: string | null;
+  before_data: Record<string, unknown> | null;
+  after_data: Record<string, unknown> | null;
+  metadata?: Record<string, unknown> | null;
+  ip_address?: string | null;
   created_at: string;
 };
 
@@ -188,6 +251,9 @@ export type MasterCost = {
   valor_total: number;
   ganancia: number;
   tipo_doc_costo?: 'factura' | 'boleta';
+  es_exento_compra?: boolean;
+  currency?: QuoteCurrency;
+  es_reembolsable?: boolean;
   is_demo_base?: boolean;
   created_at: string;
 };
@@ -208,6 +274,11 @@ export type Event = {
   deleted_at: string | null;
   has_retail_sales?: boolean;
   is_demo_base?: boolean;
+  base_quantity?: number | null;
+  project_type?: string | null;
+  mermas_pct?: number;
+  payment_terms?: string | null;
+  tax_regime?: TaxRegime | null;
   quote_token?: string | null;
   quote_status?: QuotePortalStatus;
   quote_sent_at?: string | null;
@@ -236,12 +307,18 @@ export type EventItem = {
   valor_total: number;
   margen: number;
   tipo_doc_costo?: 'factura' | 'boleta';
+  es_exento_compra?: boolean;
   factura_url?: string | null;
   approved: boolean;
   created_at: string;
   parent_id?: string | null;
   iva_incluido?: boolean;
   es_insumo?: boolean;
+  is_pass_through?: boolean;
+  es_reembolsable?: boolean;
+  es_exento?: boolean;
+  currency?: QuoteCurrency;
+  exchange_rate?: number;
   source_item_id?: string | null;
   cantidad_original?: number | null;
   is_demo_base?: boolean;
@@ -302,6 +379,12 @@ export type Database = {
         Row: BillingPayment;
         Insert: Omit<BillingPayment, 'id' | 'created_at'> & { id?: string; created_at?: string };
         Update: Partial<Omit<BillingPayment, 'id'>>;
+        Relationships: [];
+      };
+      audit_logs: {
+        Row: AuditLog;
+        Insert: Omit<AuditLog, 'id' | 'created_at'> & { id?: string; created_at?: string };
+        Update: Partial<Omit<AuditLog, 'id'>>;
         Relationships: [];
       };
     };

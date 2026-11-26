@@ -25,13 +25,17 @@ import {
   formatRutCL,
   validateRutCL,
 } from '@/lib/utils';
+import { DEFAULT_PLANS, resolveOrgEntitlements } from '@/lib/entitlements';
+import { computeItemFinancials, formatMoney } from '@/lib/finance-core';
+import { brandingCapabilities } from '@/lib/plan-guards';
+import { parsePaymentTerms } from '@/components/events/project-helpers';
 import { LOCAL_DEMO_STORAGE_KEY } from '@/lib/supabase/local-demo-client';
 import { CompanyLogoMark } from '@/components/ui/figura-logo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { Event, EventItem, Organization, QuoteCurrency, QuotePortalStatus } from '@/types/database';
+import type { Event, EventItem, Organization, QuoteCurrency, QuotePortalStatus, TaxRegime } from '@/types/database';
 
 interface PublicQuoteItem {
   id: string;
@@ -46,6 +50,15 @@ interface PublicQuoteItem {
   iva_subtotal: number;
   valor_total_subtotal: number;
   iva_incluido: boolean;
+}
+
+interface PublicBankInfo {
+  banco?: string;
+  tipo_cuenta?: string;
+  numero_cuenta?: string;
+  titular?: string;
+  rut?: string;
+  email?: string;
 }
 
 interface PublicQuoteData {
@@ -64,6 +77,8 @@ interface PublicQuoteData {
     quote_accepted_by_name: string | null;
     currency: QuoteCurrency;
     exchange_rate: number;
+    payment_terms?: string | null;
+    tax_regime?: TaxRegime;
   };
   organization: {
     name: string;
@@ -74,15 +89,18 @@ interface PublicQuoteData {
     contact_email: string | null;
     contact_phone: string | null;
     logo_url: string | null;
-    bank_info: {
-      banco?: string;
-      tipo_cuenta?: string;
-      numero_cuenta?: string;
-      titular?: string;
-      rut?: string;
-      email?: string;
-    };
+    bank_info: PublicBankInfo | null;
+    secondary_accounts?: PublicBankInfo[];
+    white_label_footer?: string | null;
+    hide_figura_branding?: boolean;
   } | null;
+  branding?: {
+    bankInfo: boolean;
+    logo: boolean;
+    whiteLabel: boolean;
+    customLegalFooter: boolean;
+    multipleBankAccounts: boolean;
+  };
   items: PublicQuoteItem[];
   totals: {
     valorNeto: number;
@@ -141,6 +159,10 @@ export default function PublicQuotePortalPage() {
           }
 
           const org = parsed.organization || null;
+          const entitlements = resolveOrgEntitlements(org, DEFAULT_PLANS);
+          const caps = brandingCapabilities(entitlements);
+          const eventTaxRegime: TaxRegime = ev.tax_regime || org?.tax_regime || 'afecto_iva';
+
           const publicItems: PublicQuoteItem[] = (parsed.event_items || [])
             .filter(
               (i) =>
@@ -154,26 +176,27 @@ export default function PublicQuotePortalPage() {
                 !i.es_insumo
             )
             .map((i) => {
-              const qty = Number(i.cantidad) || 1;
+              const fin = computeItemFinancials(i, { taxRegime: eventTaxRegime });
               return {
                 id: i.id,
                 servicio: i.servicio,
                 detalle: i.detalle || null,
                 tipo_evento: i.tipo_evento || null,
-                cantidad: qty,
-                valor_neto_unitario: Number(i.valor_neto || 0),
-                iva_unitario: Number(i.iva || 0),
-                valor_total_unitario: Number(i.valor_total || 0),
-                valor_neto_subtotal: Number(i.valor_neto || 0) * qty,
-                iva_subtotal: Number(i.iva || 0) * qty,
-                valor_total_subtotal: Number(i.valor_total || 0) * qty,
-                iva_incluido: i.iva_incluido !== false,
+                cantidad: fin.cantidad,
+                valor_neto_unitario: fin.ventaNetaUnit,
+                iva_unitario: fin.ivaDebitoUnit,
+                valor_total_unitario: fin.ventaTotalUnit,
+                valor_neto_subtotal: fin.ventaNeta,
+                iva_subtotal: fin.ivaDebito,
+                valor_total_subtotal: fin.ventaTotal,
+                iva_incluido: !fin.isExemptSale,
               };
             });
 
           const totalNeto = publicItems.reduce((s, i) => s + i.valor_neto_subtotal, 0);
           const totalIva = publicItems.reduce((s, i) => s + i.iva_subtotal, 0);
           const totalVenta = publicItems.reduce((s, i) => s + i.valor_total_subtotal, 0);
+          const parsedTerms = parsePaymentTerms(ev.payment_terms);
 
           if (!active) return;
           setData({
@@ -192,6 +215,8 @@ export default function PublicQuotePortalPage() {
               quote_accepted_by_name: ev.quote_accepted_by_name || null,
               currency: ev.currency || 'CLP',
               exchange_rate: Number(ev.exchange_rate || 1),
+              payment_terms: ev.payment_terms || null,
+              tax_regime: eventTaxRegime,
             },
             organization: org
               ? {
@@ -202,23 +227,35 @@ export default function PublicQuotePortalPage() {
                   location: org.location,
                   contact_email: org.contact_email,
                   contact_phone: org.contact_phone,
-                  logo_url: org.logo_url || null,
-                  bank_info: {
-                    banco: org.bank_info?.banco || 'Banco de Chile',
-                    tipo_cuenta: org.bank_info?.tipo_cuenta || 'Cuenta Corriente',
-                    numero_cuenta: org.bank_info?.numero_cuenta || '00-123-45678-90',
-                    titular: org.bank_info?.titular || org.legal_name || org.name,
-                    rut: org.bank_info?.rut || org.rut || '',
-                    email: org.bank_info?.email || org.contact_email || '',
-                  },
+                  logo_url: caps.logo ? org.logo_url || null : null,
+                  bank_info: caps.bankInfo
+                    ? {
+                        banco: org.bank_info?.banco || 'Banco de Chile',
+                        tipo_cuenta: org.bank_info?.tipo_cuenta || 'Cuenta Corriente',
+                        numero_cuenta: org.bank_info?.numero_cuenta || '00-123-45678-90',
+                        titular: org.bank_info?.titular || org.legal_name || org.name,
+                        rut: org.bank_info?.rut || org.rut || '',
+                        email: org.bank_info?.email || org.contact_email || '',
+                      }
+                    : null,
+                  secondary_accounts: caps.multipleBankAccounts ? org.secondary_accounts || [] : [],
+                  white_label_footer: caps.customLegalFooter ? org.white_label_footer || null : null,
+                  hide_figura_branding: caps.whiteLabel && Boolean(org.hide_figura_branding ?? true),
                 }
               : null,
+            branding: {
+              bankInfo: caps.bankInfo,
+              logo: caps.logo,
+              whiteLabel: caps.whiteLabel,
+              customLegalFooter: caps.customLegalFooter,
+              multipleBankAccounts: caps.multipleBankAccounts,
+            },
             items: publicItems,
             totals: {
               valorNeto: totalNeto,
               iva: totalIva,
               valorTotal: totalVenta,
-              suggestedDepositClp: Math.round(totalVenta * 0.5),
+              suggestedDepositClp: Math.round(totalVenta * parsedTerms.depositPct),
             },
             khipuAvailable: false,
           });
@@ -262,7 +299,7 @@ export default function PublicQuotePortalPage() {
     setFormError(null);
 
     if (signerName.trim().length < 2) {
-      setFormError('Por favor ingresa tu nombre completo para registrar la respuesta.');
+      setFormError('Por favor ingrese su nombre completo para registrar la respuesta.');
       return;
     }
     if (!validateRutCL(signerRut)) {
@@ -270,7 +307,7 @@ export default function PublicQuotePortalPage() {
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signerEmail.trim())) {
-      setFormError('Ingresa un correo electrónico válido para enviarte el respaldo.');
+      setFormError('Ingrese un correo electrónico válido para enviarle el respaldo.');
       return;
     }
 
@@ -356,6 +393,8 @@ export default function PublicQuotePortalPage() {
   const handleCopyBank = () => {
     if (!data?.organization?.bank_info) return;
     const b = data.organization.bank_info;
+    const depositPct = parsePaymentTerms(data.event.payment_terms).depositPct;
+    const depositAmount = Math.round(data.totals.valorTotal * depositPct);
     const lines = [
       `Titular: ${b.titular || data.organization.legal_name || data.organization.name}`,
       `RUT: ${b.rut || data.organization.rut || ''}`,
@@ -363,7 +402,9 @@ export default function PublicQuotePortalPage() {
       `Tipo Cuenta: ${b.tipo_cuenta || ''}`,
       `N° Cuenta: ${b.numero_cuenta || ''}`,
       b.email ? `Email comprobante: ${b.email}` : '',
-      `Monto Abono 50%: ${formatCLP(data.totals.suggestedDepositClp)}`,
+      depositPct > 0
+        ? `Monto Abono (${Math.round(depositPct * 100)}%): ${formatCLP(depositAmount)}`
+        : `Total Propuesta: ${formatCLP(data.totals.valorTotal)}`,
       `Referencia: ${data.event.name}`,
     ]
       .filter(Boolean)
@@ -398,10 +439,17 @@ export default function PublicQuotePortalPage() {
     );
   }
 
-  const { event, organization, items, totals } = data;
+  const { event, organization, items, totals, branding } = data;
   const currency = event.currency || 'CLP';
   const rate = Number(event.exchange_rate || 1);
   const showForeignCurrency = currency !== 'CLP' && rate > 1;
+  const currencyRates = currency === 'UF' ? { uf: rate } : currency === 'USD' ? { usd: rate } : undefined;
+  const parsedTerms = parsePaymentTerms(event.payment_terms);
+  const depositPct = parsedTerms.depositPct;
+  const suggestedDepositClp =
+    depositPct > 0 ? Math.round(totals.valorTotal * depositPct) : totals.valorTotal;
+  const showBankCard = branding?.bankInfo !== false && Boolean(organization?.bank_info);
+  const isWhiteLabel = Boolean(branding?.whiteLabel && organization?.hide_figura_branding);
   const isAccepted = event.quote_status === 'accepted';
   const isRejected = event.quote_status === 'rejected';
 
@@ -429,7 +477,7 @@ export default function PublicQuotePortalPage() {
                 {organization && (
                   <CompanyLogoMark
                     name={organization.name}
-                    logoUrl={organization.logo_url}
+                    logoUrl={branding?.logo !== false ? organization.logo_url : null}
                     size="md"
                   />
                 )}
@@ -562,10 +610,17 @@ export default function PublicQuotePortalPage() {
                         </td>
                         <td className="py-3 px-2 text-center font-mono text-xs">{item.cantidad}</td>
                         <td className="py-3 px-4 text-right font-mono text-xs text-slate-700">
-                          {formatCLP(item.valor_neto_subtotal)}
+                          <div>{formatCLP(item.valor_neto_subtotal)}</div>
+                          {showForeignCurrency && (
+                            <div className="text-[10px] text-muted-foreground">
+                              {formatMoney(item.valor_neto_subtotal, currency, currencyRates)}
+                            </div>
+                          )}
                         </td>
                         <td className="py-3 px-4 text-right font-mono text-xs text-muted-foreground">
-                          {item.iva_incluido ? formatCLP(item.iva_subtotal) : 'Exento'}
+                          {item.iva_incluido && item.iva_subtotal > 0
+                            ? formatCLP(item.iva_subtotal)
+                            : 'Exento'}
                         </td>
                         <td className="py-3 px-4 text-right font-mono font-semibold text-slate-900">
                           {formatCLP(item.valor_total_subtotal)}
@@ -584,10 +639,16 @@ export default function PublicQuotePortalPage() {
 
             {/* Totals Summary */}
             <div className="mt-4 p-4 sm:p-5 bg-slate-50/80 border-t border-slate-200 sm:rounded-xl flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-              <div className="text-xs text-muted-foreground space-y-1">
+              <div className="text-xs text-muted-foreground space-y-1 max-w-md">
                 <p className="font-medium text-slate-700">Condiciones Comerciales</p>
-                <p>• Reserva de fecha y programación mediante abono del 50% ({formatCLP(totals.suggestedDepositClp)}).</p>
-                <p>• Valores expresados en pesos chilenos (CLP) según normativa tributaria SII vigente.</p>
+                {parsedTerms.clauses.map((clause, idx) => (
+                  <p key={idx}>• {clause}</p>
+                ))}
+                <p>• Validez de la oferta: {parsedTerms.validityDays} días hábiles desde su emisión.</p>
+                <p>
+                  • Valores expresados en pesos chilenos (CLP) según normativa tributaria SII vigente
+                  {totals.iva === 0 ? ' (operación exenta de IVA)' : ''}.
+                </p>
               </div>
               <div className="w-full sm:w-72 space-y-1.5 text-sm">
                 <div className="flex justify-between text-xs text-muted-foreground">
@@ -615,7 +676,12 @@ export default function PublicQuotePortalPage() {
         </Card>
 
         {/* Acceptance / Signature + Deposit Card */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 print:hidden">
+        <div
+          className={cn(
+            'grid grid-cols-1 gap-6 print:hidden',
+            showBankCard ? 'md:grid-cols-2' : 'max-w-2xl mx-auto w-full'
+          )}
+        >
           <Card className="border-slate-200/90 shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -700,7 +766,7 @@ export default function PublicQuotePortalPage() {
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium">Notas u Observaciones (Opcional)</label>
                     <Input
-                      placeholder="Ej: Horario de montaje, requerimientos de facturación..."
+                      placeholder="Ej: N° de Orden de Compra, horario de coordinación o facturación..."
                       value={signerNotes}
                       onChange={(e) => setSignerNotes(e.target.value)}
                     />
@@ -738,32 +804,34 @@ export default function PublicQuotePortalPage() {
             </CardContent>
           </Card>
 
-          {/* Payment / Transfer Box */}
-          <Card className="border-slate-200/90 shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Landmark className="h-4 w-4 text-[#4A607A]" />
-                Transferencia y Pago de Abono (50%)
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-xl bg-slate-50 border border-slate-200 p-3.5 flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
-                    Abono Sugerido para Reservar
-                  </p>
-                  <p className="text-lg font-bold font-mono text-slate-900">
-                    {formatCLP(totals.suggestedDepositClp)}
-                  </p>
+          {/* Payment / Transfer Box (solo si branding.bankInfo está habilitado) */}
+          {showBankCard && organization?.bank_info && (
+            <Card className="border-slate-200/90 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Landmark className="h-4 w-4 text-[#4A607A]" />
+                  {depositPct > 0
+                    ? `Transferencia y Pago de Abono (${Math.round(depositPct * 100)}%)`
+                    : 'Datos Bancarios para Pago'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="rounded-xl bg-slate-50 border border-slate-200 p-3.5 flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+                      {depositPct > 0 ? 'Abono Inicial Sugerido' : 'Monto Total Propuesta'}
+                    </p>
+                    <p className="text-lg font-bold font-mono text-slate-900">
+                      {formatCLP(suggestedDepositClp)}
+                    </p>
+                  </div>
+                  {showForeignCurrency && (
+                    <Badge variant="outline" className="font-mono text-xs">
+                      {formatCurrencyAmount(suggestedDepositClp, currency, rate)}
+                    </Badge>
+                  )}
                 </div>
-                {showForeignCurrency && (
-                  <Badge variant="outline" className="font-mono text-xs">
-                    {formatCurrencyAmount(totals.suggestedDepositClp, currency, rate)}
-                  </Badge>
-                )}
-              </div>
 
-              {organization?.bank_info && (
                 <div className="rounded-xl border border-slate-200 p-3.5 space-y-1.5 text-xs">
                   <div className="flex justify-between gap-2">
                     <span className="text-muted-foreground">Titular:</span>
@@ -813,13 +881,49 @@ export default function PublicQuotePortalPage() {
                     )}
                   </Button>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+
+                {branding?.multipleBankAccounts &&
+                  Array.isArray(organization.secondary_accounts) &&
+                  organization.secondary_accounts.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Cuentas Bancarias Adicionales
+                      </p>
+                      {organization.secondary_accounts.map((acc, idx) => (
+                        <div
+                          key={idx}
+                          className="rounded-lg border border-slate-200/80 bg-slate-50/60 p-3 space-y-1 text-xs"
+                        >
+                          <div className="flex justify-between gap-2">
+                            <span className="text-muted-foreground">Banco:</span>
+                            <span className="font-medium">{acc.banco || '—'}</span>
+                          </div>
+                          <div className="flex justify-between gap-2">
+                            <span className="text-muted-foreground">Cuenta:</span>
+                            <span className="font-mono">
+                              {acc.tipo_cuenta || 'Cuenta Corriente'} · {acc.numero_cuenta || '—'}
+                            </span>
+                          </div>
+                          {acc.titular && (
+                            <div className="flex justify-between gap-2">
+                              <span className="text-muted-foreground">Titular:</span>
+                              <span>{acc.titular}</span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <footer className="text-center text-[11px] text-muted-foreground pb-6">
-          Documento emitido digitalmente vía FIGURA · {organization?.contact_email || ''}
+          {isWhiteLabel
+            ? organization?.white_label_footer ||
+              `${organization?.legal_name || organization?.name || ''} · ${organization?.contact_email || ''}`
+            : `Documento emitido digitalmente vía FIGURA · ${organization?.contact_email || ''}`}
         </footer>
       </div>
     </div>

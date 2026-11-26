@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
 import { PlansMatrix } from '@/components/billing/plans-matrix';
-import { INDUSTRY_LIST, THEME_PRESETS } from '@/lib/industries';
+import { INDUSTRY_BLUEPRINTS, INDUSTRY_LIST, THEME_PRESETS } from '@/lib/industries';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,6 +35,7 @@ function BillingPageContent() {
   const {
     loading,
     organization,
+    industry,
     isDuoExempt,
     isSuperAdmin,
     entitlements,
@@ -299,6 +300,22 @@ function BillingPageContent() {
         </div>
       )}
 
+      {!khipuReady && (
+        <div className="p-4 rounded-2xl border border-amber-300 bg-amber-50/90 text-amber-950 text-xs sm:text-sm flex items-start gap-3">
+          <ShieldAlert className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <p className="font-semibold">
+              Pasarela de pagos Khipu en configuración en este servidor
+            </p>
+            <p className="text-xs text-amber-900/90">
+              {isSuperAdmin
+                ? 'Las variables KHIPU_API_KEY y KHIPU_WEBHOOK_SECRET aún no están configuradas. Puede probar flujos con "Simular Activación (SuperAdmin)" o activar el Plan Semilla ($0).'
+                : 'Los pagos en línea con Khipu están temporalmente en mantenimiento porque el administrador aún no configura KHIPU_API_KEY. Puede usar el Plan Semilla ($0) o contactar a soporte para activar un plan.'}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Personalización del Rubro y Paleta */}
       <Card className="glass-card">
         <CardHeader className="pb-4">
@@ -357,6 +374,8 @@ function BillingPageContent() {
         addons={addons}
         currentTier={entitlements.tier}
         currentModules={currentModulesArray}
+        industry={INDUSTRY_BLUEPRINTS[industryType] || industry}
+        industryName={(INDUSTRY_BLUEPRINTS[industryType] || industry).shortName}
         khipuReady={khipuReady}
         isSuperAdmin={isSuperAdmin}
         onSelectCheckout={handleCheckout}

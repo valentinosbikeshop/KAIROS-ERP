@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowRight,
   Check,
@@ -17,14 +18,23 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatCLP } from '@/lib/utils';
+import {
+  ALL_MODULE_KEYS,
+  calculateCustomPriceClp,
+  DEFAULT_ADDONS,
+  DEFAULT_PLANS,
+} from '@/lib/entitlements';
 import type { IndustryBlueprint } from '@/lib/industries';
-import type { ModuleKey, SubscriptionPlan, SubscriptionTier } from '@/types/database';
+import type { ModuleKey, SubscriptionAddon, SubscriptionPlan, SubscriptionTier } from '@/types/database';
 
 interface PlanDetailModalProps {
   plan: SubscriptionPlan | null;
+  plans?: SubscriptionPlan[];
+  addons?: SubscriptionAddon[];
   industry?: IndustryBlueprint;
   industryName?: string;
   isCurrent?: boolean;
+  isOnboarding?: boolean;
   loadingTier?: string | null;
   surface?: 'light' | 'obsidian';
   onClose: () => void;
@@ -38,31 +48,31 @@ const MODULE_DESCRIPTIONS: Record<
 > = {
   mod_unlimited_projects: {
     title: 'Proyectos & Catálogo Ilimitados',
-    benefit: 'Opera sin topes mensuales ni límites de tarifas maestras cuando tu demanda crece.',
+    benefit: 'Opera sin topes mensuales ni límites de tarifas maestras cuando su demanda crece.',
   },
   mod_pdf_quotes: {
-    title: 'Cotizador PDF Ejecutivo',
-    benefit: 'Emite propuestas comerciales e informes internos con desglose neto, IVA 19% y condiciones listas para aprobar.',
+    title: 'Cotizador PDF Ejecutivo & Portal /q',
+    benefit: 'Emite propuestas comerciales en PDF y enlaces web /q con sus datos bancarios para aprobación directa.',
   },
   mod_transactions_sii: {
-    title: 'Trazabilidad Caja, Abonos & IVA F29',
-    benefit: 'Sabe exactamente cuánto IVA Débito vs. Crédito pagarás a fin de mes, más abonos y gastos reales.',
+    title: 'Tesorería, Abonos, Cartola RCV & F29',
+    benefit: 'Controla abonos, gastos reales, retención 15,25%, conciliación bancaria/RCV y proyección F29 SII.',
   },
   mod_consolidation_retail: {
-    title: 'Consolidación, Recetas & Retail',
-    benefit: 'Agrupa partidas padre/hijo, prorratea insumos unitarios y evita fugas ocultas por flete o merma.',
+    title: 'Consolidación, Recetas & Modo Retail',
+    benefit: 'Agrupa partidas padre/hijo, escandallos y prorrateo unitario ocultando el desglose interno al cliente.',
   },
   mod_ai_suite: {
     title: 'Suite IA + OCR Documental',
-    benefit: 'Sube PDF, Excel o fotos de facturas/cotizaciones y transfórmalas en presupuestos en segundos.',
+    benefit: 'Sube PDF, Excel o fotos de facturas y transfórmalas en presupuestos calibrados al margen de su rubro.',
   },
   mod_analytics_excel: {
     title: 'Analítica P&L & Excel Contable F29',
-    benefit: 'Dashboards de rentabilidad real por proyecto, distribución de costos y libro contable descargable.',
+    benefit: 'Dashboards de rentabilidad neta ex-IVA por período y libro contable + F29 Excel descargable.',
   },
   mod_team_branding: {
-    title: 'Equipo Multi-Usuario & Marca Blanca',
-    benefit: 'Tu logo, cuenta bancaria y pie legal en cada documento, con permisos granulares para tu equipo.',
+    title: 'RBAC Granular, Auditoría & Marca Blanca 100%',
+    benefit: 'Roles por área (Comercial, Operaciones, Finanzas, Contador), bitácora inmutable, piso de margen y PDF sin huella FIGURA.',
   },
 };
 
@@ -76,47 +86,65 @@ const ALL_MODULES_ORDER: ModuleKey[] = [
   'mod_team_branding',
 ];
 
-const PERSUASIVE_PITCH: Record<
-  string,
-  {
-    headline: string;
-    audience: string;
-    roiNote: string;
+function buildPersuasivePitch(
+  plan: SubscriptionPlan,
+  recommendedPlan: SubscriptionPlan,
+  fullCustomClp: number
+): { headline: string; audience: string; roiNote: string } {
+  if (plan.id === 'free') {
+    const activeCap = plan.max_projects ?? 2;
+    return {
+      headline: 'Valide la precisión financiera sin riesgo ni tarjeta',
+      audience: `Ideal para estructurar sus primeros ${activeCap} proyectos activos y ${plan.max_costs ?? 25} tarifas con IVA 19% y margen real antes de operar en volumen.`,
+      roiNote:
+        'Su historial nunca se elimina: cuando necesite emitir PDFs formales, usar Portal /q, controlar F29 o activar IA, sube de nivel en 1 clic.',
+    };
   }
-> = {
-  free: {
-    headline: 'Valida la precisión financiera sin riesgo ni tarjeta',
-    audience: 'Ideal para estructurar tus primeras 2 cotizaciones con IVA 19% y margen real antes de operar en escala.',
-    roiNote: 'Tus datos nunca se borran: cuando estés listo para emitir PDFs, controlar IVA F29 o usar IA, subes de nivel en 1 clic.',
-  },
-  essential: {
-    headline: 'Orden comercial, flujo de caja e impulso inicial con IA',
-    audience: 'Diseñado para empresas en marcha que necesitan cotizar formalmente en PDF, controlar abonos/gastos reales e iniciar con 25 consultas IA/OCR al mes.',
-    roiNote: 'Evita errores manuales de IVA y retenciones 15,25%. Si haces más de 12 proyectos al mes, prorrateas insumos o necesitas Analítica P&L + 250 créditos IA, el plan de $59.990 se paga solo.',
-  },
-  growth: {
+  if (plan.id === 'essential') {
+    return {
+      headline: 'Orden comercial, consolidación, flujo SII e impulso inicial con IA',
+      audience: `Diseñado para empresas en marcha que necesitan cotizar en PDF con datos bancarios, consolidar partidas padre/hijo, controlar F29 e iniciar con ${plan.ai_calls_limit} consultas IA/OCR al mes.`,
+      roiNote: `Evita errores manuales de IVA y retenciones 15,25%. Si supera ${plan.max_projects ?? 20} proyectos al mes o necesita Analítica P&L, Excel F29, Logo propio y ${recommendedPlan.ai_calls_limit} créditos IA, ${recommendedPlan.name} (${formatCLP(recommendedPlan.price_clp)}/mes) se paga solo.`,
+    };
+  }
+  if (plan.id === 'scale') {
+    const savingsVsCustom = Math.max(0, fullCustomClp - plan.price_clp);
+    return {
+      headline: 'Gobernanza corporativa, RBAC, auditoría y Marca Blanca 100%',
+      audience:
+        'Pensado para operaciones consolidadas con múltiples jefes de proyecto, vendedores, control de margen mínimo y exigencia de identidad propia.',
+      roiNote: `Ahorra ${formatCLP(savingsVsCustom)}/mes frente a contratar todos los módulos por separado, sumando usuarios ilimitados, RBAC, bitácora y ${plan.ai_calls_limit} créditos IA con motor CFO.`,
+    };
+  }
+  return {
     headline: 'El punto óptimo de rentabilidad: control total de IVA, fugas e IA Pro',
-    audience: 'El preferido por productoras, constructoras, agencias y empresas de servicios que buscan cero sorpresas a fin de mes.',
-    roiNote: 'Protegiendo apenas un 4,5% de margen oculto en un proyecto de $1.500.000, recuperas $67.500: más que el valor mensual completo.',
-  },
-  scale: {
-    headline: 'Gobernanza corporativa, equipo ilimitado y Marca Blanca',
-    audience: 'Pensado para operaciones consolidadas con múltiples jefes de proyecto, vendedores y exigencia de identidad propia.',
-    roiNote: 'Ahorras $37.930/mes frente a contratar todos los módulos por separado, sumando usuarios ilimitados y 800 créditos IA con motor CFO.',
-  },
-};
+    audience:
+      'El preferido por productoras, constructoras, agencias y empresas de servicios que buscan cero sorpresas a fin de mes.',
+    roiNote:
+      'Protegiendo apenas un 4,5% de margen oculto en un proyecto de $1.600.000, recupera $72.000: más que el valor mensual completo.',
+  };
+}
 
 export function PlanDetailModal({
   plan,
+  plans = DEFAULT_PLANS,
+  addons = DEFAULT_ADDONS,
   industry,
   industryName,
   isCurrent = false,
+  isOnboarding = false,
   loadingTier = null,
   surface = 'light',
   onClose,
   onSelectPlan,
   onSwitchToRecommended,
 }: PlanDetailModalProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     if (!plan) return;
     const prevOverflow = document.body.style.overflow;
@@ -125,27 +153,38 @@ export function PlanDetailModal({
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
-    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keydown', onKeyDown, true);
 
     return () => {
       document.body.style.overflow = prevOverflow;
-      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keydown', onKeyDown, true);
     };
   }, [plan, onClose]);
 
-  if (!plan) return null;
+  if (!plan || !mounted) return null;
 
   const isRec = Boolean(plan.is_recommended);
   const isObsidian = surface === 'obsidian';
   const includedSet = new Set(plan.included_modules || []);
   const includedModules = ALL_MODULES_ORDER.filter((m) => includedSet.has(m));
   const missingModules = ALL_MODULES_ORDER.filter((m) => !includedSet.has(m));
-  const pitch = PERSUASIVE_PITCH[plan.id] || PERSUASIVE_PITCH.growth;
+  const recommendedPlan =
+    plans.find((p) => p.is_recommended) ||
+    plans.find((p) => p.id === 'growth') ||
+    DEFAULT_PLANS[2];
+  const fullCustomClp = calculateCustomPriceClp(ALL_MODULE_KEYS, addons);
+  const pitch = buildPersuasivePitch(plan, recommendedPlan, fullCustomClp);
+  const projectsQuotaLabel =
+    plan.max_projects === null
+      ? 'Ilimitados'
+      : plan.id === 'free'
+      ? `${plan.max_projects} activos`
+      : `${plan.max_projects} / mes`;
 
-  return (
+  return createPortal(
     <div
       className={cn(
-        'fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 backdrop-blur-md',
+        'fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 backdrop-blur-md',
         isObsidian ? 'bg-black/70' : 'bg-slate-900/25'
       )}
       onClick={onClose}
@@ -236,7 +275,7 @@ export function PlanDetailModal({
         <div className="flex-1 overflow-y-auto overscroll-contain px-6 sm:px-8 py-6 space-y-6 custom-scrollbar">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { icon: FolderKanban, label: 'Proyectos', val: plan.max_projects === null ? 'Ilimitados' : `${plan.max_projects} / mes`, cls: isObsidian ? 'text-[#D8C39E]' : 'text-[#4A607A]' },
+              { icon: FolderKanban, label: 'Proyectos', val: projectsQuotaLabel, cls: isObsidian ? 'text-[#D8C39E]' : 'text-[#4A607A]' },
               { icon: Layers, label: 'Tarifas', val: plan.max_costs === null ? 'Ilimitadas' : `${plan.max_costs} ítems`, cls: isObsidian ? 'text-[#4FA88B]' : 'text-[#467366]' },
               { icon: Users, label: 'Equipo', val: plan.max_users === null ? 'Ilimitados' : `${plan.max_users} usuario${plan.max_users > 1 ? 's' : ''}`, cls: isObsidian ? 'text-[#D8C39E]' : 'text-[#4A607A]' },
               { icon: Cpu, label: 'Consultas IA', val: plan.ai_calls_limit === 0 ? 'Sin IA' : `${plan.ai_calls_limit} / mes`, cls: isObsidian ? 'text-[#5E89E8]' : 'text-[#467366]' },
@@ -389,7 +428,7 @@ export function PlanDetailModal({
                 )}
               >
                 <Sparkles className={cn('h-3.5 w-3.5', isObsidian ? 'text-[#D8C39E]' : 'text-[#4A607A]')} />
-                Ver Recomendado ($59.990)
+                Ver Recomendado ({formatCLP(recommendedPlan.price_clp)})
               </Button>
             )}
             <Button
@@ -402,7 +441,7 @@ export function PlanDetailModal({
               )}
             >
               {plan.price_clp === 0 ? <ArrowRight className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
-              {isCurrent && plan.price_clp > 0
+              {isCurrent && !isOnboarding && plan.price_clp > 0
                 ? 'Renovar este Plan'
                 : plan.price_clp === 0
                 ? 'Comenzar Gratis'
@@ -411,6 +450,7 @@ export function PlanDetailModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

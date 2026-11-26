@@ -10,7 +10,13 @@ import {
   Upload,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { CHILE_HONORARIOS_RETENTION_2026 } from '@/lib/constants';
+import {
+  CHILE_HONORARIOS_RETENTION_2026,
+  extractIvaFromGross,
+  honorariosGrossUp,
+} from '@/lib/finance-core';
+import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
+import { logAudit } from '@/lib/audit';
 import { cn, formatCLP, parseDateSafe } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -119,6 +125,7 @@ function scoreEventMatch(
 }
 
 export function BankReconciler({ events, onReconciled }: BankReconcilerProps) {
+  const { organization } = useWorkspaceConfig();
   const [rows, setRows] = useState<ParsedMovementRow[]>([]);
   const [parsing, setParsing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -365,15 +372,21 @@ export function BankReconciler({ events, onReconciled }: BankReconcilerProps) {
         const isGasto = row.kind === 'GASTO_REAL';
         const isFacturaDoc = isGasto && row.docMode === 'factura';
         const monto = Math.round(row.amount);
-        const facturaNeto = Math.round(monto / 1.19);
-        const facturaIvaCredito = isFacturaDoc ? monto - facturaNeto : 0;
-        const abonoNeto = row.aplicaIva ? Math.round(monto / 1.19) : monto;
-        const abonoIvaDebito = row.aplicaIva ? monto - abonoNeto : 0;
+        const facturaParts = extractIvaFromGross(monto);
+        const facturaNeto = facturaParts.net;
+        const facturaIvaCredito = isFacturaDoc ? facturaParts.iva : 0;
+        const abonoParts = extractIvaFromGross(monto);
+        const abonoNeto = row.aplicaIva ? abonoParts.net : monto;
+        const abonoIvaDebito = row.aplicaIva ? abonoParts.iva : 0;
 
-        const honorariosNote =
+        // P0-8: En cartola bancaria el monto transferido por honorarios es LÍQUIDO -> aplicar gross-up 15,25%
+        const honorariosCalc =
           isGasto && row.docMode === 'honorarios'
-            ? ` [Ret. ${Math.round(CHILE_HONORARIOS_RETENTION_2026 * 10000) / 100}%: ${formatCLP(Math.round(monto * CHILE_HONORARIOS_RETENTION_2026))}]`
-            : '';
+            ? honorariosGrossUp(monto, CHILE_HONORARIOS_RETENTION_2026)
+            : null;
+        const honorariosNote = honorariosCalc
+          ? ` [Ret. 15,25%: ${formatCLP(honorariosCalc.retencion)} · Bruto: ${formatCLP(honorariosCalc.bruto)}]`
+          : '';
 
         const servicioLabel = isGasto
           ? row.docMode === 'factura'
@@ -384,14 +397,21 @@ export function BankReconciler({ events, onReconciled }: BankReconcilerProps) {
           : 'Abono de Cliente';
 
         return {
+          organization_id: organization?.id,
           event_id: row.eventId,
           servicio: servicioLabel,
           detalle: `${row.fecha} | ${row.descripcion}${honorariosNote}`.trim(),
           tipo_evento: isGasto ? 'GASTO_REAL' : 'ABONO_CLIENTE',
           cantidad: 1,
-          costo: isGasto ? monto : 0,
+          costo: isGasto ? (honorariosCalc ? honorariosCalc.bruto : monto) : 0,
           ganancia: isGasto ? 0 : monto,
-          valor_neto: isGasto ? (isFacturaDoc ? facturaNeto : monto) : abonoNeto,
+          valor_neto: isGasto
+            ? isFacturaDoc
+              ? facturaNeto
+              : honorariosCalc
+              ? honorariosCalc.bruto
+              : monto
+            : abonoNeto,
           iva: isGasto ? (isFacturaDoc ? facturaIvaCredito : 0) : abonoIvaDebito,
           valor_total: monto,
           margen: isGasto ? 0 : 100,
@@ -403,6 +423,11 @@ export function BankReconciler({ events, onReconciled }: BankReconcilerProps) {
 
       const { error } = await (supabase.from('event_items') as any).insert(payload);
       if (error) throw error;
+
+      await logAudit('transaction_recorded', 'transaction', {
+        entityLabel: `Conciliación bancaria (${selectedRows.length} movs.)`,
+        after: { count: selectedRows.length, totalClp: selectedRows.reduce((s, r) => s + r.amount, 0) },
+      });
 
       setRows([]);
       setFileName(null);
@@ -655,8 +680,15 @@ export function BankReconciler({ events, onReconciled }: BankReconcilerProps) {
                             row.kind === 'ABONO_CLIENTE' ? 'text-emerald-700' : 'text-rose-700'
                           )}
                         >
-                          {row.kind === 'ABONO_CLIENTE' ? '+' : '-'}
-                          {formatCLP(row.amount)}
+                          <div>
+                            {row.kind === 'ABONO_CLIENTE' ? '+' : '-'}
+                            {formatCLP(row.amount)}
+                          </div>
+                          {row.kind === 'GASTO_REAL' && row.docMode === 'honorarios' && (
+                            <div className="text-[10px] font-normal text-indigo-700">
+                              Ret. 15,25%: {formatCLP(honorariosGrossUp(row.amount).retencion)}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}

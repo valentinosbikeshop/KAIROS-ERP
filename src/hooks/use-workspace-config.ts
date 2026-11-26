@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useUser } from './use-user';
 import {
   DEFAULT_ADDONS,
@@ -8,6 +8,8 @@ import {
   isDuoProducciones,
   resolveOrgEntitlements,
 } from '@/lib/entitlements';
+import { brandingCapabilities } from '@/lib/plan-guards';
+import { can as canRbac, hasGranularRbac, type Permission } from '@/lib/rbac';
 import {
   getIndustryBlueprint,
   THEME_PRESETS,
@@ -19,7 +21,7 @@ let cachedPlans: SubscriptionPlan[] | null = null;
 let cachedAddons: SubscriptionAddon[] | null = null;
 
 export function useWorkspaceConfig() {
-  const { organization, isAdmin, isSuperAdmin, isDemo, loading } = useUser();
+  const { profile, organization, role, isOwner, isAdmin, isSuperAdmin, isDemo, loading } = useUser();
   const [plans, setPlans] = useState<SubscriptionPlan[]>(cachedPlans || DEFAULT_PLANS);
   const [addons, setAddons] = useState<SubscriptionAddon[]>(cachedAddons || DEFAULT_ADDONS);
   const [khipuReady, setKhipuReady] = useState(false);
@@ -79,9 +81,19 @@ export function useWorkspaceConfig() {
     [entitlements.themePreset]
   );
 
+  const brandingCaps = useMemo(() => brandingCapabilities(entitlements), [entitlements]);
+  const granularRbacEnabled = useMemo(() => hasGranularRbac(entitlements), [entitlements]);
+  const can = useCallback(
+    (permission: Permission) => canRbac(profile, permission, entitlements),
+    [profile, entitlements]
+  );
+
   return {
     loading,
+    profile,
     organization,
+    role,
+    isOwner,
     isAdmin,
     isSuperAdmin,
     isDemo,
@@ -93,5 +105,8 @@ export function useWorkspaceConfig() {
     plans,
     addons,
     khipuReady,
+    brandingCaps,
+    hasGranularRbac: granularRbacEnabled,
+    can,
   };
 }

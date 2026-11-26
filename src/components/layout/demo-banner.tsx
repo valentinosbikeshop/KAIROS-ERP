@@ -108,7 +108,7 @@ export function DemoBanner({
         <div className="flex flex-wrap items-center gap-2.5 text-xs">
           <Badge className="bg-[#467366]/15 text-[#2E5248] border border-[#467366]/30 font-semibold tracking-wide uppercase px-2.5 py-0.5 flex items-center gap-1.5">
             <FlaskConical className="h-3.5 w-3.5 text-[#467366]" />
-            Sesión de Prueba · Plan Enterprise
+            Sesión de Prueba · Plan Crecimiento IA
           </Badge>
 
           <div className="w-48 sm:w-56" data-tour-id="demo-industry-switcher">
@@ -183,34 +183,32 @@ export function DemoBanner({
         </div>
       </div>
 
-      {/* Aviso No Invasivo de Caché Local */}
+      {/* Aviso No Invasivo e Inline de Caché Local (nunca cubre botones de formularios) */}
       {mounted && !cacheAccepted && (
         <div
-          role="dialog"
+          role="status"
           aria-label="Aviso de almacenamiento en caché local"
-          className="fixed bottom-4 left-4 right-4 z-[60] max-w-3xl mx-auto rounded-2xl glass-luxury p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+          className="bg-slate-900/95 text-slate-100 border-b border-slate-700/80 px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-3 text-xs"
         >
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-xl bg-[#4A607A]/12 border border-[#4A607A]/25 text-[#3B4F66] shrink-0">
-              <HardDrive className="h-4 w-4" />
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-1.5 rounded-lg bg-white/10 text-amber-300 shrink-0">
+              <HardDrive className="h-3.5 w-3.5" />
             </div>
-            <div className="space-y-0.5 text-xs">
-              <p className="font-semibold text-foreground flex items-center gap-1.5">
-                <Database className="h-3.5 w-3.5 text-[#4A607A]" />
-                Modo Evaluación: Almacenamiento Exclusivo en Caché Local
-              </p>
-              <p className="text-muted-foreground leading-relaxed">
-                Para proteger tu privacidad, ningún dato que edites o crees en esta sesión de prueba se guarda en Supabase; todo permanece temporalmente en el caché de tu navegador.
-              </p>
-            </div>
+            <p className="leading-snug text-slate-200">
+              <strong className="text-white inline-flex items-center gap-1 mr-1.5">
+                <Database className="h-3 w-3 text-amber-300" />
+                Modo Evaluación en Caché Local:
+              </strong>
+              Ningún dato creado o editado aquí se envía a servidores externos; todo permanece temporalmente en su navegador.
+            </p>
           </div>
           <Button
             type="button"
             size="sm"
             onClick={handleAcceptCache}
-            className="font-semibold shrink-0 tactile-press"
+            className="h-7 px-3 text-xs font-semibold bg-amber-400 text-slate-950 hover:bg-amber-300 shrink-0 tactile-press"
           >
-            Entendido, continuar
+            Entendido
           </Button>
         </div>
       )}

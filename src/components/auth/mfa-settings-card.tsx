@@ -115,7 +115,7 @@ export function MfaSettingsCard() {
 
     const cleanCode = verifyCode.replace(/\D/g, '');
     if (cleanCode.length !== 6) {
-      setFeedback({ type: 'error', message: 'Ingresa exactamente los 6 dígitos de tu app autenticadora.' });
+      setFeedback({ type: 'error', message: 'Ingrese exactamente los 6 dígitos de su app autenticadora.' });
       return;
     }
 
@@ -129,7 +129,7 @@ export function MfaSettingsCard() {
       if (error) {
         throw new Error(
           error.message.toLowerCase().includes('invalid')
-            ? 'Código incorrecto o expirado. Verifica la hora de tu teléfono e intenta con el código actual.'
+            ? 'Código incorrecto o expirado. Verifique la hora de su teléfono e intente con el código actual.'
             : error.message
         );
       }
@@ -140,7 +140,7 @@ export function MfaSettingsCard() {
       setVerifyCode('');
       setFeedback({
         type: 'success',
-        message: 'Verificación en Dos Pasos (2FA) activada correctamente. Tu cuenta está protegida con nivel AAL2.',
+        message: 'Verificación en Dos Pasos (2FA) activada correctamente. Su cuenta está protegida con nivel AAL2.',
       });
       await loadMfaState();
     } catch (err: any) {
@@ -153,7 +153,7 @@ export function MfaSettingsCard() {
   const handleUnenroll = async (factorId: string) => {
     if (
       !confirm(
-        '¿Seguro que deseas desactivar la Verificación en Dos Pasos (2FA)? Tu cuenta Super Admin quedará protegida solo por contraseña.'
+        '¿Seguro que desea desactivar la Verificación en Dos Pasos (2FA)? Su cuenta quedará protegida solo por contraseña.'
       )
     ) {
       return;
@@ -168,13 +168,13 @@ export function MfaSettingsCard() {
       }
       setFeedback({
         type: 'success',
-        message: 'Factor 2FA eliminado. Puedes volver a vincular un nuevo dispositivo cuando quieras.',
+        message: 'Factor 2FA eliminado. Puede volver a vincular un nuevo dispositivo cuando lo necesite.',
       });
       await loadMfaState();
     } catch (err: any) {
       setFeedback({
         type: 'error',
-        message: err.message || 'No se pudo desactivar el factor 2FA. Asegúrate de tener sesión verificada.',
+        message: err.message || 'No se pudo desactivar el factor 2FA. Asegúrese de tener sesión verificada.',
       });
     } finally {
       setRemovingId(null);
@@ -224,7 +224,7 @@ export function MfaSettingsCard() {
                 Autenticación en Dos Pasos (2FA / App Autenticadora)
               </CardTitle>
               <CardDescription className="mt-1">
-                Exige un código dinámico de 6 dígitos desde Google Authenticator, Microsoft Authenticator o Authy cada vez que alguien intente entrar a tu cuenta.
+                Exige un código dinámico de 6 dígitos desde Google Authenticator, Microsoft Authenticator o Authy cada vez que alguien intente acceder a su cuenta.
               </CardDescription>
             </div>
           </div>
@@ -298,10 +298,10 @@ export function MfaSettingsCard() {
           <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
               <p className="text-sm font-semibold text-foreground">
-                Protege tu acceso de Super Administrador inmediatamente
+                Proteja su acceso administrativo inmediatamente
               </p>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Incluso si alguien obtuviera tu contraseña, sin el código temporal de tu celular será bloqueado tanto en la web como en las APIs del servidor.
+                Incluso si alguien obtuviera su contraseña, sin el código temporal de su teléfono será bloqueado tanto en la web como en las APIs del servidor.
               </p>
             </div>
             <Button

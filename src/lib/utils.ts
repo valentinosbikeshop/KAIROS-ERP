@@ -1,5 +1,10 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import {
+  DEFAULT_UF_RATE_CLP,
+  DEFAULT_USD_RATE_CLP,
+  formatMoney,
+} from '@/lib/finance-core';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -20,14 +25,12 @@ export function formatCurrencyAmount(
   exchangeRate = 1
 ): string {
   if (currency === 'UF') {
-    const rate = exchangeRate > 0 ? exchangeRate : 41405;
-    const uf = amountClp / rate;
-    return `UF ${uf.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const rate = exchangeRate > 1 ? exchangeRate : DEFAULT_UF_RATE_CLP;
+    return formatMoney(amountClp, 'UF', rate);
   }
   if (currency === 'USD') {
-    const rate = exchangeRate > 0 ? exchangeRate : 1025;
-    const usd = amountClp / rate;
-    return `US$ ${usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const rate = exchangeRate > 1 ? exchangeRate : DEFAULT_USD_RATE_CLP;
+    return formatMoney(amountClp, 'USD', rate);
   }
   return formatCLP(amountClp);
 }
@@ -76,11 +79,11 @@ export function formatPercentage(value: number): string {
 export function calculateFinancialsFromMargin(
   costo: number,
   margenPorcentaje: number,
-  tipoDoc: 'factura' | 'boleta' = 'factura',
+  tipoDoc: 'factura' | 'boleta' | 'exento' = 'factura',
   aplicaIvaVenta: boolean = true,
   esInsumo: boolean = false
 ) {
-  const costoNeto = tipoDoc === 'boleta' ? costo : Math.round(costo / 1.19);
+  const costoNeto = tipoDoc === 'boleta' || tipoDoc === 'exento' ? costo : Math.round(costo / 1.19);
   const ivaCredito = costo - costoNeto;
 
   if (esInsumo) {
@@ -118,12 +121,12 @@ export function calculateFinancialsFromMargin(
 export function calculateFinancials(
   costo: number, 
   ganancia: number, 
-  tipoDoc: 'factura' | 'boleta' = 'factura',
+  tipoDoc: 'factura' | 'boleta' | 'exento' = 'factura',
   aplicaIvaVenta: boolean = true,
   esInsumo: boolean = false
 ) {
   // IVA Crédito (Egresos)
-  const costoNeto = tipoDoc === 'boleta' ? costo : Math.round(costo / 1.19);
+  const costoNeto = tipoDoc === 'boleta' || tipoDoc === 'exento' ? costo : Math.round(costo / 1.19);
   const ivaCredito = costo - costoNeto;
 
   if (esInsumo) {
@@ -159,12 +162,12 @@ export function calculateFinancials(
 export function calculateGananciaFromTotal(
   costo: number, 
   valorTotal: number, 
-  tipoDoc: 'factura' | 'boleta' = 'factura',
+  tipoDoc: 'factura' | 'boleta' | 'exento' = 'factura',
   aplicaIvaVenta: boolean = true,
   esInsumo: boolean = false
 ) {
   // IVA Crédito (Egresos)
-  const costoNeto = tipoDoc === 'boleta' ? costo : Math.round(costo / 1.19);
+  const costoNeto = tipoDoc === 'boleta' || tipoDoc === 'exento' ? costo : Math.round(costo / 1.19);
   const ivaCredito = costo - costoNeto;
 
   if (esInsumo) {

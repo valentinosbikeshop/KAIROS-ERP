@@ -12,8 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { EventItem } from '@/types';
-import { formatCLP } from '@/lib/utils';
-import { GitFork, Loader2, Sparkles, Layers, AlertCircle, CheckCircle2, Box } from 'lucide-react';
+import { formatMoney } from '@/lib/finance-core';
+import { GitFork, Loader2, Layers, AlertCircle, CheckCircle2, Box } from 'lucide-react';
 
 interface DistributeInsumoDialogProps {
   open: boolean;
@@ -21,7 +21,7 @@ interface DistributeInsumoDialogProps {
   sourceItem: EventItem | null;
   consolidatedItems: EventItem[];
   onDistribute: (allocations: {
-    consolidatedDistributions: Record<string, number>; // parentId -> quantity
+    consolidatedDistributions: Record<string, number>;
     standaloneSplitQty: number;
   }) => Promise<void>;
 }
@@ -38,8 +38,8 @@ export function DistributeInsumoDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const maxAvailable = sourceItem ? (sourceItem.cantidad || 1) : 1;
-  const unitCost = sourceItem ? (sourceItem.costo || 0) : 0;
+  const maxAvailable = sourceItem ? sourceItem.cantidad || 1 : 1;
+  const unitCost = sourceItem ? sourceItem.costo || 0 : 0;
 
   useEffect(() => {
     if (open && sourceItem) {
@@ -59,14 +59,22 @@ export function DistributeInsumoDialog({
   const hasNoAllocation = totalAssigned <= 0;
 
   const handleQtyChange = (parentId: string, valStr: string) => {
-    const parsed = parseInt(valStr);
-    const val = isNaN(parsed) || parsed < 0 ? 0 : parsed;
+    if (valStr === '') {
+      setAllocations((prev) => ({ ...prev, [parentId]: 0 }));
+      return;
+    }
+    const parsed = parseInt(valStr, 10);
+    const val = Number.isNaN(parsed) || parsed < 0 ? 0 : parsed;
     setAllocations((prev) => ({ ...prev, [parentId]: val }));
   };
 
   const handleStandaloneChange = (valStr: string) => {
-    const parsed = parseInt(valStr);
-    const val = isNaN(parsed) || parsed < 0 ? 0 : parsed;
+    if (valStr === '') {
+      setStandaloneSplit(0);
+      return;
+    }
+    const parsed = parseInt(valStr, 10);
+    const val = Number.isNaN(parsed) || parsed < 0 ? 0 : parsed;
     setStandaloneSplit(val);
   };
 
@@ -74,11 +82,11 @@ export function DistributeInsumoDialog({
     e.preventDefault();
     if (!sourceItem) return;
     if (hasNoAllocation) {
-      setError('Por favor asigna al menos 1 unidad a algún producto consolidado o como separación libre.');
+      setError('Por favor asigne al menos 1 unidad a algún consolidado o separación libre.');
       return;
     }
     if (isOverAllocated) {
-      setError(`Has asignado ${totalAssigned} unidades, pero solo hay ${maxAvailable} disponibles.`);
+      setError(`Ha asignado ${totalAssigned} unidades, pero solo hay ${maxAvailable} disponibles.`);
       return;
     }
 
@@ -112,9 +120,9 @@ export function DistributeInsumoDialog({
                 <GitFork className="h-5 w-5" />
               </div>
               <div>
-                <DialogTitle>Derivar Insumo a Productos Consolidados</DialogTitle>
+                <DialogTitle>Derivar Insumo a Partidas Consolidadas</DialogTitle>
                 <DialogDescription>
-                  Distribuye las unidades de esta compra entre las diferentes preparaciones o recetas de una sola vez.
+                  Distribuya las unidades de esta compra entre las distintas partidas o grupos consolidados.
                 </DialogDescription>
               </div>
             </div>
@@ -128,7 +136,6 @@ export function DistributeInsumoDialog({
               </div>
             )}
 
-            {/* Tarjeta Informativa del Insumo de Origen */}
             <div className="rounded-xl border border-border/80 bg-muted/25 p-3.5 space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-semibold text-muted-foreground flex items-center gap-1.5">
@@ -136,7 +143,8 @@ export function DistributeInsumoDialog({
                   Compra / Insumo a Distribuir:
                 </span>
                 <span className="font-bold text-foreground">
-                  Costo Unitario: <span className="text-red-600 dark:text-red-400">{formatCLP(unitCost)}</span>
+                  Costo Unitario:{' '}
+                  <span className="text-red-600 dark:text-red-400">{formatMoney(unitCost)}</span>
                 </span>
               </div>
               <div className="flex items-center justify-between pt-1 border-t border-border/40">
@@ -147,19 +155,18 @@ export function DistributeInsumoDialog({
               </div>
               {sourceItem.factura_url && (
                 <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                  📄 Cuenta con factura adjunta. Cada consolidado receptor mantendrá el vínculo a esta misma factura.
+                  Cuenta con factura adjunta. Cada consolidado receptor mantendrá el vínculo a esta misma factura.
                 </p>
               )}
             </div>
 
-            {/* Lista de Consolidados para Asignar */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Productos Consolidados Disponibles
+                  Partidas Consolidadas Disponibles
                 </Label>
                 <span className="text-[11px] text-muted-foreground">
-                  Indica cuántas unidades derivar a cada uno:
+                  Indique cuántas unidades derivar a cada una:
                 </span>
               </div>
 
@@ -167,10 +174,10 @@ export function DistributeInsumoDialog({
                 <div className="p-4 text-center rounded-xl border border-dashed bg-muted/20 space-y-2">
                   <Layers className="h-6 w-6 text-muted-foreground mx-auto" />
                   <p className="text-xs font-medium text-muted-foreground">
-                    Aún no hay productos consolidados creados en este evento (ej. Piscolas, Terremotos).
+                    Aún no hay partidas consolidadas creadas en este proyecto.
                   </p>
                   <p className="text-[11px] text-muted-foreground">
-                    Primero crea un producto consolidado agrupando insumos, o bien separa unidades a una nueva fila independiente abajo.
+                    Primero cree un consolidado agrupando insumos, o separe unidades a una fila independiente abajo.
                   </p>
                 </div>
               ) : (
@@ -199,13 +206,15 @@ export function DistributeInsumoDialog({
                               </span>
                             </div>
                             <p className="text-[11px] text-muted-foreground truncate mt-0.5">
-                              {parent.detalle || 'Producto Consolidado'}
+                              {parent.detalle || 'Partida Consolidada'}
                             </p>
                           </div>
 
                           <div className="flex items-center gap-1.5 shrink-0">
                             <div className="text-right">
-                              <span className="text-[10px] text-muted-foreground block mb-0.5">Derivar:</span>
+                              <span className="text-[10px] text-muted-foreground block mb-0.5">
+                                Derivar:
+                              </span>
                               <div className="flex items-center gap-1">
                                 <button
                                   type="button"
@@ -238,7 +247,9 @@ export function DistributeInsumoDialog({
                                 >
                                   +
                                 </button>
-                                <span className="text-xs font-semibold text-muted-foreground ml-0.5">un</span>
+                                <span className="text-xs font-semibold text-muted-foreground ml-0.5">
+                                  un
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -247,7 +258,9 @@ export function DistributeInsumoDialog({
                         {assigned > 0 && (
                           <div className="mt-2 pt-2 border-t border-indigo-100 dark:border-indigo-900/30 flex items-center justify-between text-xs text-indigo-950 dark:text-indigo-200 font-medium">
                             <span>Costo que se sumará a {parent.servicio}:</span>
-                            <span className="font-bold text-red-600 dark:text-red-400">+{formatCLP(itemCost)}</span>
+                            <span className="font-bold text-red-600 dark:text-red-400">
+                              +{formatMoney(itemCost)}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -256,7 +269,6 @@ export function DistributeInsumoDialog({
                 </div>
               )}
 
-              {/* Opción Adicional: Separar a fila libre independiente */}
               <div className="pt-2 border-t border-border/50">
                 <div className="p-3 rounded-xl border border-dashed border-border bg-muted/10 space-y-2">
                   <div className="flex items-center justify-between gap-3">
@@ -265,7 +277,7 @@ export function DistributeInsumoDialog({
                         Separar unidades a una nueva fila libre (no consolidada)
                       </span>
                       <span className="text-[11px] text-muted-foreground">
-                        Crea un ítem separado conservando la misma factura para otros fines.
+                        Crea un ítem separado conservando el mismo respaldo documental.
                       </span>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
@@ -305,90 +317,95 @@ export function DistributeInsumoDialog({
               </div>
             </div>
 
-          {/* Barra de Resumen de Inventario y Validación */}
-          <div
-            className={`rounded-xl p-3.5 border transition-all ${
-              isOverAllocated
-                ? 'bg-destructive/10 border-destructive/30 text-destructive'
-                : 'bg-primary/5 border-primary/20'
-            }`}
-          >
-            <div className="grid grid-cols-3 gap-2 text-center text-xs">
-              <div className="p-2 rounded-lg bg-background/80 border">
-                <span className="text-[10px] text-muted-foreground block uppercase font-medium">Disponible</span>
-                <span className="text-sm font-bold text-foreground">{maxAvailable} un</span>
+            <div
+              className={`rounded-xl p-3.5 border transition-all ${
+                isOverAllocated
+                  ? 'bg-destructive/10 border-destructive/30 text-destructive'
+                  : 'bg-primary/5 border-primary/20'
+              }`}
+            >
+              <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                <div className="p-2 rounded-lg bg-background/80 border">
+                  <span className="text-[10px] text-muted-foreground block uppercase font-medium">
+                    Disponible
+                  </span>
+                  <span className="text-sm font-bold text-foreground">{maxAvailable} un</span>
+                </div>
+                <div className="p-2 rounded-lg bg-background/80 border">
+                  <span className="text-[10px] text-muted-foreground block uppercase font-medium">
+                    Asignado Total
+                  </span>
+                  <span className={`text-sm font-bold ${isOverAllocated ? 'text-destructive' : 'text-primary'}`}>
+                    {totalAssigned} un
+                  </span>
+                </div>
+                <div className="p-2 rounded-lg bg-background/80 border">
+                  <span className="text-[10px] text-muted-foreground block uppercase font-medium">
+                    Restante
+                  </span>
+                  <span
+                    className={`text-sm font-bold ${
+                      isOverAllocated
+                        ? 'text-destructive'
+                        : remainingStock === 0
+                        ? 'text-emerald-600'
+                        : 'text-amber-700'
+                    }`}
+                  >
+                    {remainingStock} un
+                  </span>
+                </div>
               </div>
-              <div className="p-2 rounded-lg bg-background/80 border">
-                <span className="text-[10px] text-muted-foreground block uppercase font-medium">Asignado Total</span>
-                <span className={`text-sm font-bold ${isOverAllocated ? 'text-destructive' : 'text-primary'}`}>
-                  {totalAssigned} un
-                </span>
-              </div>
-              <div className="p-2 rounded-lg bg-background/80 border">
-                <span className="text-[10px] text-muted-foreground block uppercase font-medium">Restante en Bodega</span>
-                <span
-                  className={`text-sm font-bold ${
-                    isOverAllocated
-                      ? 'text-destructive'
-                      : remainingStock === 0
-                      ? 'text-emerald-600'
-                      : 'text-amber-700'
-                  }`}
-                >
-                  {remainingStock} un
-                </span>
-              </div>
+
+              {isOverAllocated && (
+                <p className="text-[11px] text-destructive text-center font-semibold mt-2">
+                  Superó el stock disponible por {Math.abs(remainingStock)} unidades. Reduzca alguna asignación.
+                </p>
+              )}
+
+              {!isOverAllocated && remainingStock === 0 && totalAssigned > 0 && (
+                <p className="text-[11px] text-emerald-700 text-center font-medium mt-2 flex items-center justify-center gap-1">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Se distribuirá el 100% de la compra entre las partidas seleccionadas.
+                </p>
+              )}
+
+              {!isOverAllocated && remainingStock > 0 && totalAssigned > 0 && (
+                <p className="text-[11px] text-amber-800 text-center font-medium mt-2">
+                  Quedarán {remainingStock} unidades ({formatMoney(remainingStock * unitCost)}) en la línea original.
+                </p>
+              )}
             </div>
-
-            {isOverAllocated && (
-              <p className="text-[11px] text-destructive text-center font-semibold mt-2">
-                ⚠️ Superaste el stock disponible por {Math.abs(remainingStock)} unidades. Reduce alguna asignación.
-              </p>
-            )}
-
-            {!isOverAllocated && remainingStock === 0 && totalAssigned > 0 && (
-              <p className="text-[11px] text-emerald-700 text-center font-medium mt-2 flex items-center justify-center gap-1">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Se distribuirá el 100% de la compra entre las preparaciones seleccionadas.
-              </p>
-            )}
-
-            {!isOverAllocated && remainingStock > 0 && totalAssigned > 0 && (
-              <p className="text-[11px] text-amber-800 text-center font-medium mt-2">
-                💡 Quedarán {remainingStock} unidades ({formatCLP(remainingStock * unitCost)}) en la compra original para futuros usos.
-              </p>
-            )}
           </div>
-        </div>
 
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={loading}
-            className="rounded-xl"
-          >
-            Cancelar
-          </Button>
-          <Button
-            type="submit"
-            disabled={loading || hasNoAllocation || isOverAllocated}
-            className="rounded-xl gap-1.5 shadow-sm bg-indigo-600 hover:bg-indigo-700 text-white"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Derivando insumo...</span>
-              </>
-            ) : (
-              <>
-                <GitFork className="h-4 w-4" />
-                <span>Confirmar Derivación</span>
-              </>
-            )}
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+              className="rounded-xl"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              disabled={loading || hasNoAllocation || isOverAllocated}
+              className="rounded-xl gap-1.5 shadow-sm bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Derivando insumo...</span>
+                </>
+              ) : (
+                <>
+                  <GitFork className="h-4 w-4" />
+                  <span>Confirmar Derivación</span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </form>
       )}
     </Dialog>

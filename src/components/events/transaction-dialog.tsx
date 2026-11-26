@@ -10,8 +10,16 @@ import { Loader2, Trash2, AlertTriangle, Calendar as CalendarIcon, FileText, Cre
 import { EventItem } from '@/types';
 import { createClient } from '@/lib/supabase/client';
 import { useWorkspaceConfig } from '@/hooks/use-workspace-config';
+import { useUser } from '@/hooks/use-user';
+import {
+  applyRetentionPolicy,
+  CHILE_HONORARIOS_RETENTION_2026,
+  extractIvaFromGross,
+} from '@/lib/finance-core';
+import { canUseAi, canUseModule } from '@/lib/plan-guards';
+import { can } from '@/lib/rbac';
+import { logAudit } from '@/lib/audit';
 import { formatCLP } from '@/lib/utils';
-import { CHILE_HONORARIOS_RETENTION_2026 } from '@/lib/constants';
 
 type ExpenseDocMode = 'factura' | 'honorarios' | 'boleta';
 
@@ -141,12 +149,15 @@ export function TransactionDialog({
     return transactionToEdit.tipo_doc_costo || 'transferencia';
   };
 
-  const { entitlements, isDuoExempt, isDemo } = useWorkspaceConfig();
-  const canUseOcr =
+  const { entitlements, isDuoExempt, organization } = useWorkspaceConfig();
+  const { profile } = useUser();
+  const aiGuard = canUseAi(entitlements);
+  const canUseOcr = isDuoExempt || aiGuard.allowed;
+  const canWriteTransactions =
     isDuoExempt ||
-    isDemo ||
-    entitlements.modules.mod_ai_suite ||
-    (entitlements.aiCallsLimit ?? 0) > 0;
+    (canUseModule(entitlements, 'mod_transactions_sii') &&
+      can(profile, 'record_transactions', entitlements));
+  const retentionPolicy = organization?.honorarios_retention_policy || 'contractor';
 
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrStatus, setOcrStatus] = useState<{ type: 'ok' | 'err'; message: string } | null>(null);
@@ -251,24 +262,39 @@ export function TransactionDialog({
     setIsDeleting(false);
   };
 
-  // Live tax math
-  const facturaNeto = Math.round(parsedMonto / 1.19);
-  const facturaIvaCredito = docMode === 'factura' ? parsedMonto - facturaNeto : 0;
-  const honorariosRetencion =
-    docMode === 'honorarios' ? Math.round(parsedMonto * CHILE_HONORARIOS_RETENTION_2026) : 0;
-  const abonoNeto = aplicaIvaAbono ? Math.round(parsedMonto / 1.19) : parsedMonto;
-  const abonoIvaDebito = aplicaIvaAbono ? parsedMonto - abonoNeto : 0;
+  // Live tax math via finance-core
+  const facturaParts = extractIvaFromGross(parsedMonto);
+  const facturaNeto = facturaParts.net;
+  const facturaIvaCredito = docMode === 'factura' ? facturaParts.iva : 0;
+  const honorariosCalc = applyRetentionPolicy(
+    parsedMonto,
+    retentionPolicy,
+    CHILE_HONORARIOS_RETENTION_2026
+  );
+  const honorariosRetencion = docMode === 'honorarios' ? honorariosCalc.retencionTotal : 0;
+  const abonoParts = extractIvaFromGross(parsedMonto);
+  const abonoNeto = aplicaIvaAbono ? abonoParts.net : parsedMonto;
+  const abonoIvaDebito = aplicaIvaAbono ? abonoParts.iva : 0;
 
   const handleSave = async () => {
+    if (!canWriteTransactions) {
+      alert('No cuenta con permisos o módulo activo para registrar transacciones.');
+      return;
+    }
     if (!parsedMonto || isNaN(parsedMonto)) {
-      alert('Debes ingresar un monto válido.');
+      alert('Debe ingresar un monto válido.');
       return;
     }
 
     setLoading(true);
     const supabase = createClient();
 
-    const fullDetail = `${fecha} | ${descripcion}`.trim();
+    const cleanDesc = descripcion.replace(/\s*\[Ret\.\s*15[.,]25%[^\]]*\]/gi, '').trim();
+    const honorariosTag =
+      isGasto && docMode === 'honorarios'
+        ? ` [Ret. 15,25%: ${formatCLP(honorariosCalc.retencionTotal)}]`
+        : '';
+    const fullDetail = `${fecha} | ${cleanDesc}${honorariosTag}`.trim();
     const isFacturaDoc = isGasto && docMode === 'factura';
 
     const servicioLabel = isGasto
@@ -280,16 +306,19 @@ export function TransactionDialog({
       : 'Abono de Cliente';
 
     const transactionData = {
+      organization_id: organization?.id,
       event_id: eventId,
       servicio: servicioLabel,
       detalle: fullDetail,
       tipo_evento: isGasto ? 'GASTO_REAL' : 'ABONO_CLIENTE',
       cantidad: 1,
-      costo: isGasto ? parsedMonto : 0,
+      costo: isGasto ? (docMode === 'honorarios' ? honorariosCalc.costoTotalEmpresa : parsedMonto) : 0,
       ganancia: isGasto ? 0 : parsedMonto,
       valor_neto: isGasto
         ? isFacturaDoc
           ? facturaNeto
+          : docMode === 'honorarios'
+          ? honorariosCalc.bruto
           : parsedMonto
         : abonoNeto,
       iva: isGasto
@@ -314,6 +343,12 @@ export function TransactionDialog({
         const { error } = await (supabase.from('event_items') as any).insert([transactionData]);
         if (error) throw error;
       }
+      await logAudit('transaction_recorded', 'transaction', {
+        entityId: transactionToEdit?.id || eventId,
+        entityLabel: `${servicioLabel} (${formatCLP(parsedMonto)})`,
+        before: transactionToEdit ? { valor_total: transactionToEdit.valor_total } : null,
+        after: { tipo: transactionData.tipo_evento, valor_total: parsedMonto, docMode },
+      });
       onSaved();
       onOpenChange(false);
       resetForm();
@@ -326,6 +361,10 @@ export function TransactionDialog({
   };
 
   const handleDelete = async () => {
+    if (!canWriteTransactions) {
+      alert('No cuenta con permisos o módulo activo para eliminar transacciones.');
+      return;
+    }
     if (deleteStep === 0) {
       setDeleteStep(1);
       return;
@@ -344,6 +383,11 @@ export function TransactionDialog({
         .delete()
         .eq('id', transactionToEdit.id);
       if (error) throw error;
+      await logAudit('delete', 'transaction', {
+        entityId: transactionToEdit.id,
+        entityLabel: `${transactionToEdit.servicio} (${formatCLP(transactionToEdit.valor_total)})`,
+        before: { valor_total: transactionToEdit.valor_total, tipo: transactionToEdit.tipo_evento },
+      });
       onSaved();
       onOpenChange(false);
     } catch (error) {
@@ -593,9 +637,11 @@ export function TransactionDialog({
                 ) : docMode === 'honorarios' ? (
                   <>
                     <div>
-                      <span className="text-muted-foreground block text-[10px]">Líquido / Retención SII (15,25%)</span>
+                      <span className="text-muted-foreground block text-[10px]">
+                        Líquido / Retención 15,25% ({retentionPolicy === 'company' ? 'Asume empresa' : retentionPolicy === 'split_50_50' ? '50/50' : 'Asume prestador'})
+                      </span>
                       <span className="font-semibold text-indigo-900">
-                        {formatCLP(parsedMonto - honorariosRetencion)} + Ret. {formatCLP(honorariosRetencion)}
+                        Líq. {formatCLP(honorariosCalc.liquidoAPagar)} + Ret. {formatCLP(honorariosRetencion)} (Bruto {formatCLP(honorariosCalc.bruto)})
                       </span>
                     </div>
                     <div className="text-right">

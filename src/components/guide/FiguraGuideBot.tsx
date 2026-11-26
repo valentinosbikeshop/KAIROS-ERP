@@ -189,6 +189,18 @@ export function FiguraGuideBot() {
   const [spotlightRect, setSpotlightRect] = useState<SpotlightRect | null>(null);
   const cardRef = useRef<HTMLElement | null>(null);
   const [cardHeight, setCardHeight] = useState(240);
+  const [pillCollapsed, setPillCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (!isActive) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        skipTour();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isActive, skipTour]);
 
   const handleRectChange = useCallback((rect: SpotlightRect | null) => {
     setSpotlightRect(rect);
@@ -246,17 +258,45 @@ export function FiguraGuideBot() {
 
   if (!isActive) {
     if (!isDemo) return null;
+    if (pillCollapsed) {
+      return (
+        <button
+          type="button"
+          onClick={() => setPillCollapsed(false)}
+          title={`Expandir Guía Demo (${sectionLabel})`}
+          aria-label={`Expandir Guía Demo (${sectionLabel})`}
+          className={`fixed right-3 z-30 inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#0B0E15]/90 text-[#D8C39E] shadow-md border border-[#D8C39E]/35 hover:border-[#D8C39E]/75 transition-all tactile-press ${
+            hasFloatingAiBot ? 'bottom-20' : 'bottom-3'
+          }`}
+        >
+          <Compass className="h-4 w-4" />
+        </button>
+      );
+    }
     return (
-      <button
-        type="button"
-        onClick={restartTour}
-        className={`fixed right-5 z-40 inline-flex items-center gap-2 rounded-full bg-[#0B0E15] text-[#EEF1F6] px-4 py-2.5 text-xs font-semibold shadow-lg border border-[#D8C39E]/35 hover:border-[#D8C39E]/70 transition-all tactile-press ${
-          hasFloatingAiBot ? 'bottom-24' : 'bottom-5'
+      <div
+        className={`fixed right-4 z-30 inline-flex items-center rounded-full bg-[#0B0E15]/95 text-[#EEF1F6] shadow-lg border border-[#D8C39E]/35 transition-all ${
+          hasFloatingAiBot ? 'bottom-24' : 'bottom-4'
         }`}
       >
-        <Compass className="h-4 w-4 text-[#D8C39E]" />
-        Bot Guía Demo · {sectionLabel}
-      </button>
+        <button
+          type="button"
+          onClick={restartTour}
+          className="inline-flex items-center gap-1.5 pl-3.5 pr-2 py-2 text-xs font-semibold hover:text-[#EDE0C8] transition-colors tactile-press"
+        >
+          <Compass className="h-3.5 w-3.5 text-[#D8C39E]" />
+          <span>Guía Demo</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setPillCollapsed(true)}
+          aria-label="Minimizar guía demo"
+          title="Minimizar"
+          className="pr-2.5 pl-1 py-2 text-[#96A1B5] hover:text-white transition-colors"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
     );
   }
 

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Calendar, MapPin, Building2, Trash2, Copy, Loader2 } from 'lucide-react';
+import { Calendar, MapPin, Building2, Trash2, Copy, Loader2, Lock } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Event } from '@/types';
@@ -11,9 +11,19 @@ interface EventCardProps {
   onDelete?: (id: string, e: React.MouseEvent) => void;
   onDuplicate?: (id: string, e: React.MouseEvent) => void;
   duplicating?: boolean;
+  canDuplicate?: boolean;
+  projectSingular?: string;
+  isDemo?: boolean;
 }
 
-export function EventCard({ event, onDelete, onDuplicate, duplicating }: EventCardProps) {
+export function EventCard({
+  event,
+  onDelete,
+  onDuplicate,
+  duplicating,
+  canDuplicate = true,
+  projectSingular = 'Proyecto',
+}: EventCardProps) {
   const statusColor = EVENT_STATUS_COLORS[event.status] || 'bg-gray-100 text-gray-800';
   const statusLabel = EVENT_STATUS_LABELS[event.status] || event.status;
 
@@ -30,7 +40,7 @@ export function EventCard({ event, onDelete, onDuplicate, duplicating }: EventCa
               <CardTitle className="text-xl font-bold line-clamp-2">{event.name}</CardTitle>
               <CardDescription className="flex items-center gap-1 mt-2 text-sm">
                 <Building2 className="w-4 h-4 shrink-0" />
-                <span className="truncate">{event.client_company || 'Sin empresa'}</span>
+                <span className="truncate">{event.client_company || 'Sin cliente'}</span>
               </CardDescription>
             </div>
             <div className="flex items-center gap-1 shrink-0">
@@ -39,14 +49,25 @@ export function EventCard({ event, onDelete, onDuplicate, duplicating }: EventCa
                   type="button"
                   disabled={duplicating}
                   onClick={(e) => onDuplicate(event.id, e)}
-                  className="p-2 text-muted-foreground hover:text-[#1261E0] hover:bg-[#1261E0]/10 rounded-md transition-colors disabled:opacity-50"
-                  title="Duplicar cotización en 1 clic"
-                  aria-label="Duplicar cotización"
+                  className={cn(
+                    'p-2 rounded-md transition-colors disabled:opacity-50',
+                    canDuplicate
+                      ? 'text-muted-foreground hover:text-[#1261E0] hover:bg-[#1261E0]/10'
+                      : 'text-amber-600/80 hover:bg-amber-50'
+                  )}
+                  title={
+                    canDuplicate
+                      ? `Duplicar ${projectSingular.toLowerCase()} en 1 clic`
+                      : 'Cupo de plan alcanzado — actualice para duplicar'
+                  }
+                  aria-label={`Duplicar ${projectSingular.toLowerCase()}`}
                 >
                   {duplicating ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
+                  ) : canDuplicate ? (
                     <Copy className="w-4 h-4" />
+                  ) : (
+                    <Lock className="w-4 h-4" />
                   )}
                 </button>
               )}
@@ -77,6 +98,16 @@ export function EventCard({ event, onDelete, onDuplicate, duplicating }: EventCa
             <Badge variant="outline" className={cn('border-none', statusColor)}>
               {statusLabel}
             </Badge>
+            {event.project_type && (
+              <Badge variant="outline" className="text-[11px] bg-slate-50 text-slate-700 border-slate-200">
+                {event.project_type}
+              </Badge>
+            )}
+            {event.base_quantity && event.base_quantity > 0 && (
+              <Badge variant="outline" className="text-[11px] bg-indigo-50 text-indigo-700 border-indigo-200">
+                Base: {event.base_quantity}
+              </Badge>
+            )}
             {event.is_demo_base && (
               <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 text-[11px]">
                 Ejemplo Base

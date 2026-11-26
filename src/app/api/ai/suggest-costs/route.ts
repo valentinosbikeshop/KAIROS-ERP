@@ -78,7 +78,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'No se enviaron ítems para optimizar' }, { status: 400 });
       }
 
-      const desiredMargin = typeof targetMargin === 'number' ? targetMargin : 35;
+      const desiredMargin =
+        typeof targetMargin === 'number' ? targetMargin : guard.targetMarginPct;
 
       // Esquema ultra-compacto: no pide ganancia_sugerida al LLM (se calcula determinísticamente en TypeScript -> -20% output tokens)
       const optimizeSchema = {
@@ -226,7 +227,7 @@ Reglas:
 
     const marginRule = targetMargin
       ? `Calibra ganancia para lograr margen promedio ~${targetMargin}% sobre costo neto.`
-      : 'Aplica margen realista en Chile (25%-40% sobre costo neto).';
+      : `Aplica margen realista para este rubro en Chile (meta referencial ~${guard.targetMarginPct}%).`;
 
     // Prefijo estático arriba para aprovechar implicit prompt caching
     const systemInstruction = `Cotizador Senior especialista en presupuestos chilenos (CLP) para ${orgName}.
@@ -268,12 +269,15 @@ REGLAS:
     });
 
     const rawParsed = JSON.parse(rawCostText);
+    const orgTaxRegime = guard.org.tax_regime || guard.org.bank_info?.__saas_config?.tax_regime;
+    const appliesSaleIva =
+      orgTaxRegime !== 'sociedad_profesionales' && orgTaxRegime !== 'exportacion_turismo';
     // Cálculo determinístico SII Chile en TypeScript (ahorro de tokens + precisión 100%)
     const enrichedSuggestions = (rawParsed.suggestions || []).map((s: any) => {
       const costo = Math.max(0, Math.round(Number(s.costo) || 0));
       const ganancia = Math.max(0, Math.round(Number(s.ganancia) || 0));
       const docType = s.tipo_doc_costo === 'boleta' ? 'boleta' : 'factura';
-      const fin = calculateFinancials(costo, ganancia, docType, true);
+      const fin = calculateFinancials(costo, ganancia, docType, appliesSaleIva);
       return {
         servicio: String(s.servicio || 'Servicio').trim(),
         detalle: String(s.detalle || '').trim(),
@@ -286,6 +290,7 @@ REGLAS:
         valor_total: fin.valorTotal,
         margen: fin.margen,
         tipo_doc_costo: docType,
+        iva_incluido: appliesSaleIva,
       };
     });
 

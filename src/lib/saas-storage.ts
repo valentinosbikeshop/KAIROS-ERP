@@ -198,6 +198,25 @@ export function hydrateOrganizationSaas(org: Organization | null): Organization 
     min_margin_pct: org.min_margin_pct ?? fallback?.min_margin_pct ?? 15,
     uf_rate_clp: org.uf_rate_clp ?? fallback?.uf_rate_clp ?? 41405,
     usd_rate_clp: org.usd_rate_clp ?? fallback?.usd_rate_clp ?? 1025,
+    honorarios_retention_policy:
+      org.honorarios_retention_policy ??
+      fallback?.honorarios_retention_policy ??
+      'contractor',
+    tax_regime: org.tax_regime ?? fallback?.tax_regime ?? 'afecto_iva',
+    white_label_footer:
+      org.white_label_footer ??
+      fallback?.white_label_footer ??
+      (org.bank_info?.white_label_footer as string | null | undefined) ??
+      null,
+    hide_figura_branding:
+      org.hide_figura_branding ??
+      fallback?.hide_figura_branding ??
+      Boolean(org.bank_info?.hide_figura_branding),
+    secondary_accounts:
+      org.secondary_accounts ??
+      fallback?.secondary_accounts ??
+      org.bank_info?.secondary_accounts ??
+      [],
   };
 }
 
@@ -248,10 +267,29 @@ export async function updateOrganizationSaasConfig(
       new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString(),
     honorarios_retention_policy:
       patch.honorarios_retention_policy ??
-      currentOrg.bank_info?.__saas_config?.honorarios_retention_policy,
+      currentOrg.honorarios_retention_policy ??
+      currentOrg.bank_info?.__saas_config?.honorarios_retention_policy ??
+      'contractor',
+    tax_regime:
+      patch.tax_regime ??
+      currentOrg.tax_regime ??
+      currentOrg.bank_info?.__saas_config?.tax_regime ??
+      'afecto_iva',
     min_margin_pct: patch.min_margin_pct ?? currentOrg.min_margin_pct ?? 15,
     uf_rate_clp: patch.uf_rate_clp ?? currentOrg.uf_rate_clp ?? 41405,
     usd_rate_clp: patch.usd_rate_clp ?? currentOrg.usd_rate_clp ?? 1025,
+    white_label_footer:
+      patch.white_label_footer !== undefined
+        ? patch.white_label_footer
+        : currentOrg.white_label_footer ?? null,
+    hide_figura_branding:
+      patch.hide_figura_branding !== undefined
+        ? patch.hide_figura_branding
+        : currentOrg.hide_figura_branding ?? false,
+    secondary_accounts:
+      patch.secondary_accounts !== undefined
+        ? patch.secondary_accounts
+        : currentOrg.secondary_accounts ?? [],
     pending_payments:
       patch.pending_payments !== undefined
         ? patch.pending_payments

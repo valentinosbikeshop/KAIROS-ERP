@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import type { Organization, Profile } from '@/types';
+import type { Organization, Profile, ProfileRole } from '@/types';
 import { hydrateOrganizationSaas } from '@/lib/saas-storage-client';
 
 export function useUser() {
@@ -68,13 +68,18 @@ export function useUser() {
 
   const isSuperAdmin = Boolean(profile?.is_super_admin);
   const isDemo = Boolean(organization?.is_demo);
+  const role: ProfileRole = profile?.role || 'member';
+  const isOwner = role === 'owner' || isSuperAdmin;
+  const isAdmin = role === 'owner' || role === 'admin' || isSuperAdmin;
 
   return {
     profile,
     organization,
     authUser,
     loading,
-    isAdmin: profile?.role === 'admin' || isSuperAdmin,
+    role,
+    isOwner,
+    isAdmin,
     isSuperAdmin,
     isDemo,
   };

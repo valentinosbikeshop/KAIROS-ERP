@@ -29,7 +29,7 @@ export function KpiCards({ data }: { data: FinancialSummary }) {
       bgColor: 'bg-[#4A607A]/12',
     },
     {
-      title: 'Costos Operativos',
+      title: 'Costos Operativos (Neto)',
       value: data.costosOperativos,
       format: 'clp',
       icon: Calculator,
@@ -37,15 +37,15 @@ export function KpiCards({ data }: { data: FinancialSummary }) {
       bgColor: 'bg-[#9E4A47]/12',
     },
     {
-      title: 'Utilidad Neta',
+      title: 'Utilidad Neta (ex-IVA)',
       value: data.utilidadNeta,
       format: 'clp',
       icon: PiggyBank,
-      color: 'text-[#467366]',
-      bgColor: 'bg-[#467366]/12',
+      color: data.utilidadNeta >= 0 ? 'text-[#467366]' : 'text-[#9E4A47]',
+      bgColor: data.utilidadNeta >= 0 ? 'bg-[#467366]/12' : 'bg-[#9E4A47]/12',
     },
     {
-      title: 'Margen Promedio',
+      title: 'Margen s/ Venta Neta',
       value: data.margenPromedio,
       format: 'percent',
       icon: BarChart3,

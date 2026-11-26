@@ -43,12 +43,12 @@ export default function PendingPage() {
           Cuenta Pendiente de Aprobación
         </CardTitle>
         <CardDescription className="text-base text-slate-600">
-          Tu registro ha sido recibido exitosamente. Un administrador revisará y aprobará tu cuenta pronto.
+          Su registro ha sido recibido exitosamente. Un administrador revisará y aprobará su cuenta pronto.
         </CardDescription>
       </CardHeader>
       <CardContent className="text-center pb-6">
         <p className="text-sm text-slate-500 bg-slate-50/90 p-4 rounded-lg border border-slate-200/80">
-          Recibirás acceso al sistema una vez que tu cuenta sea activada.
+          Recibirá acceso al sistema una vez que su cuenta sea activada.
         </p>
       </CardContent>
       <CardFooter className="flex justify-center pt-2">

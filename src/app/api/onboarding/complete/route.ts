@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No disponible en entorno demo.' }, { status: 403 });
     }
 
-    if (ctx.profile.role !== 'admin' && !ctx.profile.is_super_admin) {
+    if (ctx.profile.role !== 'admin' && ctx.profile.role !== 'owner' && !ctx.profile.is_super_admin) {
       return NextResponse.json(
         { error: 'Solo el administrador de la empresa puede completar esta configuración.' },
         { status: 403 }

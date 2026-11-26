@@ -19,7 +19,7 @@ export function RevenueChart({ data }: { data: MonthlyData[] }) {
     <Card className="h-full glass-card animate-reveal-up">
       <CardHeader>
         <CardTitle className="text-base font-semibold tracking-tight">
-          Evolución Mensual: Ventas vs Costos
+          Evolución Mensual (ex-IVA): Ventas vs Costos
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -63,7 +63,7 @@ export function RevenueChart({ data }: { data: MonthlyData[] }) {
               <Legend />
               <Area
                 type="monotone"
-                name="Ventas"
+                name="Ventas Netas"
                 dataKey="ventas"
                 stroke="#4A607A"
                 strokeWidth={2.5}
@@ -76,7 +76,7 @@ export function RevenueChart({ data }: { data: MonthlyData[] }) {
               />
               <Area
                 type="monotone"
-                name="Costos"
+                name="Costos Netos"
                 dataKey="costos"
                 stroke="#9E4A47"
                 strokeWidth={2.2}

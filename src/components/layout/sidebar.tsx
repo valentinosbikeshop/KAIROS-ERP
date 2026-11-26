@@ -7,7 +7,10 @@ import { FiguraLogo, CompanyLogoMark } from '@/components/ui/figura-logo';
 import { Button } from '@/components/ui/button';
 import { CreditCard, Lock, LogOut } from 'lucide-react';
 import { navLinks, adminLinks } from './nav-links';
+import { canUseAnalytics, canUseTreasury } from '@/lib/plan-guards';
+import { can } from '@/lib/rbac';
 import type { IndustryTerminology } from '@/lib/industries';
+import type { Profile } from '@/types/database';
 import type { ResolvedEntitlements } from '@/types';
 
 interface SidebarProps {
@@ -18,6 +21,7 @@ interface SidebarProps {
   organizationName?: string;
   organizationLogoUrl?: string | null;
   userEmail?: string | null;
+  profile?: Profile | null;
   terms?: IndustryTerminology;
   entitlements?: ResolvedEntitlements;
   onSignOut?: () => void;
@@ -31,6 +35,7 @@ export function Sidebar({
   organizationName = 'FIGURA',
   organizationLogoUrl,
   userEmail,
+  profile,
   terms,
   entitlements,
   onSignOut,
@@ -87,18 +92,15 @@ export function Sidebar({
               (link.href !== '/dashboard' && link.href !== '/' && pathname.startsWith(link.href));
             const label = resolveNavLabel(link.href, link.label);
             const isAnalyticsLocked =
-              link.href === '/analytics' &&
-              !isDuoExempt &&
-              !isDemo &&
-              entitlements &&
-              !entitlements.modules.mod_analytics_excel;
+              link.href === '/analytics' && entitlements
+                ? !canUseAnalytics(entitlements) ||
+                  (profile ? !can(profile, 'view_costs_margins', entitlements) : false)
+                : false;
             const isTreasuryLocked =
-              link.href === '/treasury' &&
-              !isDuoExempt &&
-              !isDemo &&
-              entitlements &&
-              !entitlements.modules.mod_transactions_sii &&
-              !entitlements.modules.mod_analytics_excel;
+              link.href === '/treasury' && entitlements
+                ? !canUseTreasury(entitlements) ||
+                  (profile ? !can(profile, 'view_treasury', entitlements) : false)
+                : false;
             const isLocked = isAnalyticsLocked || isTreasuryLocked;
 
             return (
