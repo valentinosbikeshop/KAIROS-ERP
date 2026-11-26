@@ -29,15 +29,15 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
     is_recommended: false,
     badge_text: 'Gratis',
     max_projects: 2,
-    max_costs: 12,
+    max_costs: 25,
     max_users: 1,
     ai_calls_limit: 0,
     included_modules: [],
     features: [
-      'Hasta 2 proyectos activos',
-      'Hasta 12 ítems en catálogo maestro',
+      'Hasta 2 proyectos activos en simultáneo',
+      'Hasta 25 ítems o tarifas en catálogo maestro',
       '1 usuario administrador',
-      'Cálculo automático Neto, IVA 19% y Margen',
+      'Cálculo automático Neto, IVA 19%, Exento y Margen real',
       'Resguardo histórico garantizado (nunca pierdes datos)',
     ],
     sort_order: 1,
@@ -46,23 +46,28 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
   {
     id: 'essential',
     name: 'Operación Esencial',
-    tagline: 'Cotización formal, flujo de caja y Suite IA Inicial',
+    tagline: 'Cotizador PDF, consolidación, caja SII y Suite IA Inicial',
     description:
-      'Pensado para empresas en marcha que necesitan emitir propuestas PDF profesionales, controlar abonos/gastos reales e iniciar con IA y OCR.',
+      'Pensado para empresas en marcha que necesitan emitir propuestas PDF con sus datos bancarios, agrupar partidas padre/hijo, controlar abonos/F29 e iniciar con IA y OCR.',
     price_clp: 34990,
     is_recommended: false,
     badge_text: 'Inicial',
-    max_projects: 12,
-    max_costs: 120,
+    max_projects: 20,
+    max_costs: 150,
     max_users: 2,
-    ai_calls_limit: 25,
-    included_modules: ['mod_pdf_quotes', 'mod_transactions_sii', 'mod_ai_suite'],
+    ai_calls_limit: 30,
+    included_modules: [
+      'mod_pdf_quotes',
+      'mod_transactions_sii',
+      'mod_consolidation_retail',
+      'mod_ai_suite',
+    ],
     features: [
-      'Hasta 12 proyectos nuevos al mes',
-      'Hasta 120 tarifas en catálogo maestro',
+      'Hasta 20 proyectos nuevos al mes y 150 tarifas',
       '2 usuarios en tu espacio',
-      'Cotizador PDF comercial + Abonos y Gastos Reales SII',
-      'Suite IA Inicial (25 consultas/mes + OCR de Boletas/Facturas)',
+      'Cotizador PDF + Portal web con tus datos bancarios',
+      'Consolidación padre/hijo, recetas y prorrateo por unidad',
+      'Abonos, Gastos Reales SII, F29 y 30 consultas IA + OCR/mes',
     ],
     sort_order: 2,
     is_active: true,
@@ -70,10 +75,10 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
   {
     id: 'growth',
     name: 'Crecimiento Inteligente IA',
-    tagline: 'Máximo retorno: IA Pro + OCR + IVA F29 sin sorpresas',
+    tagline: 'Ilimitado + IA Pro + OCR + Analítica P&L y Logo propio',
     description:
-      'La opción más rentable: automatiza cotizaciones desde PDF/Excel/Fotos con IA, domina tu IVA mensual y protege tu margen neto.',
-    price_clp: 59990,
+      'La opción más rentable: automatiza cotizaciones desde PDF/Excel/Fotos con IA, domina tu IVA F29 con conciliador bancario/RCV, luce tu logo y protege tu margen neto.',
+    price_clp: 69990,
     is_recommended: true,
     badge_text: 'Recomendado',
     max_projects: null,
@@ -90,10 +95,10 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
     ],
     features: [
       'Proyectos y catálogo maestro ILIMITADOS',
-      'Hasta 5 usuarios colaboradores',
-      'Suite IA Pro (250 consultas/mes) + OCR PDF/Excel/Fotos',
-      'Asesor Financiero CFO IA + Optimizador de Márgenes',
-      'Consolidación, Recetas / Prorrateo Retail y Analítica P&L + Excel F29',
+      'Hasta 5 usuarios colaboradores + logo propio en PDF y Portal',
+      'Suite IA Pro (250 consultas/mes) + OCR PDF, Excel y Fotos',
+      'Asesor CFO IA, Optimizador de Márgenes y Consolidación avanzada',
+      'Conciliador Cartola/RCV SII, Analítica P&L y Excel contable F29',
     ],
     sort_order: 3,
     is_active: true,
@@ -101,10 +106,10 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
   {
     id: 'scale',
     name: 'Corporativo & Escala',
-    tagline: 'Multi-equipo, marca blanca y alta demanda IA',
+    tagline: 'Equipo ilimitado, RBAC, auditoría, Marca Blanca 100% y 800 IA',
     description:
-      'Para productoras, constructoras, consultoras y operaciones consolidadas que exigen gobernanza avanzada y equipo ilimitado.',
-    price_clp: 109990,
+      'Para productoras, constructoras, consultoras y operaciones consolidadas que exigen roles granulares, auditoría, aprobación de márgenes y Marca Blanca 100%.',
+    price_clp: 119990,
     is_recommended: false,
     badge_text: 'Enterprise',
     max_projects: null,
@@ -121,11 +126,11 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
       'mod_team_branding',
     ],
     features: [
-      'Todo lo de Crecimiento Inteligente incluido',
-      'Usuarios ILIMITADOS con roles y auditoría',
-      '800 consultas de IA mensuales con prioridad CFO',
-      'Marca Blanca PDF (tu logo, datos bancarios y pie legal)',
-      'Gobernanza avanzada de equipo y soporte prioritario',
+      'Todo lo de Crecimiento Inteligente IA incluido',
+      'Usuarios ILIMITADOS con roles granulares (RBAC) y auditoría',
+      '800 consultas IA/mes con prioridad CFO y control de margen mínimo',
+      'Marca Blanca 100% (sin huella FIGURA, pie legal y multi-cuenta)',
+      'Gobernanza avanzada, centros de costo y soporte prioritario',
     ],
     sort_order: 4,
     is_active: true,
@@ -137,11 +142,44 @@ export const DEFAULT_ADDONS: SubscriptionAddon[] = [
     id: 'base_custom',
     name: 'Plataforma Activa Base',
     description:
-      'Acceso base al ERP personalizado para tu rubro: hasta 5 proyectos activos, 50 tarifas maestras y 1 usuario.',
-    price_clp: 19990,
+      'Acceso base al ERP personalizado para tu rubro: hasta 8 proyectos activos, 60 tarifas maestras y 1 usuario.',
+    price_clp: 14990,
     category: 'base',
     ai_calls_bonus: 0,
     sort_order: 0,
+    is_active: true,
+  },
+  {
+    id: 'mod_pdf_quotes',
+    name: 'Cotizador PDF Ejecutivo & Portal Cliente',
+    description:
+      'Genera propuestas comerciales en PDF y enlaces de aprobación web (/q) con tus datos bancarios.',
+    price_clp: 9990,
+    category: 'module',
+    ai_calls_bonus: 0,
+    sort_order: 1,
+    is_active: true,
+  },
+  {
+    id: 'mod_transactions_sii',
+    name: 'Flujo de Caja, Abonos, Cartola RCV y F29',
+    description:
+      'Control de abonos de clientes, gastos reales rendidos, retención boletas 15,25%, conciliador SII y cálculo F29.',
+    price_clp: 9990,
+    category: 'module',
+    ai_calls_bonus: 0,
+    sort_order: 2,
+    is_active: true,
+  },
+  {
+    id: 'mod_consolidation_retail',
+    name: 'Consolidación, Recetas y Modo Retail',
+    description:
+      'Agrupa ítems padre/hijo, escandallos y prorrateo unitario ocultando el desglose interno al cliente.',
+    price_clp: 12990,
+    category: 'module',
+    ai_calls_bonus: 0,
+    sort_order: 3,
     is_active: true,
   },
   {
@@ -149,43 +187,21 @@ export const DEFAULT_ADDONS: SubscriptionAddon[] = [
     name: 'Proyectos y Catálogo Ilimitados',
     description:
       'Elimina los topes de proyectos activos y tarifas maestras en tu organización.',
-    price_clp: 16990,
-    category: 'module',
-    ai_calls_bonus: 0,
-    sort_order: 1,
-    is_active: true,
-  },
-  {
-    id: 'mod_pdf_quotes',
-    name: 'Cotizador PDF Ejecutivo',
-    description:
-      'Genera propuestas comerciales e informes contables en PDF listos para enviar al cliente.',
-    price_clp: 14990,
-    category: 'module',
-    ai_calls_bonus: 0,
-    sort_order: 2,
-    is_active: true,
-  },
-  {
-    id: 'mod_transactions_sii',
-    name: 'Flujo de Caja, Abonos y Tributación SII',
-    description:
-      'Control de abonos de clientes, gastos reales rendidos, boletas de honorarios y cálculo F29.',
-    price_clp: 14990,
-    category: 'module',
-    ai_calls_bonus: 0,
-    sort_order: 3,
-    is_active: true,
-  },
-  {
-    id: 'mod_consolidation_retail',
-    name: 'Consolidación, Recetas y Modo Retail',
-    description:
-      'Agrupa ítems padre/hijo, prorratea insumos unitarios y gestiona venta al detalle.',
-    price_clp: 15990,
+    price_clp: 18990,
     category: 'module',
     ai_calls_bonus: 0,
     sort_order: 4,
+    is_active: true,
+  },
+  {
+    id: 'mod_analytics_excel',
+    name: 'Analítica P&L & Exportación Excel Contable',
+    description:
+      'Dashboards de rentabilidad neta mensual, distribución de costos y descarga de libro Excel + F29.',
+    price_clp: 18990,
+    category: 'module',
+    ai_calls_bonus: 0,
+    sort_order: 5,
     is_active: true,
   },
   {
@@ -196,26 +212,15 @@ export const DEFAULT_ADDONS: SubscriptionAddon[] = [
     price_clp: 24990,
     category: 'module',
     ai_calls_bonus: 180,
-    sort_order: 5,
-    is_active: true,
-  },
-  {
-    id: 'mod_analytics_excel',
-    name: 'Analítica P&L & Exportación Excel Contable',
-    description:
-      'Dashboards de rentabilidad mensual, distribución de costos y descarga de libro Excel.',
-    price_clp: 16990,
-    category: 'module',
-    ai_calls_bonus: 0,
     sort_order: 6,
     is_active: true,
   },
   {
     id: 'mod_team_branding',
-    name: 'Equipo Multi-Usuario & Marca Blanca',
+    name: 'Equipo Multi-Usuario, RBAC & Marca Blanca 100%',
     description:
-      'Habilita hasta 8 usuarios en tu organización, códigos de invitación y personalización de marca en documentos.',
-    price_clp: 22990,
+      'Habilita hasta 8 usuarios con roles, auditoría y documentos 100% Marca Blanca sin huella externa.',
+    price_clp: 29990,
     category: 'module',
     ai_calls_bonus: 0,
     sort_order: 7,
@@ -228,10 +233,15 @@ export function calculateCustomPriceClp(
   addons: SubscriptionAddon[] = DEFAULT_ADDONS
 ): number {
   const baseAddon = addons.find((a) => a.id === 'base_custom');
-  const basePrice = baseAddon?.price_clp ?? 19990;
-  const uniqueModules = Array.from(new Set(selectedModules));
+  const basePrice = baseAddon?.price_clp ?? 14990;
+  // Evita doble cobro si 'base_custom' llega accidentalmente en selectedModules
+  const uniqueModules = Array.from(new Set(selectedModules)).filter(
+    (modId) => (modId as string) !== 'base_custom'
+  );
   const modulesTotal = uniqueModules.reduce((sum, modId) => {
-    const addon = addons.find((a) => a.id === modId && a.is_active);
+    const addon = addons.find(
+      (a) => a.id === modId && a.category === 'module' && a.is_active !== false
+    );
     return sum + (addon?.price_clp ?? 0);
   }, 0);
   return basePrice + modulesTotal;
@@ -322,8 +332,8 @@ export function resolveOrgEntitlements(
       isExempt: false,
       isDemo: true,
       isExpiredLock: false,
-      maxProjects: org.max_demo_events || 8,
-      maxCosts: org.max_demo_costs || 15,
+      maxProjects: org.max_demo_events || 10,
+      maxCosts: org.max_demo_costs || 25,
       maxUsers: 1,
       aiCallsLimit: 30,
       aiCallsUsed,
@@ -368,8 +378,8 @@ export function resolveOrgEntitlements(
       isExempt: false,
       isDemo: false,
       isExpiredLock,
-      maxProjects: mods.mod_unlimited_projects ? null : 5,
-      maxCosts: mods.mod_unlimited_projects ? null : 50,
+      maxProjects: mods.mod_unlimited_projects ? null : 8,
+      maxCosts: mods.mod_unlimited_projects ? null : 60,
       maxUsers: mods.mod_team_branding ? 8 : 1,
       aiCallsLimit: aiLimit,
       aiCallsUsed,

@@ -31,15 +31,22 @@ export async function fetchPlansAndAddonsServer(): Promise<{
       let plans = plansRes.data as SubscriptionPlan[];
       let addons = addonsRes.data as SubscriptionAddon[];
 
-      // Auto-sync one-time si Supabase aún conserva el seed antiguo ($49.990 / $11.990)
+      // Auto-sync one-time si Supabase conserva catálogos legados (v1 $49.990/$11.990 o v2 $34.990/$59.990/$109.990/$19.990)
+      const freeDb = plans.find((p) => p.id === 'free');
       const growthDb = plans.find((p) => p.id === 'growth');
       const essentialDb = plans.find((p) => p.id === 'essential');
       const scaleDb = plans.find((p) => p.id === 'scale');
       const baseDb = addons.find((a) => a.id === 'base_custom');
-      if (
+      const isLegacyV1Catalog =
         (growthDb?.price_clp === 49990 || growthDb?.price_clp === 99990) &&
-        (baseDb?.price_clp === 11990 || baseDb?.price_clp === 29990)
-      ) {
+        (baseDb?.price_clp === 11990 || baseDb?.price_clp === 29990);
+      const isLegacyV2Catalog =
+        essentialDb?.price_clp === 34990 &&
+        growthDb?.price_clp === 59990 &&
+        scaleDb?.price_clp === 109990 &&
+        baseDb?.price_clp === 19990;
+
+      if (isLegacyV1Catalog || isLegacyV2Catalog) {
         await Promise.all([
           admin.from('subscription_plans').upsert(
             DEFAULT_PLANS.map((p) => ({
@@ -78,20 +85,25 @@ export async function fetchPlansAndAddonsServer(): Promise<{
         plans = DEFAULT_PLANS;
         addons = DEFAULT_ADDONS;
       } else if (
-        essentialDb?.ai_calls_limit === 0 &&
-        growthDb?.ai_calls_limit === 200 &&
-        scaleDb?.ai_calls_limit === 600
+        freeDb?.max_costs === 12 ||
+        (essentialDb?.ai_calls_limit === 0 &&
+          growthDb?.ai_calls_limit === 200 &&
+          scaleDb?.ai_calls_limit === 600)
       ) {
-        // Actualización estratégica no-destructiva de cuotas IA preservando precios editados en vivo
+        // Actualización estratégica no-destructiva de cuotas/módulos preservando precios editados manualmente en vivo
         await Promise.all([
-          ...DEFAULT_PLANS.filter((p) => p.id !== 'free').map((p) =>
+          ...DEFAULT_PLANS.map((p) =>
             admin
               .from('subscription_plans')
               .update({
+                max_projects: p.max_projects,
+                max_costs: p.max_costs,
+                max_users: p.max_users,
                 ai_calls_limit: p.ai_calls_limit,
                 included_modules: p.included_modules,
                 features: p.features,
                 tagline: p.tagline,
+                description: p.description,
               })
               .eq('id', p.id)
           ),
@@ -106,13 +118,17 @@ export async function fetchPlansAndAddonsServer(): Promise<{
         ]);
         plans = plans.map((p) => {
           const def = DEFAULT_PLANS.find((d) => d.id === p.id);
-          return def && p.id !== 'free'
+          return def
             ? {
                 ...p,
+                max_projects: def.max_projects,
+                max_costs: def.max_costs,
+                max_users: def.max_users,
                 ai_calls_limit: def.ai_calls_limit,
                 included_modules: def.included_modules,
                 features: def.features,
                 tagline: def.tagline,
+                description: def.description,
               }
             : p;
         });

@@ -182,10 +182,10 @@ export const INDUSTRY_BLUEPRINTS: Record<IndustryType, IndustryBlueprint> = {
       },
     ],
     planSpecialtyFeatures: {
-      free: ['Plantilla de tarifas para Banquetería, Audio y Staff'],
-      essential: ['Propuestas PDF ejecutivas por PAX con desglose de abonos'],
-      growth: ['Prorrateo de barra/recetas e IA anti-olvidos de fletes e insumos'],
-      scale: ['Cotizaciones Marca Blanca para bodas VIP y licitaciones corporativas'],
+      free: ['Catálogo inicial (25 tarifas) para Banquetería, Audio, Staff y Fletes'],
+      essential: ['PDF por PAX con datos bancarios, prorrateo básico de barra y 30 IA'],
+      growth: ['Logo propio, prorrateo de barra/recetas ilimitado, 250 IA/OCR y Excel F29'],
+      scale: ['Roles por productor/cocina, auditoría de márgenes y Marca Blanca 100% VIP'],
     },
     expressTemplates: [
       {
@@ -374,10 +374,10 @@ export const INDUSTRY_BLUEPRINTS: Record<IndustryType, IndustryBlueprint> = {
       },
     ],
     planSpecialtyFeatures: {
-      free: ['Rate Card base para jornadas 4K, edición y Paid Media'],
-      essential: ['Propuestas PDF ejecutivas para marcas y control de abonos 50/50'],
-      growth: ['OCR de rentals + prorrateo de jornadas entre cápsulas y reels'],
-      scale: ['Múltiples productores cotizando con Marca Blanca de agencia'],
+      free: ['Rate Card inicial (25 ítems) para jornadas 4K, edición y Paid Media'],
+      essential: ['Propuestas PDF con datos bancarios, agrupación de entregables y 30 IA/OCR'],
+      growth: ['Logo de agencia, OCR de rentals (250 IA), prorrateo de rodajes y P&L Excel'],
+      scale: ['Equipo ilimitado con roles, bitácora de auditoría y Marca Blanca 100% agencia'],
     },
     expressTemplates: [
       {
@@ -565,10 +565,10 @@ export const INDUSTRY_BLUEPRINTS: Record<IndustryType, IndustryBlueprint> = {
       },
     ],
     planSpecialtyFeatures: {
-      free: ['Maestro de Partidas base (m² tabiquería, cuadrillas, SEC, tolvas)'],
-      essential: ['Presupuestos PDF formales para mandantes + control de estados de pago'],
-      growth: ['Agrupación de materiales por partida + OCR de facturas ferretería'],
-      scale: ['Múltiples administradores de obra con Marca Blanca constructora'],
+      free: ['Maestro de Partidas (25 ítems) para obra gruesa, SEC y cuadrillas'],
+      essential: ['Presupuestos PDF con cuenta bancaria, agrupación APU padre/hijo y 30 IA'],
+      growth: ['Logo constructora, OCR ferreterías (250 IA), F29 y control de obra en Excel'],
+      scale: ['Roles Oficina Técnica/Terreno/Contador, auditoría y Marca Blanca 100%'],
     },
     expressTemplates: [
       {
@@ -757,10 +757,10 @@ export const INDUSTRY_BLUEPRINTS: Record<IndustryType, IndustryBlueprint> = {
       },
     ],
     planSpecialtyFeatures: {
-      free: ['Recetario base por ración, coffee break y despacho refrigerado'],
-      essential: ['Propuestas PDF para licitaciones de casinos y control de cobranza'],
-      growth: ['Prorrateo automático de insumos por porción + alertas IA de alzas'],
-      scale: ['Múltiples plantas o concesiones operando bajo una sola matriz'],
+      free: ['Recetario base (25 ítems) por ración, coffee break y despacho refrigerado'],
+      essential: ['Escandallos agrupados por ración, PDF con datos bancarios, SII y 30 IA'],
+      growth: ['Prorrateo ilimitado por porción, OCR distribuidoras (250 IA) y logo propio'],
+      scale: ['Roles Chef/Compras/Finanzas, auditoría de costos y Marca Blanca concesionaria'],
     },
     expressTemplates: [
       {
@@ -940,10 +940,10 @@ export const INDUSTRY_BLUEPRINTS: Record<IndustryType, IndustryBlueprint> = {
       },
     ],
     planSpecialtyFeatures: {
-      free: ['Inventario modular base (stands, gráfica m², LED y montaje)'],
-      essential: ['Cotizaciones PDF B2B con datos bancarios para expositores'],
-      growth: ['Agrupación de insumos por módulo + IA anti-sobrecostos nocturnos'],
-      scale: ['Equipo comercial multi-ejecutivo con Marca Blanca de productora'],
+      free: ['Inventario modular (25 ítems) para stands, gráfica m², LED y montaje'],
+      essential: ['PDF B2B con datos bancarios, agrupación por zona de stand y 30 IA'],
+      growth: ['Logo productora, 250 IA anti-sobrecostos nocturnos, RCV SII y Excel F29'],
+      scale: ['Roles Taller/Comercial/Finanzas, aprobaciones de margen y Marca Blanca 100%'],
     },
     expressTemplates: [
       {
@@ -1132,10 +1132,10 @@ export const INDUSTRY_BLUEPRINTS: Record<IndustryType, IndustryBlueprint> = {
       },
     ],
     planSpecialtyFeatures: {
-      free: ['Matriz de Taller base (melamina, perfiles acero, hora soldador)'],
-      essential: ['Órdenes de Trabajo en PDF formal con control de anticipo 50%'],
-      growth: ['Agrupación de materiales por mueble + IA de despiece y consumibles'],
-      scale: ['Múltiples jefes de taller y vendedores con Marca Blanca propia'],
+      free: ['Matriz Taller (25 ítems) para acero, tableros, pintura y horas maestro'],
+      essential: ['OT en PDF con datos bancarios, agrupación BOM por mueble y 30 IA'],
+      growth: ['Logo taller, 250 IA de despiece/consumibles, F29 y rentabilidad por OT en Excel'],
+      scale: ['Roles Jefe Planta/Vendedor/Contador, auditoría de OTs y Marca Blanca 100%'],
     },
     expressTemplates: [
       {
@@ -1324,10 +1324,10 @@ export const INDUSTRY_BLUEPRINTS: Record<IndustryType, IndustryBlueprint> = {
       },
     ],
     planSpecialtyFeatures: {
-      free: ['Tarifario Técnico base (equipos BTU, mantención y cuadrillas)'],
-      essential: ['Órdenes Técnicas PDF para edificios y control de pagos a 30 días'],
-      growth: ['OCR de listas de repuestos + IA para viáticos y consumibles'],
-      scale: ['Múltiples supervisores en terreno con Marca Blanca corporativa'],
+      free: ['Tarifario Técnico (25 ítems) para equipos BTU, repuestos y cuadrillas'],
+      essential: ['OT PDF con datos bancarios, consolidación equipo+instalación y 30 IA'],
+      growth: ['Logo empresa, OCR listas de repuestos (250 IA), F29 y control mantenciones'],
+      scale: ['Roles Supervisor/Terreno/Finanzas, auditoría técnica y Marca Blanca 100%'],
     },
     expressTemplates: [
       {
@@ -1506,10 +1506,10 @@ export const INDUSTRY_BLUEPRINTS: Record<IndustryType, IndustryBlueprint> = {
       },
     ],
     planSpecialtyFeatures: {
-      free: ['Tarifario Hora (Fee) para Socios, Analistas y gastos notariales'],
-      essential: ['Propuestas PDF sobrias para directorios y control de hitos de pago'],
-      growth: ['Analítica de rentabilidad por cliente y detección IA de desviación de horas'],
-      scale: ['Socios y consultores ilimitados con Marca Blanca de estudio/firma'],
+      free: ['Tarifario Hora (25 ítems) para Socios, Analistas y gastos notariales'],
+      essential: ['Propuestas PDF con datos bancarios, agrupación por fases de fee y 30 IA'],
+      growth: ['Logo de firma, analítica P&L por cliente, 250 IA y exportación Excel F29'],
+      scale: ['Socios/Asociados/Contador con roles, auditoría y Marca Blanca 100% de estudio'],
     },
     expressTemplates: [
       {
@@ -1688,10 +1688,10 @@ export const INDUSTRY_BLUEPRINTS: Record<IndustryType, IndustryBlueprint> = {
       },
     ],
     planSpecialtyFeatures: {
-      free: ['Tarifario Operadores base (vans, guías bilingües, hotelería, viñas)'],
-      essential: ['Cotizaciones PDF ejecutivas por programa y control de prepagos'],
-      growth: ['Prorrateo por PAX + optimizador IA de tarifas de operadores'],
-      scale: ['Equipo de ejecutivos MICE con Marca Blanca de agencia'],
+      free: ['Tarifario Operadores (25 ítems) para vans, guías, hotelería y tours'],
+      essential: ['Itinerarios PDF con datos bancarios, prorrateo por PAX y 30 IA/OCR'],
+      growth: ['Logo de agencia, prorrateo grupal ilimitado, 250 IA y conciliación operadores'],
+      scale: ['Ejecutivos MICE ilimitados con roles, auditoría y Marca Blanca 100% DMC'],
     },
     expressTemplates: [
       {

@@ -571,43 +571,43 @@
   },
   "add_es_insumo.sql": {
     "mtime": 1788483449.0468497,
-    "seen": 1794626980.904242,
+    "seen": 1795635677.1272192,
     "ast_hash": "",
     "semantic_hash": ""
   },
   "add_has_retail_sales.sql": {
     "mtime": 1788885921.374882,
-    "seen": 1794626980.904242,
+    "seen": 1795635677.1272192,
     "ast_hash": "",
     "semantic_hash": ""
   },
   "add_iva_incluido.sql": {
     "mtime": 1788482730.314129,
-    "seen": 1794626980.904242,
+    "seen": 1795635677.1272192,
     "ast_hash": "",
     "semantic_hash": ""
   },
   "add_parent_id.sql": {
     "mtime": 1788477334.3403912,
-    "seen": 1794626980.904242,
+    "seen": 1795635677.1272192,
     "ast_hash": "",
     "semantic_hash": ""
   },
   "add_source_item_id.sql": {
     "mtime": 1788887395.0660052,
-    "seen": 1794626980.904242,
+    "seen": 1795635677.1272192,
     "ast_hash": "",
     "semantic_hash": ""
   },
   "supabase/migrations/20261114_multi_tenant_and_demo.sql": {
     "mtime": 1794624101.7557807,
-    "seen": 1794626980.904242,
+    "seen": 1795635677.1272192,
     "ast_hash": "",
     "semantic_hash": ""
   },
   "supabase/seed.sql": {
     "mtime": 1788477352.605052,
-    "seen": 1794626980.904242,
+    "seen": 1795635677.1272192,
     "ast_hash": "",
     "semantic_hash": ""
   },
@@ -708,15 +708,15 @@
     "semantic_hash": ""
   },
   "src/lib/entitlements.ts": {
-    "mtime": 1795627134.919079,
-    "seen": 1795627577.4536955,
-    "ast_hash": "625df1414ad51d780d7e14ab982093e7",
+    "mtime": 1795711952.8606007,
+    "seen": 1795712108.4268727,
+    "ast_hash": "983d1396131e3eebb8e535fb19df2315",
     "semantic_hash": ""
   },
   "src/lib/industries.ts": {
-    "mtime": 1795621684.6453264,
-    "seen": 1795621881.7181284,
-    "ast_hash": "6b75a9bdf8688afafcdfb22fc2057efd",
+    "mtime": 1795711965.7723699,
+    "seen": 1795712108.4268727,
+    "ast_hash": "4621137406edf93d05a71684523e734d",
     "semantic_hash": ""
   },
   "src/lib/khipu.ts": {
@@ -732,9 +732,9 @@
     "semantic_hash": ""
   },
   "src/lib/saas-storage.ts": {
-    "mtime": 1795623382.0890372,
-    "seen": 1795624954.4797223,
-    "ast_hash": "5daa8f16a48d0683b978802dabbd4142",
+    "mtime": 1795711954.1105816,
+    "seen": 1795712108.435805,
+    "ast_hash": "cb46aecd9e1a4d7560b4f0c2981a95f5",
     "semantic_hash": ""
   },
   "src/app/demo/page.tsx": {
@@ -894,9 +894,9 @@
     "semantic_hash": ""
   },
   "branding/05-marketing-and-gtm.md": {
-    "mtime": 1795631572.2168672,
-    "seen": 1795632385.185581,
-    "ast_hash": "6a0a11383db1f1d7cea9b539f64608a3",
+    "mtime": 1795711955.32706,
+    "seen": 1795712108.4485178,
+    "ast_hash": "3d234679034551a6b4487c1cf8cf16f3",
     "semantic_hash": ""
   },
   "branding/README.md": {
@@ -963,6 +963,36 @@
     "mtime": 1795634734.1985717,
     "seen": 1795635039.0254712,
     "ast_hash": "7367a3e2f0edb7f584549aeca77aa876",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20261124_pricing_recalibration_59990.sql": {
+    "mtime": 1795538889.766235,
+    "seen": 1795635677.1272192,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20261124_saas_industries_khipu_billing.sql": {
+    "mtime": 1795538911.310132,
+    "seen": 1795635677.1272192,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20261125_ai_engines_and_strategic_plans.sql": {
+    "mtime": 1795621736.7211623,
+    "seen": 1795635677.1272192,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20261126_competitive_erp_features.sql": {
+    "mtime": 1795623364.6382544,
+    "seen": 1795635677.1272192,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20261127_security_rls_hardening.sql": {
+    "mtime": 1795627309.2408142,
+    "seen": 1795635677.1272192,
+    "ast_hash": "",
     "semantic_hash": ""
   }
 }

@@ -48,7 +48,8 @@
 
 ## 4. Estructura de Pricing & Anclaje Psicológico
 
-- **Plan Semilla ($0 / mes):** Cero fricción de entrada; demuestra el motor de cálculo neto/IVA real.
-- **Operación Esencial ($34.990 / mes):** Ancla de orden básico (~$1.166/día) con PDFs ejecutivos, caja y 25 consultas IA.
-- **Crecimiento Inteligente IA ($59.990 / mes · Recomendado):** Ancla principal de ROI — basta recuperar un `4,5%` de margen en un solo proyecto de `$1.500.000` (`$67.500`) para que la suscripción se pague sola.
-- **Corporativo & Escala ($119.990 / mes):** Marca Blanca completa, usuarios ilimitados y ahorro directo de `$37.930/mes` frente a módulos sueltos en modalidad *Paga lo que usas*.
+- **Plan Semilla (`$0 / mes`):** Cero fricción de entrada (`2` proyectos activos + `25` tarifas maestras); demuestra el motor de cálculo Neto/IVA/Exento/Margen real.
+- **Operación Esencial (`$34.990 / mes` · `~0,85 UF` IVA incl.):** Ancla operativa irresistible (`~$1.166/día` vs `1,3–2,0 UF + IVA` del mercado tradicional); incluye `20` proyectos/mes, `150` tarifas, `2` usuarios, PDF + Portal `/q` con datos bancarios, Consolidación/Prorrateo padre-hijo, Flujo SII/F29 y `30` créditos IA/OCR.
+- **Crecimiento Inteligente IA (`$69.990 / mes` · `~1,69 UF` IVA incl. · Recomendado):** Ancla principal de ROI (`41%–43%` más económico que Chipax/Defontana inicio de 1 usuario) — incluye proyectos y catálogo ilimitados, `5` usuarios, `250` consultas IA Pro/OCR, Logo propio en PDF/Portal, Conciliador Cartola/RCV y Analítica P&L + Excel F29. Basta recuperar un `3,5%` de margen en un proyecto de `$2.000.000` (`$70.000`) para que la suscripción se pague sola.
+- **Corporativo & Escala (`$119.990 / mes` · `~2,90 UF` IVA incl.):** Usuarios ilimitados con RBAC granular y bitácora de auditoría, `800` IA CFO, aprobación de piso de margen, Marca Blanca 100% sin huella FIGURA y ahorro directo de `$20.930/mes` frente a los 7 módulos sueltos en modalidad *Arma tu ERP* (`$140.920`).
+- **Arma tu ERP / Paga lo que usas (`$14.990` base + módulos `$9.990–$29.990`):** Puerta modular sin penalización para necesidades puntuales (desde `$24.980/mes` con `1` módulo), con detección inteligente para migrar a `Operación Esencial`, `Crecimiento IA` (`36,9%` ahorro en pack de 6) o `Corporativo & Escala` (`$20.930/mes` ahorro full).

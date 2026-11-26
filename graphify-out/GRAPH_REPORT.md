@@ -1,7 +1,7 @@
-# Graph Report - resilient-volta  (2026-11-25)
+# Graph Report - resilient-volta  (2026-11-26)
 
 ## Corpus Check
-- 155 files · ~145,551 words
+- 155 files · ~145,884 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 4 file(s) not represented in the graph (top: (none) 2, .css 1, .tsbuildinfo 1)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `a57a3bee`
+- Built from commit: `91565e8c`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
